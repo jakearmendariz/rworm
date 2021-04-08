@@ -1,0 +1,24 @@
+num = @{ int ~ ("." ~ ASCII_DIGIT*)? ~ (^"e" ~ int)? }
+    int = { ("+" | "-")? ~ ASCII_DIGIT+ }
+
+operation = _{ add | subtract | multiply | divide | power }
+    add      = { "+" }
+    subtract = { "-" }
+    multiply = { "*" }
+    divide   = { "/" }
+    power    = { "^" }
+
+expr = { term ~ (operation ~ term)* }
+term = _{ num | "(" ~ expr ~ ")" }
+
+WHITESPACE = _{ " " | "\t" }
+
+variable_name = {ASCII_ALPHANUMERIC+ | "_"}
+
+var_type = {vint | vstring}
+    vint = {"int"}
+    vstring = {"string"}
+
+assignment = {var_type? ~ variable_name ~ "=" ~ (expr | "\"" ~ ASCII_ALPHANUMERIC ~ "\"")}
+
+calculation = _{ SOI ~ expr | assignment ~ EOI }
