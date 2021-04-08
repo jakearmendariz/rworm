@@ -9,7 +9,7 @@ operation = _{ add | subtract | multiply | divide | power }
     power    = { "^" }
 
 expr = { term ~ (operation ~ term)* }
-term = _{var_name | num | "(" ~ expr ~ ")" }
+term = _{num | var_name | "(" ~ expr ~ ")" }
 
 WHITESPACE = _{ " " | "\t" }
 
@@ -27,6 +27,6 @@ char = {
 }
 
 assignment = {var_type? ~ var_name ~ "=" ~ (expr | string)}
-
-statement = {assignment ~ ";"}
+print = {"print" ~ string}
+statement = _{assignment ~ ";"}
 program = _{ SOI ~ statement ~ statement? ~ EOI }
