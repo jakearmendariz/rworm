@@ -88,7 +88,7 @@ fn main() {
     let mut expression = String::new();
     std::io::stdin().read_line(&mut expression).unwrap();
     println!("inputted:{}", expression);
-    let pairs = ExprParser::parse(Rule::calculation,&expression[..expression.len()-1]).unwrap_or_else(|e| panic!("{}", e));
+    let pairs = ExprParser::parse(Rule::program,&expression[..expression.len()-1]).unwrap_or_else(|e| panic!("{}", e));
     // let result:Expr = parse_into_expr(pairs);
     // println!("result:{}", evaluate(result));
     // Because ident_list is silent, the iterator will contain idents
@@ -110,12 +110,13 @@ fn main() {
 
         // A pair can be converted to an iterator of the tokens which make it up:
         for inner_pair in pair.into_inner() {
-            match inner_pair.as_rule() {
-                Rule::num => println!("Letter:  {}", inner_pair.as_str()),
-                Rule::var_type => println!("var:  {}", inner_pair.as_str()),
-                Rule::assignment => println!("assignment:  {}", inner_pair.as_str()),
-                _ => println!("unknown:{}", inner_pair.as_str())
-            };
+            println!("{:?}:{}", inner_pair.as_rule(), inner_pair.as_str())
+            // match inner_pair.as_rule() {
+            //     Rule::num => println!("Letter:  {}", inner_pair.as_str()),
+            //     Rule::var_type => println!("var:  {}", inner_pair.as_str()),
+            //     Rule::assignment => println!("assignment:  {}", inner_pair.as_str()),
+            //     _ => 
+            // };
         }
     }
 }

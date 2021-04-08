@@ -9,16 +9,24 @@ operation = _{ add | subtract | multiply | divide | power }
     power    = { "^" }
 
 expr = { term ~ (operation ~ term)* }
-term = _{ num | "(" ~ expr ~ ")" }
+term = _{var_name | num | "(" ~ expr ~ ")" }
 
 WHITESPACE = _{ " " | "\t" }
 
-variable_name = {ASCII_ALPHANUMERIC+ | "_"}
-
+var_name = {ASCII_ALPHANUMERIC+ | "_"}
 var_type = {vint | vstring}
     vint = {"int"}
     vstring = {"string"}
 
-assignment = {var_type? ~ variable_name ~ "=" ~ (expr | "\"" ~ ASCII_ALPHANUMERIC ~ "\"")}
+string = ${ "\"" ~ inner ~ "\"" }
+inner = @{ char* }
+char = {
+    !("\"" | "\\") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+    | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
+}
 
-calculation = _{ SOI ~ expr | assignment ~ EOI }
+assignment = {var_type? ~ var_name ~ "=" ~ (expr | string)}
+
+statement = {assignment ~ ";"}
+program = _{ SOI ~ statement ~ statement? ~ EOI }
