@@ -12,10 +12,12 @@ expr = { term ~ (operation ~ term)* }
 term = _{num | var_name | "(" ~ expr ~ ")" }
 
 WHITESPACE = _{ " " | "\t" }
+reserved = {"print" | "if" | "else" | "while"}
 
-var_name = {ASCII_ALPHANUMERIC | "_"}
+var_name = {!reserved ~ ASCII_ALPHANUMERIC | "_"}
 var_type = {vint | vstring}
     vint = {"int"}
+    vfloat = {"float"}
     vstring = {"string"}
 
 string = ${ "\"" ~ inner ~ "\"" }
@@ -27,6 +29,6 @@ char = {
 }
 
 assignment = {var_type? ~ var_name ~ "=" ~ (expr | string)}
-print = {"print" ~ string}
-statement = _{assignment ~ ";"}
+print = {"print" ~ var_name}
+statement = _{print | assignment ~ ";"}
 program = _{ SOI ~ statement ~ statement? ~ EOI }
