@@ -25,8 +25,27 @@ pub fn execute_ast(ast:AstNode, map:&mut HashMap<String, f64>) -> Result<(), Exe
             };
             map.insert(name, res);
         },
+        AstNode::If(bool_exp, stms) => {
+            if eval_bool(bool_exp, map) {
+                for stm in stms {
+                    execute_ast(*stm, map);
+                }
+            }
+        }
     };
     Ok(())
+}
+
+fn eval_bool(bool_exp:BoolExp, map:&mut HashMap<String, f64>) -> bool{
+    let BoolExp(lhs,op,rhs)= bool_exp;
+    let (lres, rres) = (eval_expr(lhs, map).unwrap(), eval_expr(rhs, map).unwrap());
+    match op {
+        BoolOp::Eq => lres == rres,
+        BoolOp::Neq => lres != rres,
+        BoolOp::Leq => lres <= rres,
+        BoolOp::Geq => lres >= rres,
+        _ => unreachable!(),
+    }
 }
 
 /*

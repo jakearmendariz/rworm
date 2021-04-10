@@ -2,7 +2,19 @@
 #[derive(Debug)]
 pub enum AstNode {
     Print(String),
-    Assignment(Option<VarType>, String, Expr)
+    Assignment(Option<VarType>, String, Expr),
+    If(BoolExp, Vec<Box<AstNode>>)
+}
+
+#[derive(Debug)]
+pub struct BoolExp(pub Expr, pub BoolOp, pub Expr);
+
+#[derive(Debug)]
+pub enum BoolOp {
+    Eq,
+    Neq,
+    Geq,
+    Leq
 }
 
 #[derive(Debug)]

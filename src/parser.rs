@@ -71,16 +71,44 @@ pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
                 }
                 _ => return Err(ParseError::FormatError)
             };
-            // println!("variable_name: {:?}\n",variable_name);
             let expression = parse_into_expr(inner_rules.next().unwrap().into_inner());
-            // println!("expression: {:?}\n", expression);
             Ok(AstNode::Assignment(var_type, remove_whitespace(var_name), expression))
         },
         Rule::print => {
             let var_name = pair.into_inner().next().unwrap().as_str();
             Ok(AstNode::Print(var_name.to_string()))
+        },
+        Rule::ifstm => {
+            let mut inner_rules = pair.into_inner();
+            let mut bool_exp = inner_rules.next().unwrap().into_inner();
+            let exp_left = parse_into_expr(bool_exp.next().unwrap().into_inner());
+            let bool_op = match bool_exp.next().unwrap().as_rule() {
+                Rule::eq => BoolOp::Eq,
+                Rule::neq => BoolOp::Neq,
+                Rule::geq => BoolOp::Geq,
+                Rule::leq => BoolOp::Leq,
+                rule => {
+                    println!("{:?}", rule);
+                    unreachable!();
+                }
+            };
+            let exp_right = parse_into_expr(bool_exp.next().unwrap().into_inner());
+            let mut stms = std::vec::Vec::new();
+            let body = inner_rules.next().unwrap().into_inner();
+
+            for stm in body {
+                let ast = match parse_ast(stm) {
+                    Ok(ast) => ast,
+                    Err(e) => return Err(e),
+                };
+                stms.push(Box::new(ast));
+            }
+            Ok(AstNode::If(BoolExp(exp_left, bool_op, exp_right), stms))
         }
         Rule::EOI => return Err(ParseError::EndOfInput),
-        _ => unreachable!(),
+        _ => {
+            println!("{:?} rule is unreachable while parsing", pair.as_rule());
+            unreachable!();
+        }
     }
 }

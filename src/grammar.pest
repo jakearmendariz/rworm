@@ -36,8 +36,12 @@ boolops = _{eq | geq | leq | neq}
     neq = {"!="}
 boolexp = {expr ~ boolops ~ expr}
 
+body = {statement+}
+ifstm = {"if" ~ boolexp ~ "{" ~ body+ ~ "}"}
+
+
 
 assignment = {var_type? ~ var_name ~ "=" ~ (expr | string)}
-print = {"print" ~ var_name ~ ";"}
-statement = _{print | assignment ~ ";"}
+print = {"print" ~ var_name}
+statement = _{(print | ifstm | assignment) ~ ";"}
 program = _{ SOI ~ statement* ~ EOI }
