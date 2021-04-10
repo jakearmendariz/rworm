@@ -15,10 +15,11 @@ WHITESPACE = _{ " "+ | "\t" | NEWLINE+}
 reserved = {"print" | "if" | "else" | "while"}
 
 var_name = {!reserved ~ ('a'..'z')+}
-var_type = {vint | vstring}
+var_type = {vint | vfloat | vstring | vbool}
     vint = {"int"}
     vfloat = {"float"}
     vstring = {"string"}
+    vbool = {"bool"}
 
 string = ${ "\"" ~ inner ~ "\"" }
 inner = @{ char* }
@@ -27,6 +28,14 @@ char = {
     | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
+
+boolops = _{eq | geq | leq | neq}
+    eq = {"=="}
+    geq = {">="}
+    leq = {"=<"}
+    neq = {"!="}
+boolexp = {expr ~ boolops ~ expr}
+
 
 assignment = {var_type? ~ var_name ~ "=" ~ (expr | string)}
 print = {"print" ~ var_name ~ ";"}

@@ -56,7 +56,7 @@ pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
         Rule::assignment => {
             let mut inner_rules = pair.into_inner();
             let first_pos = inner_rules.next().unwrap();
-            let (var_type, mut var_name) = match first_pos.as_rule() {
+            let (var_type, var_name) = match first_pos.as_rule() {
                 Rule::var_type => {
                     let vartype = match first_pos.into_inner().next().unwrap().as_rule() {
                         Rule::vint => VarType::Int,
