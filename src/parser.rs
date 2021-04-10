@@ -6,6 +6,12 @@ use crate::ast::{*};
 #[grammar = "grammar.pest"]
 pub struct WormParser;
 
+#[derive(Debug)]
+pub enum ParseError {
+    EndOfInput,
+    FormatError
+}
+
 lazy_static::lazy_static! {
     static ref PREC_CLIMBER: PrecClimber<Rule> = {
         use Rule::*;
@@ -41,13 +47,16 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
     )
 }
 
+fn remove_whitespace(s: &str) -> String {
+    s.chars().filter(|c| !c.is_whitespace()).collect()
+}
 
 pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
     match pair.as_rule() {
         Rule::assignment => {
             let mut inner_rules = pair.into_inner();
             let first_pos = inner_rules.next().unwrap();
-            let (var_type, var_name) = match first_pos.as_rule() {
+            let (var_type, mut var_name) = match first_pos.as_rule() {
                 Rule::var_type => {
                     let vartype = match first_pos.into_inner().next().unwrap().as_rule() {
                         Rule::vint => VarType::Int,
@@ -65,7 +74,7 @@ pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
             // println!("variable_name: {:?}\n",variable_name);
             let expression = parse_into_expr(inner_rules.next().unwrap().into_inner());
             // println!("expression: {:?}\n", expression);
-            Ok(AstNode::Assignment(var_type, var_name.to_string(), expression))
+            Ok(AstNode::Assignment(var_type, remove_whitespace(var_name), expression))
         },
         Rule::print => {
             let var_name = pair.into_inner().next().unwrap().as_str();

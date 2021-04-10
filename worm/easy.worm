@@ -1,0 +1,5 @@
+int x = 2;
+int y = 4*7;
+int x = 2;
+int y = 4*7;
+print x;

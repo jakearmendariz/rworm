@@ -39,9 +39,3 @@ pub enum OpType {
     Div,
     Pow
 }
-
-#[derive(Debug)]
-pub enum ParseError {
-    EndOfInput,
-    FormatError
-}

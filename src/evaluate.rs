@@ -1,8 +1,33 @@
 use crate::ast::{*};
-use crate::parser::{*};
 use std::collections::HashMap;
 
+#[derive(Debug)]
+pub enum ExecutionError {
+    ValueDne,
+    DivideByZero
+}
 
+/*
+* execute turns a ast object into a Result
+*/
+pub fn execute_ast(ast:AstNode, map:&mut HashMap<String, f64>) -> Result<(), ExecutionError> {
+    match ast {
+        AstNode::Print(name) => {
+            match map.get(&name) {
+                Some(value) => println!("\t{}", value),
+                None => return Err(ExecutionError::ValueDne)
+            }
+        },
+        AstNode::Assignment(_, name, exp) => {
+            map.insert(name, eval_expr(exp));
+        },
+    };
+    Ok(())
+}
+
+/*
+* eval_expr evaluates inline expressions
+*/
 fn eval_expr(exp:Expr) -> f64 {
     match exp {
         Expr::ExpVal(num) => {

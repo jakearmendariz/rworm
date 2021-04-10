@@ -11,10 +11,10 @@ operation = _{ add | subtract | multiply | divide | power }
 expr = { term ~ (operation ~ term)* }
 term = _{num | var_name | "(" ~ expr ~ ")" }
 
-WHITESPACE = _{ " " | "\t" }
+WHITESPACE = _{ " "+ | "\t" | NEWLINE+}
 reserved = {"print" | "if" | "else" | "while"}
 
-var_name = {!reserved ~ ASCII_ALPHANUMERIC | "_"}
+var_name = {!reserved ~ ('a'..'z')+}
 var_type = {vint | vstring}
     vint = {"int"}
     vfloat = {"float"}
@@ -29,6 +29,6 @@ char = {
 }
 
 assignment = {var_type? ~ var_name ~ "=" ~ (expr | string)}
-print = {"print" ~ var_name}
+print = {"print" ~ var_name ~ ";"}
 statement = _{print | assignment ~ ";"}
-program = _{ SOI ~ statement ~ statement? ~ EOI }
+program = _{ SOI ~ statement* ~ EOI }
