@@ -13,7 +13,7 @@ term = _{num | var_name | "(" ~ expr ~ ")" }
 
 WHITESPACE = _{ " " | "\t" }
 
-var_name = {ASCII_ALPHANUMERIC+ | "_"}
+var_name = {ASCII_ALPHANUMERIC | "_"}
 var_type = {vint | vstring}
     vint = {"int"}
     vstring = {"string"}
