@@ -52,7 +52,9 @@ fn remove_whitespace(s: &str) -> String {
 }
 
 pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
-    match pair.as_rule() {
+    let statement = pair.as_str();
+    let rule = pair.as_rule();
+    match rule {
         Rule::assignment => {
             let mut inner_rules = pair.into_inner();
             let first_pos = inner_rules.next().unwrap();
@@ -78,21 +80,10 @@ pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
             let var_name = pair.into_inner().next().unwrap().as_str();
             Ok(AstNode::Print(var_name.to_string()))
         },
-        Rule::ifstm => {
+        Rule::ifstm | Rule::whilestm => {
             let mut inner_rules = pair.into_inner();
             let mut bool_exp = inner_rules.next().unwrap().into_inner();
-            let exp_left = parse_into_expr(bool_exp.next().unwrap().into_inner());
-            let bool_op = match bool_exp.next().unwrap().as_rule() {
-                Rule::eq => BoolOp::Eq,
-                Rule::neq => BoolOp::Neq,
-                Rule::geq => BoolOp::Geq,
-                Rule::leq => BoolOp::Leq,
-                rule => {
-                    println!("{:?}", rule);
-                    unreachable!();
-                }
-            };
-            let exp_right = parse_into_expr(bool_exp.next().unwrap().into_inner());
+            let (exp_left, bool_op, exp_right) = parse_bool(&mut bool_exp);
             let mut stms = std::vec::Vec::new();
             let body = inner_rules.next().unwrap().into_inner();
 
@@ -103,7 +94,12 @@ pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
                 };
                 stms.push(Box::new(ast));
             }
-            Ok(AstNode::If(BoolExp(exp_left, bool_op, exp_right), stms))
+            println!("{}", statement);
+            match rule {
+                Rule::ifstm => Ok(AstNode::If(BoolExp(exp_left, bool_op, exp_right), stms)),
+                Rule::whilestm => Ok(AstNode::While(BoolExp(exp_left, bool_op, exp_right), stms)),
+                _ => unreachable!()
+            }
         }
         Rule::EOI => return Err(ParseError::EndOfInput),
         _ => {
@@ -111,4 +107,21 @@ pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
             unreachable!();
         }
     }
+}
+
+fn parse_bool(mut bool_exp:&mut Pairs<Rule>) -> (Expr, BoolOp, Expr) {
+    (
+    parse_into_expr(bool_exp.next().unwrap().into_inner()),
+    match bool_exp.next().unwrap().as_rule() {
+        Rule::eq => BoolOp::Eq,
+        Rule::neq => BoolOp::Neq,
+        Rule::geq => BoolOp::Geq,
+        Rule::leq => BoolOp::Leq,
+        rule => {
+            println!("{:?}", rule);
+            unreachable!();
+        }
+    },
+    parse_into_expr(bool_exp.next().unwrap().into_inner())
+    )
 }

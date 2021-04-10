@@ -31,6 +31,17 @@ pub fn execute_ast(ast:AstNode, map:&mut HashMap<String, f64>) -> Result<(), Exe
                     execute_ast(*stm, map);
                 }
             }
+        },
+        AstNode::While(bool_exp, stms) => {
+            let mut conditional = bool_exp.clone();
+            let mut body = stms.clone();
+            while eval_bool(conditional, map) {
+                for stm in body {
+                    execute_ast(*stm, map);
+                }
+                body = stms.clone();
+                conditional = bool_exp.clone();
+            }
         }
     };
     Ok(())
