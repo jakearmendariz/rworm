@@ -11,8 +11,9 @@ operation = _{ add | subtract | multiply | divide | power }
 expr = { term ~ (operation ~ term)* }
 term = _{num | var_name | "(" ~ expr ~ ")" }
 
+COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 WHITESPACE = _{ " "+ | "\t" | NEWLINE+}
-reserved = {"print" | "if" | "else" | "while"}
+reserved = {"print" | "if" | "else" | "while" | "true" | "false"}
 
 var_name = {!reserved ~ ('a'..'z')+}
 var_type = {vint | vfloat | vstring | vbool}
@@ -29,12 +30,18 @@ char = {
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
 
+bool = _{tru | fal}
+    tru = {"true"}
+    fal = {"false"}
+
 boolops = _{eq | geq | leq | neq}
     eq = {"=="}
     geq = {">="}
     leq = {"<="}
     neq = {"!="}
-boolexp = {expr ~ boolops ~ expr}
+    lt = {"<"}
+    gt = {">"}
+boolexp = {(expr ~ boolops ~ expr) | bool}
 
 body = {statement+}
 ifstm = {"if" ~ boolexp ~ "{" ~ body+ ~ "}"}

@@ -15,7 +15,9 @@ pub enum BoolOp {
     Eq,
     Neq,
     Geq,
-    Leq
+    Leq,
+    Lt,
+    Gt
 }
 
 #[derive(Debug, Clone)]

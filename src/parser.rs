@@ -12,6 +12,9 @@ pub enum ParseError {
     FormatError
 }
 
+/*
+precendence climber, helping with the ordering rules
+*/
 lazy_static::lazy_static! {
     static ref PREC_CLIMBER: PrecClimber<Rule> = {
         use Rule::*;
@@ -25,13 +28,15 @@ lazy_static::lazy_static! {
     };
 }
 
-
+/*
+* parses pairs of rules from peg parser into a expression
+*/
 fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
     PREC_CLIMBER.climb(
         expression,
         |pair: Pair<Rule>| match pair.as_rule() {
             Rule::num => Expr::ExpVal(Value::Number(pair.as_str().parse::<f64>().unwrap())),
-            Rule::var_name => Expr::ExpVal(Value::Variable(pair.as_str().to_string())),
+            Rule::var_name => Expr::ExpVal(Value::Variable(remove_whitespace(pair.as_str()))),
             Rule::expr => parse_into_expr(pair.into_inner()),
             _ => unreachable!(),
         },
@@ -47,12 +52,15 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
     )
 }
 
+//variables often get left over whitespace after parsing
 fn remove_whitespace(s: &str) -> String {
     s.chars().filter(|c| !c.is_whitespace()).collect()
 }
 
+/*
+* parses ast into nodes, only handles one clause at a time. 
+*/
 pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
-    let statement = pair.as_str();
     let rule = pair.as_rule();
     match rule {
         Rule::assignment => {
@@ -94,7 +102,6 @@ pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
                 };
                 stms.push(Box::new(ast));
             }
-            println!("{}", statement);
             match rule {
                 Rule::ifstm => Ok(AstNode::If(BoolExp(exp_left, bool_op, exp_right), stms)),
                 Rule::whilestm => Ok(AstNode::While(BoolExp(exp_left, bool_op, exp_right), stms)),
@@ -109,7 +116,8 @@ pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
     }
 }
 
-fn parse_bool(mut bool_exp:&mut Pairs<Rule>) -> (Expr, BoolOp, Expr) {
+// parse a boolean expression, for a == b, return (a, ==, b)
+fn parse_bool(bool_exp:&mut Pairs<Rule>) -> (Expr, BoolOp, Expr) {
     (
     parse_into_expr(bool_exp.next().unwrap().into_inner()),
     match bool_exp.next().unwrap().as_rule() {
@@ -117,6 +125,8 @@ fn parse_bool(mut bool_exp:&mut Pairs<Rule>) -> (Expr, BoolOp, Expr) {
         Rule::neq => BoolOp::Neq,
         Rule::geq => BoolOp::Geq,
         Rule::leq => BoolOp::Leq,
+        Rule::lt => BoolOp::Lt,
+        Rule::gt => BoolOp::Gt,
         rule => {
             println!("{:?}", rule);
             unreachable!();

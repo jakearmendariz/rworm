@@ -25,38 +25,35 @@ pub fn execute_ast(ast:AstNode, map:&mut HashMap<String, f64>) -> Result<(), Exe
             };
             map.insert(name, res);
         },
-        AstNode::If(bool_exp, stms) => {
-            if eval_bool(bool_exp, map) {
+        AstNode::If(conditional, stms) => {
+            if eval_bool(conditional, map)? {
                 for stm in stms {
-                    execute_ast(*stm, map);
+                    execute_ast(*stm, map)?;
                 }
             }
         },
-        AstNode::While(bool_exp, stms) => {
-            let mut conditional = bool_exp.clone();
-            let mut body = stms.clone();
-            while eval_bool(conditional, map) {
-                for stm in body {
-                    execute_ast(*stm, map);
+        AstNode::While(conditional, stms) => {
+            while eval_bool(conditional.clone(), map)? {
+                for stm in &stms {
+                    execute_ast(*stm.clone(), map)?;
                 }
-                body = stms.clone();
-                conditional = bool_exp.clone();
             }
         }
     };
     Ok(())
 }
 
-fn eval_bool(bool_exp:BoolExp, map:&mut HashMap<String, f64>) -> bool{
+fn eval_bool(bool_exp:BoolExp, map:&mut HashMap<String, f64>) ->  Result<bool, ExecutionError> {
     let BoolExp(lhs,op,rhs)= bool_exp;
-    let (lres, rres) = (eval_expr(lhs, map).unwrap(), eval_expr(rhs, map).unwrap());
-    match op {
+    let (lres, rres) = (eval_expr(lhs, map)?, eval_expr(rhs, map)?);
+    Ok(match op {
         BoolOp::Eq => lres == rres,
         BoolOp::Neq => lres != rres,
         BoolOp::Leq => lres <= rres,
         BoolOp::Geq => lres >= rres,
-        _ => unreachable!(),
-    }
+        BoolOp::Lt => lres < rres,
+        BoolOp::Gt => lres < rres
+    })
 }
 
 /*
