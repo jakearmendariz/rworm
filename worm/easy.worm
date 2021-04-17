@@ -1,10 +1,9 @@
 int x = 3*(2+1);
 int y = 4*7;
 int x = 3*7;
-while x <= y {
+while x <= y*3 {
     x = x+1;
     z = 0;
-    print z;
 };
 print x;
 print y;

@@ -3,8 +3,25 @@
 pub enum AstNode {
     Print(String),
     Assignment(Option<VarType>, String, Expr),
-    If(BoolExp, Vec<Box<AstNode>>),
-    While(BoolExp, Vec<Box<AstNode>>)
+    If(BoolAst, Vec<Box<AstNode>>),
+    While(BoolAst, Vec<Box<AstNode>>),
+    BuiltIn(BuiltIn),
+    Skip(),
+}
+
+#[derive(Debug, Clone)]
+pub enum BoolAst {
+    Not(Box<BoolAst>),
+    And(Box<BoolAst>, Box<BoolAst>),
+    Or(Box<BoolAst>, Box<BoolAst>),
+    Exp(BoolExp),
+    Const(bool)
+}
+
+#[derive(Debug, Clone)]
+pub enum BuiltIn {
+    Delete(String),
+    Sum()
 }
 
 #[derive(Debug, Clone)]

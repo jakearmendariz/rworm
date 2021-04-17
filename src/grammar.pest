@@ -13,9 +13,9 @@ term = _{num | var_name | "(" ~ expr ~ ")" }
 
 COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 WHITESPACE = _{ " "+ | "\t" | NEWLINE+}
-reserved = {"print" | "if" | "else" | "while" | "true" | "false"}
+reserved = {"print" | "if" | "else" | "while" | "true" | "false" | " " | "}" | "{" | ";" | ":"}
 
-var_name = {!reserved ~ ('a'..'z')+}
+var_name = @{!reserved ~ ASCII_ALPHA ~ ASCII_ALPHANUMERIC*}
 var_type = {vint | vfloat | vstring | vbool}
     vint = {"int"}
     vfloat = {"float"}
@@ -30,24 +30,40 @@ char = {
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
 
-bool = _{tru | fal}
-    tru = {"true"}
-    fal = {"false"}
-
-boolops = _{eq | geq | leq | neq}
-    eq = {"=="}
+boolops = _{eq | geq | leq | neq | lt | gt}
+    eq = {"="}
     geq = {">="}
     leq = {"<="}
     neq = {"!="}
     lt = {"<"}
     gt = {">"}
-boolexp = {(expr ~ boolops ~ expr) | bool}
 
-body = {statement+}
-ifstm = {"if" ~ boolexp ~ "{" ~ body+ ~ "}"}
-whilestm = {"while" ~ boolexp ~ "{" ~ body+ ~ "}"}
+bool_joiners = _{and | or}
+    and = {"∧"}
+    or = {"∨"}
+
+not = _{"¬"}
+exprp = _{"("? ~ expr ~ ")"?}
+boolexp = {exprp ~ boolops ~ exprp}
+boolconst = _{tru | fal}
+    tru = {"true"}
+    fal = {"false"}
+
+boolexpr = { "("? ~(boolterm | boolnot) ~ ")"? ~ (bool_joiners ~ (boolterm | boolnot))* ~ ")"?}
+boolterm = {boolconst | boolexp | "(" ~ boolexp ~ ")" }
+boolnot = {not ~ (("(" ~ boolterm ~ ")") | boolterm) }
+
+del = {"del" ~ "(" ~ var_name ~ ")"}
+sum = {"sum" ~ "()"}
+skip = {"skip"}
+builtin = {del | sum}
+
+body = _{statement+}
+ifstm = {"if" ~ boolexpr ~ "{" ~ body+ ~ "}"}
+whilestm = {"while" ~ boolexpr ~ "{" ~ body+ ~ "}"}
+parse_error = {ASCII_ALPHANUMERIC*}
 
 assignment = {var_type? ~ var_name ~ "=" ~ (expr | string)}
 print = {"print" ~ var_name}
-statement = _{(print | ifstm | whilestm |assignment) ~ ";"}
+statement = _{(print | ifstm | whilestm | builtin | skip | assignment | parse_error) ~ ";" }
 program = _{ SOI ~ statement* ~ EOI }
