@@ -9,7 +9,7 @@ operation = _{ add | subtract | multiply | divide | power }
     power    = { "^" }
 
 expr = { term ~ (operation ~ term)* }
-term = _{num | var_name | "(" ~ expr ~ ")" }
+term = _{num | func_call | var_name | "(" ~ expr ~ ")" }
 
 COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 WHITESPACE = _{ " "+ | "\t" | NEWLINE+}
@@ -63,7 +63,16 @@ ifstm = {"if" ~ boolexpr ~ "{" ~ body+ ~ "}"}
 whilestm = {"while" ~ boolexpr ~ "{" ~ body+ ~ "}"}
 parse_error = {ASCII_ALPHANUMERIC*}
 
+dec = {var_type ~ var_name}
+params = {dec ~ ("," ~ dec)*}
+return_stm = {"return" ~ expr}
+func_def = {"fn" ~ var_name ~ "(" ~ params? ~ ")" ~ "->" ~ var_type ~ "{" ~ body ~ return_stm ~ "}"}
+
+item = _{num | var_type}
+list = {expr ~ ("," ~ expr)*}
+func_call = {var_name ~ "(" ~ list ~ ")"}
+
 assignment = {var_type? ~ var_name ~ "=" ~ (expr | string)}
 print = {"print" ~ var_name}
-statement = _{(print | ifstm | whilestm | builtin | skip | assignment | parse_error) ~ ";" }
+statement = _{((print | builtin | skip | assignment | parse_error) ~ ";") | (func_def | ifstm | whilestm) }
 program = _{ SOI ~ statement* ~ EOI }

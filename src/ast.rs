@@ -6,7 +6,17 @@ pub enum AstNode {
     If(BoolAst, Vec<Box<AstNode>>),
     While(BoolAst, Vec<Box<AstNode>>),
     BuiltIn(BuiltIn),
+    FuncDef(Function),
     Skip(),
+}
+
+#[derive(Debug, Clone)]
+pub struct Function {
+    pub name:String,
+    pub params:Vec<(VarType, String)>,
+    pub return_type:VarType,
+    pub statements:Vec<Box<AstNode>>,
+    pub return_stm:Expr
 }
 
 #[derive(Debug, Clone)]
@@ -40,7 +50,7 @@ pub enum BoolOp {
 #[derive(Debug, Clone)]
 pub enum Expr {
     ExpVal(Value),
-    ExpOp(Box<Expr>, OpType, Box<Expr>)
+    ExpOp(Box<Expr>, OpType, Box<Expr>),
 }
 
 #[derive(Debug, Clone)]
@@ -51,9 +61,16 @@ pub enum VarType {
 }
 
 #[derive(Debug, Clone)]
+pub struct FuncCall {
+    pub name:String,
+    pub params: Vec<Expr>
+}
+
+#[derive(Debug, Clone)]
 pub enum Value {
   Variable(String),
-  Number(f64)  
+  Number(f64),
+  FuncCall(FuncCall)
 }
 
 #[derive(Debug, Clone)]
