@@ -1,5 +1,7 @@
-num = @{ int ~ ("." ~ ASCII_DIGIT*)? ~ (^"e" ~ int)? }
-    int = { ("+" | "-")? ~ ASCII_DIGIT+ }
+int = { ("+" | "-")? ~ ASCII_DIGIT+ }
+float = @{ int ~ ("." ~ ASCII_DIGIT*) ~ (^"e" ~ int)? }
+
+
 
 operation = _{ add | subtract | multiply | divide | power }
     add      = { "+" }
@@ -9,7 +11,7 @@ operation = _{ add | subtract | multiply | divide | power }
     power    = { "^" }
 
 expr = { term ~ (operation ~ term)* }
-term = _{num | func_call | var_name | "(" ~ expr ~ ")" }
+term = _{int | float | func_call | var_name | string | "(" ~ expr ~ ")" }
 
 COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 WHITESPACE = _{ " "+ | "\t" | NEWLINE+}
@@ -65,14 +67,14 @@ parse_error = {ASCII_ALPHANUMERIC*}
 
 dec = {var_type ~ var_name}
 params = {dec ~ ("," ~ dec)*}
-return_stm = {"return" ~ expr}
-func_def = {"fn" ~ var_name ~ "(" ~ params? ~ ")" ~ "->" ~ var_type ~ "{" ~ body ~ return_stm ~ "}"}
+return_stm = {"return" ~ expr ~ ";"}
+func_def = {"fn" ~ var_name ~ "(" ~ params? ~ ")" ~ "->" ~ var_type ~ "{" ~ body ~ "}"}
 
-item = _{num | var_type}
+item = _{int | float | var_type}
 list = {expr ~ ("," ~ expr)*}
 func_call = {var_name ~ "(" ~ list ~ ")"}
 
 assignment = {var_type? ~ var_name ~ "=" ~ (expr | string)}
 print = {"print" ~ var_name}
-statement = _{((print | builtin | skip | assignment | parse_error) ~ ";") | (func_def | ifstm | whilestm) }
-program = _{ SOI ~ statement* ~ EOI }
+statement = _{((print | builtin | skip | assignment) ~ ";") | (return_stm | func_def | ifstm | whilestm) }
+program = _{ SOI ~ func_def* ~ EOI }

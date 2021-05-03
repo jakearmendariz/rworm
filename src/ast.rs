@@ -1,3 +1,10 @@
+use crate::HashMap;
+
+#[derive(Debug, Clone)]
+pub struct State {
+    pub var_map:HashMap<String, Constant>,
+    pub func_map:HashMap<String, Function>,
+}
 
 #[derive(Debug, Clone)]
 pub enum AstNode {
@@ -7,6 +14,7 @@ pub enum AstNode {
     While(BoolAst, Vec<Box<AstNode>>),
     BuiltIn(BuiltIn),
     FuncDef(Function),
+    ReturnStm(Expr),
     Skip(),
 }
 
@@ -16,7 +24,6 @@ pub struct Function {
     pub params:Vec<(VarType, String)>,
     pub return_type:VarType,
     pub statements:Vec<Box<AstNode>>,
-    pub return_stm:Expr
 }
 
 #[derive(Debug, Clone)]
@@ -49,15 +56,16 @@ pub enum BoolOp {
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    ExpVal(Value),
+    ExpVal(Object),
     ExpOp(Box<Expr>, OpType, Box<Expr>),
+    ExpErr(String)
 }
 
 #[derive(Debug, Clone)]
 pub enum VarType {
     Int,
     Float,
-    String
+    String,
 }
 
 #[derive(Debug, Clone)]
@@ -67,9 +75,19 @@ pub struct FuncCall {
 }
 
 #[derive(Debug, Clone)]
-pub enum Value {
+pub enum Constant {
+    Int(i32),
+    Float(f64),
+    String(String),
+}
+
+/*
+* Objects can be constants values, or variable names that turn into constants, or function calls
+*/
+#[derive(Debug, Clone)]
+pub enum Object {
   Variable(String),
-  Number(f64),
+  Constant(Constant),
   FuncCall(FuncCall)
 }
 

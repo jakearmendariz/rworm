@@ -7,11 +7,13 @@ use std::vec::Vec;
 #[grammar = "grammar.pest"]
 pub struct WormParser;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ParseError {
     EndOfInput,
     FormatError,
     NoReturnType,
+    UnencampslatedStatement,
+    GeneralParseError
 }
 
 /*
@@ -83,8 +85,9 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
     PREC_CLIMBER.climb(
         expression,
         |pair: Pair<Rule>| match pair.as_rule() {
-            Rule::num => Expr::ExpVal(Value::Number(pair.as_str().parse::<f64>().unwrap())),
-            Rule::var_name => Expr::ExpVal(Value::Variable(pair.as_str().to_string())),
+            Rule::float => Expr::ExpVal(Object::Constant(Constant::Float(pair.as_str().parse::<f64>().unwrap()))),
+            Rule::int => Expr::ExpVal(Object::Constant(Constant::Int(pair.as_str().parse::<i32>().unwrap()))),
+            Rule::var_name => Expr::ExpVal(Object::Variable(pair.as_str().to_string())),
             Rule::func_call => {
                 let mut inner = pair.into_inner();
                 let func_name = inner.next().unwrap().as_str().to_string();
@@ -93,27 +96,115 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                 for item in list {
                     params.push(parse_into_expr(item.into_inner()));
                 }
-                Expr::ExpVal(Value::FuncCall(FuncCall {name:func_name, params:params}))
+                Expr::ExpVal(Object::FuncCall(FuncCall {name:func_name, params:params}))
             },
+            Rule::string => Expr::ExpVal(Object::Constant(Constant::String(pair.as_str().to_string()))),
             Rule::expr => parse_into_expr(pair.into_inner()),
             _ => unreachable!(),
         },
-        |lhs: Expr, op: Pair<Rule>, rhs: Expr | 
-        match op.as_rule() {
-            Rule::add      => Expr::ExpOp(Box::new(lhs), OpType::Add, Box::new(rhs)),
-            Rule::subtract => Expr::ExpOp(Box::new(lhs), OpType::Sub, Box::new(rhs)),
-            Rule::multiply => Expr::ExpOp(Box::new(lhs), OpType::Mult, Box::new(rhs)),
-            Rule::divide   => Expr::ExpOp(Box::new(lhs), OpType::Div, Box::new(rhs)),
-            Rule::power    => Expr::ExpOp(Box::new(lhs), OpType::Pow, Box::new(rhs)),
-            _ => unreachable!(),
+        |lhs: Expr, op: Pair<Rule>, rhs: Expr | {
+            // match lhs {
+            //     Object::Constant(Constant::String)(_) => return Expr::ExpErr("lhs is string, cannot eval operation\n".to_string()),
+            //     _ => (),
+            // };
+            // match rhs {
+            //     Object::Constant(Constant::String)(_) => return Expr::ExpErr("rhs is string, cannot eval operation\n".to_string()),
+            //     _ => (),
+            // };
+            match op.as_rule() {
+                Rule::add      => Expr::ExpOp(Box::new(lhs), OpType::Add, Box::new(rhs)),
+                Rule::subtract => Expr::ExpOp(Box::new(lhs), OpType::Sub, Box::new(rhs)),
+                Rule::multiply => Expr::ExpOp(Box::new(lhs), OpType::Mult, Box::new(rhs)),
+                Rule::divide   => Expr::ExpOp(Box::new(lhs), OpType::Div, Box::new(rhs)),
+                Rule::power    => Expr::ExpOp(Box::new(lhs), OpType::Pow, Box::new(rhs)),
+                _ => unreachable!(),
+            }
         },
     )
 }
 
+fn parse_parameters(params_rules:Pairs<Rule>) -> Result<Vec<(VarType, String)>, ParseError> {
+    let mut params:Vec<(VarType, String)> = Vec::new();
+    for param in params_rules {
+        //each param is in form { var_type var_name }
+        let mut pair = param.into_inner();
+
+        let vt = match pair.next() {
+            Some(vt) => vt.into_inner().next().unwrap(),
+            None => break,
+        };
+        let var_type = match vt.as_rule() {
+            Rule::vint => VarType::Int,
+            Rule::vfloat => VarType::Float,
+            Rule::vstring => VarType::String,
+            _ => return {
+                println!("could not read parameters from fn on {}", vt.as_str());
+                Err(ParseError::FormatError)
+            }
+        };
+        let var_name = pair.next().unwrap().as_str();
+        params.push((var_type, var_name.to_string()))
+    }
+    Ok(params)
+
+}
+
+fn parse_return_stm(return_rule:Pair<Rule>)  -> Result<VarType, ParseError>{
+    Ok(match return_rule.as_rule() {
+        Rule::vint => VarType::Int,
+        Rule::vfloat => VarType::Float,
+        Rule::vstring => VarType::String,
+        _ => return {
+            println!("parse_function(): could not format fn return type on: {}", return_rule.as_str());
+            Err(ParseError::FormatError)
+        }
+    })
+}
+
+pub fn parse_function(pair:Pair<Rule>, state:&mut State) -> Result<(), ParseError> {
+    match pair.as_rule(){
+        Rule::func_def => (),
+        _ => {
+            println!("parse_function() on not a function: {}", pair.as_str());
+            return Err(ParseError::UnencampslatedStatement)
+        },
+    }
+    let mut inner_rules = pair.into_inner();
+    let fn_name = inner_rules.next().unwrap().as_str().to_string();
+
+    let next_rule = inner_rules.next().unwrap();
+    let (params, return_type) = match next_rule.as_rule() {
+        Rule::params => {
+            (
+                parse_parameters(next_rule.into_inner())?,
+                parse_return_stm(inner_rules.next().unwrap().into_inner().next().unwrap())?
+            )
+        },
+        Rule::var_type => {
+            (
+                Vec::new(),
+                parse_return_stm(next_rule.into_inner().next().unwrap())?
+            )
+        },
+        _ => return Err(ParseError::NoReturnType)
+    };
+    
+    let mut stms = std::vec::Vec::new();
+    for stm in inner_rules { // two in forloop, one in while loop
+        let ast = parse_ast(stm, state)?;
+        println!("{:?}", ast);
+        stms.push(Box::new(ast));
+    }
+    let function = Function {name:fn_name.clone(), return_type:return_type, params:params, statements:stms};
+    state.func_map.insert(fn_name, function);
+    Ok(())
+}
+
 /* parses ast into nodes, only handles one clause at a time. */
-pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
+pub fn parse_ast(pair: Pair<Rule>, state:&mut State) -> Result<AstNode, ParseError> {
     let rule = pair.as_rule();
     let statement = pair.as_str();
+    // matches the rule depending on the type of statments
     match rule {
         Rule::assignment => {
             let mut inner_rules = pair.into_inner();
@@ -124,14 +215,20 @@ pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
                         Rule::vint => VarType::Int,
                         Rule::vfloat => VarType::Float,
                         Rule::vstring => VarType::String,
-                        _ => return Err(ParseError::FormatError)
+                        _ => return {
+                            println!("error parsing var type on {}\n", statement);
+                            Err(ParseError::FormatError)
+                        }
                     };
                     (Some(vartype), inner_rules.next().unwrap().as_str())
                 },
                 Rule::var_name => {
                     (None, first_pos.as_str())
                 }
-                _ => return Err(ParseError::FormatError)
+                _ => return {
+                    println!("error parsing statement {}\n", statement);
+                    Err(ParseError::FormatError)
+                }
             };
             let expression = parse_into_expr(inner_rules.next().unwrap().into_inner());
             Ok(AstNode::Assignment(var_type, var_name.to_string(), expression))
@@ -147,7 +244,7 @@ pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
             let mut stms = Vec::new();
 
             for stm in inner_rules { // two in forloop, one in while loop
-                let ast = match parse_ast(stm) {
+                let ast = match parse_ast(stm, state) {
                     Ok(ast) => ast,
                     Err(e) => return Err(e),
                 };
@@ -171,7 +268,7 @@ pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
         },
         Rule::func_def => {
             let mut inner_rules = pair.into_inner();
-            let fn_name = inner_rules.next().unwrap().as_str();
+            let fn_name = inner_rules.next().unwrap().as_str().to_string();
 
             let up_params = inner_rules.next().unwrap().into_inner();
             let mut params:Vec<(VarType, String)> = Vec::new();
@@ -201,23 +298,22 @@ pub fn parse_ast(pair: Pair<Rule>) -> Result<AstNode, ParseError>{
                 }
             };
             let mut stms = std::vec::Vec::new();
-            let a = inner_rules.clone().last().unwrap();
-            let return_ast = parse_into_expr(a.into_inner());
             for stm in inner_rules { // two in forloop, one in while loop
-                match stm.as_rule() {
-                    Rule::return_stm => println!("Return statement\n"),
-                    _ => {
-                        let ast = match parse_ast(stm) {
-                            Ok(ast) => ast,
-                            Err(e) => return Err(e),
-                        };
-                        stms.push(Box::new(ast));
-                    }
+                let ast = match parse_ast(stm, state) {
+                    Ok(ast) => ast,
+                    Err(e) => return Err(e),
                 };
+                stms.push(Box::new(ast));
             }
-            Ok(AstNode::FuncDef(Function {name:fn_name.to_string(), return_type:fn_return, params:params, statements:stms, return_stm:return_ast}))
+            let function = Function {name:fn_name.clone(), return_type:fn_return, params:params, statements:stms};
+            state.func_map.insert(fn_name, function.clone());
+            Ok(AstNode::FuncDef(function))
         },
-        Rule::parse_error => return Err(ParseError::FormatError),
+        Rule::return_stm => {
+            let return_expr = pair.into_inner().next().unwrap();
+            Ok(AstNode::ReturnStm(parse_into_expr(return_expr.into_inner())))
+        }
+        Rule::parse_error => return Err(ParseError::GeneralParseError),
         Rule::EOI => return Err(ParseError::EndOfInput),
         _ => {
             println!("{:?} rule is unreachable while parsing", pair.as_rule());

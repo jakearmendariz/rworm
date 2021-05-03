@@ -2,29 +2,19 @@ use crate::ast::{*};
 use std::collections::HashMap;
 use std::cmp::Ordering;
 
-#[derive(Debug, Clone, Default)]
-pub struct State {
-    var_map:HashMap<String, Variable>,
-    func_map:HashMap<String, Function>,
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExecutionError {
     ValueDne,
     DivideByZero,
-    TypeViolation
+    TypeViolation,
+    NeedReturnStm,
+    CannotFindFunction(String)
 }
 
-#[derive(Debug, Clone)]
-pub enum Variable {
-    Int(i32),
-    Float(f64),
-    String(String)
-}
 
-impl PartialEq for Variable {
+impl PartialEq for Constant {
     fn eq(&self, other: &Self) -> bool {
-        use Variable::*;
+        use Constant::*;
         match (self, other) {
             (Int(i), Int(j)) => i == j,
             (Float(i), Float(j)) => i == j,
@@ -34,9 +24,9 @@ impl PartialEq for Variable {
     }
 }
 
-impl PartialOrd for Variable {
+impl PartialOrd for Constant {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        use Variable::*;
+        use Constant::*;
         Some(match (self, other) {
             (Int(i), Int(j)) => i.cmp(j),
             (Float(i), Float(j)) => (*i as i64).cmp(&(*j as i64)),
@@ -48,7 +38,19 @@ impl PartialOrd for Variable {
 
 
 /* execute turns a ast object into a Result */
-pub fn execute_ast(ast:AstNode, state:&mut State) -> Result<(), ExecutionError> {
+pub fn eval_func(function:Function, state:&mut State) -> Result<Constant, ExecutionError> {
+    for ast in function.statements {
+        // execute ast will run a single statement or loop, if there is a return value, exit out of function
+        match eval_ast(*ast, state)? {
+            Some(val) => return Ok(val),
+            None => ()
+        }
+    }
+    Err(ExecutionError::NeedReturnStm)
+}
+
+fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, ExecutionError> {
+    println!("{:?}", ast);
     match ast {
         AstNode::Print(name) => {
             match state.var_map.get(&name) {
@@ -56,21 +58,55 @@ pub fn execute_ast(ast:AstNode, state:&mut State) -> Result<(), ExecutionError> 
                 None => println!("\t{}:{}",name, 0)
             }
         },
-        AstNode::Assignment(_, name, exp) => {
-            let res = eval_expr(exp, state)?;
-            state.var_map.insert(name, Variable::Float(res));
+        AstNode::Assignment(vtype, name, exp) => {
+            let variable_type:VarType = match vtype {
+                Some(var_type) => {
+                    match var_type {
+                        VarType::String => {
+                            state.var_map.insert(name.clone(), Constant::String("".to_string()));
+                            VarType::String
+                        }
+                        VarType::Int => {
+                            state.var_map.insert(name.clone(), Constant::Int(0));
+                            VarType::Int
+                        }
+                        VarType::Float => {
+                            state.var_map.insert(name.clone(), Constant::Float(0.0));
+                            VarType::Float
+                        }
+                    }
+                },
+                None => {
+                    // if no variable type, turn it into an expression and parse value (error if dne)
+                    match eval_expr(Expr::ExpVal(Object::Variable(name.clone())), state)? {
+                        Constant::String(_) => VarType::String,
+                        Constant::Float(_) => VarType::Float,
+                        Constant::Int(_) => VarType::Int,
+                    }
+                }
+            };
+            // type check, lhs and rhs must return the same type
+            match (variable_type,  eval_expr(exp, state)?) {
+                (VarType::Int, Constant::Int(i)) => state.var_map.insert(name, Constant::Int(i)), 
+                (VarType::Float, Constant::Float(f)) => state.var_map.insert(name, Constant::Float(f)), 
+                (VarType::String, Constant::String(s)) => state.var_map.insert(name, Constant::String(s)),
+                (_, _) => {
+                    println!("type violation on assignment");
+                    return Err(ExecutionError::TypeViolation)
+                }, 
+            };
         },
         AstNode::If(conditional, stms) => {
             if eval_bool_ast(conditional, state)? {
-                execute_ast(*stms[0].clone(), state)?;
+                eval_ast(*stms[0].clone(), state)?;
             } else {
-                execute_ast(*stms[1].clone(), state)?;
+                eval_ast(*stms[1].clone(), state)?;
             }
         },
         AstNode::While(conditional, stms) => {
             while eval_bool_ast(conditional.clone(), state)? {
                 for stm in &stms {
-                    execute_ast(*stm.clone(), state)?;
+                    eval_ast(*stm.clone(), state)?;
                 }
             }
         },
@@ -89,9 +125,12 @@ pub fn execute_ast(ast:AstNode, state:&mut State) -> Result<(), ExecutionError> 
         AstNode::FuncDef(function) => {
             state.func_map.insert(function.name.clone(), function);
         },
+        AstNode::ReturnStm(expr) => {
+            return Ok(Some(eval_expr(expr, state)?));
+        }
         AstNode::Skip() => (),
-    };
-    Ok(())
+    }
+    Ok(None)
 }
 
 /* evalulates booleans based on their conjunction */
@@ -108,7 +147,12 @@ fn eval_bool_ast(bool_ast:BoolAst, state:&mut State) ->  Result<bool, ExecutionE
 /* evaluates expressions and constants to true false values */
 fn eval_bool(bool_exp:BoolExp, state:&mut State) ->  Result<bool, ExecutionError> {
     let BoolExp(lhs,op,rhs)= bool_exp;
-    let (lres, rres) = (eval_expr(lhs, state)?, eval_expr(rhs, state)?);
+    use Constant::{*};
+    let (lres, rres) = match (eval_expr(lhs, state)?, eval_expr(rhs, state)?) {
+        (Int(i), Int(j)) => (i as f64,j as f64),
+        (Float(i), Float(j)) => (i, j),
+        _ => return Err(ExecutionError::TypeViolation),
+    };
     Ok(match op {
         BoolOp::Eq => lres == rres,
         BoolOp::Neq => lres != rres,
@@ -120,41 +164,39 @@ fn eval_bool(bool_exp:BoolExp, state:&mut State) ->  Result<bool, ExecutionError
 }
 
 /* eval_expr evaluates inline expressions */
-fn eval_expr(exp:Expr, state:&mut State) -> Result<f64, ExecutionError> {
+fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
     match exp {
         Expr::ExpVal(num) => {
             match num {
-                Value::Variable(name) => {
+                Object::Variable(name) => {
+                    // 
                     let value = match state.var_map.get(&name) {
                         Some(value) => Ok(value.clone()),
                         None => return Err(ExecutionError::ValueDne)
                     };
-                    use Variable::*;
-                    Ok(match value? {
-                        Int(i) => i as f64,
-                        Float(f) => f,
-                        String(_) => return Err(ExecutionError::TypeViolation),
-                    })
+                    match value? {
+                        Constant::Int(i) => Ok(Constant::Int(i)),
+                        Constant::Float(f) => Ok(Constant::Float(f)),
+                        Constant::String(s) => Ok(Constant::String(s)),
+                    }
                 },
-                Value::Number(number) => Ok(number),
-                Value::FuncCall(func_call) => {
-                    let mut var_map:HashMap<String, Variable> = HashMap::new();
+                Object::Constant(Constant::Float(f)) => Ok(Constant::Float(f)),
+                Object::Constant(Constant::Int(i)) => Ok(Constant::Int(i)),
+                Object::Constant(Constant::String(s)) => Ok(Constant::String(s)),
+                Object::FuncCall(func_call) => {
+                    let mut var_map:HashMap<String, Constant> = HashMap::new();
                     let mut function = state.func_map.get(&func_call.name).unwrap();
-                    let Function{name, params, return_type, statements, return_stm} = function;
+                    let Function{name, params, return_type, statements} = function.clone();
                     for (expr, (var_type, name)) in func_call.params.iter().zip(params.iter()) {
-                        var_map.insert(name.to_string(), Variable::Float(eval_expr(expr.clone(), &mut state.clone())?));
+                        match var_type {
+                            VarType::Int => var_map.insert(name.to_string(), eval_expr(expr.clone(), &mut state.clone())?),
+                            VarType::Float => var_map.insert(name.to_string(), eval_expr(expr.clone(), &mut state.clone())?),
+                            VarType::String => var_map.insert(name.to_string(), eval_expr(expr.clone(), &mut state.clone())?), 
+                        };
                     }
                     let func_map = state.func_map.clone();
-                    let mut func_state = State {var_map, func_map};
-                    for stm in statements {
-                        let result = execute_ast(*stm.clone(), &mut func_state);
-                        match result {
-                            Ok(_) => (),
-                            Err(e) => println!("error:{:?}", e)
-                        }
-                    }   
-                    
-                    Ok(eval_expr(return_stm.clone(), &mut func_state)?)
+                    let mut func_state = State {var_map, func_map}; 
+                    Ok(eval_func(function.clone(), &mut func_state)?)
                 },
             }
         },
@@ -167,19 +209,30 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<f64, ExecutionError> {
                 Ok(value) => value,
                 Err(_) => return Err(ExecutionError::ValueDne)
             };
+            use Constant::{*};
+            let (l, r, is_int) = match (left, right) {
+                (Int(l), Int(r)) => (l as f64, r as f64, true),
+                (Float(l), Float(r)) => (l, r, false),
+                _ => return(Err(ExecutionError::TypeViolation)) // do not accept strings or operations between ints and floats, for now
+            };
             let res = match op {
-                OpType::Add => left + right,
-                OpType::Sub => left - right,
-                OpType::Mult => left * right,
+                OpType::Add => l + r,
+                OpType::Sub => l - r,
+                OpType::Mult => l * r,
                 OpType::Div => {
-                    if right == 0.0 {
+                    if r == 0.0 {
                         return Err(ExecutionError::DivideByZero);
                     }
-                    left / right
+                    l / r
                 },
-                OpType::Pow => left.powf(right),
+                OpType::Pow => l.powf(r),
             };
-            Ok(res)
+            if is_int {
+                Ok(Constant::Int(res as i32))
+            } else{
+                Ok(Constant::Float(res))
+            }
         }
+        _ => unreachable!(),
     }
 }
