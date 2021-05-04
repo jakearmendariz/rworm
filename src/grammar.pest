@@ -1,8 +1,6 @@
 int = { ("+" | "-")? ~ ASCII_DIGIT+ }
 float = @{ int ~ ("." ~ ASCII_DIGIT*) ~ (^"e" ~ int)? }
 
-
-
 operation = _{ add | subtract | multiply | divide | power }
     add      = { "+" }
     subtract = { "-" }
@@ -11,14 +9,19 @@ operation = _{ add | subtract | multiply | divide | power }
     power    = { "^" }
 
 expr = { term ~ (operation ~ term)* }
-term = _{int | float | func_call | var_name | string | "(" ~ expr ~ ")" }
+term = _{int | float | func_call | var_name | string | array_def | array_val | arr_index | "(" ~ expr ~ ")" }
 
 COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 WHITESPACE = _{ " "+ | "\t" | NEWLINE+}
 reserved = {"print" | "if" | "else" | "while" | "true" | "false" | " " | "}" | "{" | ";" | ":"}
 
 var_name = @{!reserved ~ ASCII_ALPHA ~ ASCII_ALPHANUMERIC*}
-var_type = {vint | vfloat | vstring | vbool}
+
+array_inst = @{(vint | vfloat | vstring) ~ "[]"}
+array_def = {"[" ~ var_type ~ ";" ~ int ~ "]"}
+array_val = {"[" ~ list ~ "]"}
+arr_index = {var_name ~"[" ~ int ~ "]"}
+var_type = {array_inst | vint | vfloat | vstring | vbool}
     vint = {"int"}
     vfloat = {"float"}
     vstring = {"string"}

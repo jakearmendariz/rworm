@@ -14,9 +14,6 @@ use std::collections::{HashMap};
 use std::vec::Vec;
 use std::string::String;
 
-#[derive(Debug, Clone)]
-enum WormError{ParseError, ExecutionError}
-
 // builds default for state
 fn build_default_state() -> State {
     let var_map:HashMap<String, Constant> = HashMap::new();
@@ -24,35 +21,25 @@ fn build_default_state() -> State {
     State{var_map:var_map, func_map:func_map}
 }
 
-
+/*
+* Main function for worm interpretter 
+*/
 fn main() {
-    let expression;
-    expression = std::fs::read_to_string("worm/easy.c").expect("cannot read file"); //from file
+    let expression = std::fs::read_to_string("worm/easy.c").expect("cannot read file"); //from file
     let pairs = WormParser::parse(Rule::program,&expression).unwrap_or_else(|e| panic!("{}", e));
     let mut state = build_default_state();
-    for pair in pairs {
-        match pair.as_rule() {
-            Rule::EOI => continue,
-            _ => { match parse_function(pair, &mut state) {
-                    Ok(stm) => (),
-                    Err(e) => {
-                        println!("{:?}", e);
-                    }
-                }
-            }
-        }
-        
-    }  
-    let main_function = match state.func_map.get("main") {
-        Some(func) => func,
-        None => {
-            println!("Error parsing main function");
+    // parses the program into an AST, saves the functions AST in the state to be called upon later
+    match parse_program(pairs, &mut state) {
+        Ok(()) => (),
+        Err(e) => {
+            println!("{:?}", e);
             return;
-        },
-    };
-    let result = match eval_func(main_function.clone(), &mut state) {
+        }
+    }
+    // calls the main function, return the constant result
+    let result = match run_program(&mut state) {
         Ok(res) => Ok(res),
         Err(e) => Err(e)
     };
-    println!("result: {:?}", result);
+    println!("{:?}", result);
 }

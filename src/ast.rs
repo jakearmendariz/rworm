@@ -58,7 +58,6 @@ pub enum BoolOp {
 pub enum Expr {
     ExpVal(Object),
     ExpOp(Box<Expr>, OpType, Box<Expr>),
-    ExpErr(String)
 }
 
 #[derive(Debug, Clone)]
@@ -88,7 +87,7 @@ pub enum Constant {
 pub enum Object {
   Variable(String),
   Constant(Constant),
-  FuncCall(FuncCall)
+  FuncCall(FuncCall),
 }
 
 #[derive(Debug, Clone)]
