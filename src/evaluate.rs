@@ -64,12 +64,6 @@ pub fn eval_func(function:Function, state:&mut State) -> Result<Constant, Execut
 
 fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, ExecutionError> {
     match ast {
-        AstNode::Print(name) => {
-            match state.var_map.get(&name) {
-                Some(value) => println!("\t{}:{:?}",name, value),
-                None => println!("\t{}:{}",name, 0)
-            }
-        },
         AstNode::Assignment(vtype, name, exp) => {
             let variable_type:VarType = match vtype {
                 Some(var_type) => {
@@ -134,8 +128,8 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                     state.var_map.remove(&name);
                     ()
                 },
-                BuiltIn::Sum() => {
-                    ()
+                BuiltIn::Print(exp) => {
+                    println!("{:?}", eval_expr(exp, state)?);
                 }
             }
             ()

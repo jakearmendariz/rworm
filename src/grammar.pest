@@ -59,9 +59,9 @@ boolterm = {boolconst | boolexp | "(" ~ boolexp ~ ")" }
 boolnot = {not ~ (("(" ~ boolterm ~ ")") | boolterm) }
 
 del = {"del" ~ "(" ~ var_name ~ ")"}
-sum = {"sum" ~ "()"}
 skip = {"skip"}
-builtin = {del | sum}
+print = {"print" ~ "(" ~ expr ~ ")"}
+builtin = {del | print}
 
 body = _{statement+}
 ifstm = {"if" ~ boolexpr ~ "{" ~ body+ ~ "}"}
@@ -78,6 +78,5 @@ list = {expr ~ ("," ~ expr)*}
 func_call = {var_name ~ "(" ~ list ~ ")"}
 
 assignment = {var_type? ~ var_name ~ "=" ~ (expr | string)}
-print = {"print" ~ var_name}
-statement = _{((print | builtin | skip | assignment) ~ ";") | (return_stm | func_def | ifstm | whilestm) }
+statement = _{((builtin | skip | assignment) ~ ";") | (return_stm | func_def | ifstm | whilestm) }
 program = _{ SOI ~ func_def* ~ EOI }

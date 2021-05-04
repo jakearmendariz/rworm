@@ -8,7 +8,6 @@ pub struct State {
 
 #[derive(Debug, Clone)]
 pub enum AstNode {
-    Print(String),
     Assignment(Option<VarType>, String, Expr),
     If(BoolAst, Vec<Box<AstNode>>),
     While(BoolAst, Vec<Box<AstNode>>),
@@ -38,7 +37,7 @@ pub enum BoolAst {
 #[derive(Debug, Clone)]
 pub enum BuiltIn {
     Delete(String),
-    Sum()
+    Print(Expr)
 }
 
 #[derive(Debug, Clone)]

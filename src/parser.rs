@@ -16,7 +16,11 @@ pub enum ParseError {
     GeneralParseError
 }
 
-
+/* 
+* parse the program
+* starting from the top
+* currently only only parsing functions, no global variables or code outside functions
+*/
 pub fn parse_program(pairs: Pairs<Rule>, state:&mut State) -> Result<(), ParseError> {
     for pair in pairs {
         match pair.as_rule() {
@@ -163,6 +167,9 @@ fn parse_return_stm(return_rule:Pair<Rule>)  -> Result<VarType, ParseError>{
     })
 }
 
+/*
+* parse the function from the pair provided. 
+*/
 pub fn parse_function(pair:Pair<Rule>, state:&mut State) -> Result<(), ParseError> {
     match pair.as_rule(){
         Rule::func_def => (),
@@ -232,10 +239,6 @@ pub fn parse_ast(pair: Pair<Rule>, state:&mut State) -> Result<AstNode, ParseErr
             let expression = parse_into_expr(inner_rules.next().unwrap().into_inner());
             Ok(AstNode::Assignment(var_type, var_name.to_string(), expression))
         },
-        Rule::print => {
-            let var_name = pair.into_inner().next().unwrap().as_str();
-            Ok(AstNode::Print(var_name.to_string()))
-        },
         Rule::ifstm | Rule::whilestm => {
             let mut inner_rules = pair.into_inner();
             let mut bool_exp = inner_rules.next().unwrap().into_inner();
@@ -261,7 +264,10 @@ pub fn parse_ast(pair: Pair<Rule>, state:&mut State) -> Result<AstNode, ParseErr
             let builtin = pair.into_inner().next().unwrap();
             match builtin.as_rule() {
                 Rule::del => Ok(AstNode::BuiltIn(BuiltIn::Delete(builtin.into_inner().next().unwrap().as_str().to_string()))),
-                Rule::sum => Ok(AstNode::BuiltIn(BuiltIn::Sum())),
+                Rule::print => {
+                    let expression = parse_into_expr(builtin.into_inner());
+                    Ok(AstNode::BuiltIn(BuiltIn::Print(expression)))
+                },
                 _ => unreachable!()
             }
         },
