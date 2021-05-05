@@ -42,11 +42,15 @@ fn floating_gcd(float x, float y) -> float {
 
 fn hello(string s1, string s2) -> string {
     string s = s1 + s2;
-    print(s);
     return s;
 }
 
 fn fucking_with_arrays(int[] b) -> int {
+    string[] s = [""; 3];
+    s[0] = "hello";
+    s[1] = " ";
+    s[2] = "stupid";
+    assert(s[0] + s[1] + s[2] == "hello stupid");
     return 0;
 }
 

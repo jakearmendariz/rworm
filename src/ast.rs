@@ -11,8 +11,12 @@ pub enum AstNode {
     // option(type) var_name = expression
     Assignment(Option<VarType>, String, Expr),
     //type, name, optional piped variable for index, value expression, size expression
+    // int[] arr = [|opt| expr1; expr2]
     ArrayDef(VarType, String, Option<String>, Expr, Expr), 
+    // int[] arr = function(that returns an array)
     ArrayFromExp(VarType, String, Expr),
+    // arr[exp1] = exp2; 
+    ArrayIndexAssignment(String, Expr, Expr),
     // if bool then do ast
     If(BoolAst, Vec<Box<AstNode>>),
     While(BoolAst, Vec<Box<AstNode>>),
@@ -97,30 +101,6 @@ pub enum Object {
     FuncCall(FuncCall),
     ArrayObj(VarType, Vec<Expr>)
 }
-
-/*
-An array needs to be used in a couple of different places
-
-First:
-    It needs to be able to defined in one of two ways 
-        [0; 5] brackets around a [value, length]
-        [i; 5] or [i*2; 5]
-
-    Usually assignment is a var_type = expression
-    I need to add a seperate type where assignment of an array = array_definition
-    
-    So instead of assignment, I will deam this array_definition and it will take
-
-    type[] arr = [equation with variable i being the index of array; size];
-
-Second:
-    I want to be able to update the values of an array
-        arr[expr] = new_value; 
-
-Third:
-    I want to be able to access the values of an array in an expression
-        int a = arr[0];
-*/
 
 #[derive(Debug, Clone)]
 pub struct Operation {

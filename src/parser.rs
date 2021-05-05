@@ -254,6 +254,13 @@ pub fn parse_ast(pair: Pair<Rule>, state:&mut State) -> Result<AstNode, ParseErr
                 },
                 Rule::var_name => {
                     (None, first_pos.as_str())
+                },
+                Rule::array_index => {
+                    let mut array_index_rule = first_pos.into_inner();
+                    let var_name = array_index_rule.next().unwrap().as_str().to_string();
+                    let index_exp = parse_into_expr(array_index_rule.next().unwrap().into_inner());
+                    let value_exp = parse_into_expr(inner_rules.next().unwrap().into_inner());
+                    return Ok(AstNode::ArrayIndexAssignment(var_name, index_exp, value_exp));
                 }
                 _ => return {
                     Err(ParseError::FormatError(format!("error parsing statement {}\n", statement)))

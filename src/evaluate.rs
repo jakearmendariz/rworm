@@ -65,6 +65,23 @@ pub fn eval_func(function:Function, state:&mut State) -> Result<Constant, Execut
     Err(ExecutionError::NeedReturnStm)
 }
 
+/* given the var type, and a value, tell if they match or not */
+fn type_matches_val(var_type:VarType, val:Constant) -> bool {
+    match (var_type,  val) {
+        (VarType::Int, Constant::Int(_)) => true,
+        (VarType::Float, Constant::Float(_)) => true,
+        (VarType::String, Constant::String(_)) => true,
+        (_, _) => false, 
+    }
+}
+
+fn get_value(name:String, state:&mut State) -> Result<Constant, ExecutionError>{
+    match state.var_map.get(&name.clone()) {
+        Some(value) => Ok(value.clone()),
+        None => Err(ExecutionError::ValueDne(name))
+    }
+}
+
 fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, ExecutionError> {
     match ast {
         AstNode::Assignment(vtype, name, exp) => {
@@ -94,7 +111,15 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                         Constant::Array(_,_) => return Err(ExecutionError::General(String::from("Cannot set array value"))),
                         Constant::ArrayIndex(name, _) => {
                             // TODO: retrieve the array from state, then we can check the expected type
-                            VarType::Int
+                            match state.var_map.get(&name) {
+                                Some(val) => match val {
+                                    Constant::Array(var_type,_) => {
+                                        var_type.clone()
+                                    },
+                                    _ => return Err(ExecutionError::ValueDne(name)),
+                                },
+                                None => return Err(ExecutionError::ValueDne(name))
+                            }
                         },
                     }
                 }
@@ -138,7 +163,23 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 _ => return Err(ExecutionError::TypeViolation),
             };
             state.var_map.insert(name, Constant::Array(var_type, elements));
-        }
+        },
+        AstNode::ArrayIndexAssignment(name, index_exp, value_exp) => {
+            let (var_type, mut elements) = match get_value(name.clone(), state)? {
+                Constant::Array(var_type, elements) => (var_type, elements),
+                _ => return Err(ExecutionError::TypeViolation),
+            };
+            let index = match eval_expr(index_exp, state)? {
+                Constant::Int(i) => i as usize,
+                _ => return Err(ExecutionError::TypeViolation),
+            };
+            let value = eval_expr(value_exp, state)?;
+            if ! type_matches_val(var_type.clone(), value.clone()) {
+                return Err(ExecutionError::TypeViolation);
+            };
+            elements[index] = value;
+            state.var_map.insert(name, Constant::Array(var_type, elements));
+        },
         AstNode::If(conditional, mut stms) => {
             if eval_bool_ast(&conditional, state)? {
                 while stms.len() > 0 {
@@ -171,9 +212,10 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 BuiltIn::Assert(boolexp) => {
                     if ! eval_bool_ast(&boolexp.clone(), state)? {
                         return Err(ExecutionError::AssertionError(boolexp));
-                    } else {
-                        println!("correct assertion: {:?}", boolexp);
-                    }
+                    } 
+                    // else {
+                    //     println!("correct assertion: {:?}", boolexp);
+                    // }
                 }
             }
             ()
