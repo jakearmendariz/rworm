@@ -113,7 +113,7 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                 }
                 Expr::ExpVal(Object::FuncCall(FuncCall {name:func_name, params:params}))
             },
-            Rule::string => Expr::ExpVal(Object::Constant(Constant::String(pair.as_str().to_string()))),
+            Rule::string => Expr::ExpVal(Object::Constant(Constant::String(pair.into_inner().next().unwrap().as_str().to_string()))),
             Rule::expr => parse_into_expr(pair.into_inner()),
             Rule::array_index => {
                 let mut arrary_index_rules = pair.into_inner();

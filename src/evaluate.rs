@@ -300,9 +300,13 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
             let left = eval_expr(*lhs, state)?;
             let right = eval_expr(*rhs, state)?;
             use Constant::{*};
-            let (l, r, is_int) = match (left, right) {
-                (Int(l), Int(r)) => (l as f64, r as f64, true),
-                (Float(l), Float(r)) => (l, r, false),
+            let (l, r, var_type) = match (left, right) {
+                (Int(l), Int(r)) => (l as f64, r as f64, VarType::Int),
+                (Float(l), Float(r)) => (l, r, VarType::Float),
+                (String(l), String(r)) => match op {
+                    OpType::Add => return Ok(Constant::String(format!("{}{}", l, r))),
+                    _ => return Err(ExecutionError::TypeViolation),//Err(ExecutionError:::General("string operation not allowed".to_string()))
+                }
                 _ => return Err(ExecutionError::TypeViolation) // do not accept strings or operations between ints and floats, for now
             };
             let res = match op {
@@ -317,10 +321,10 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                 },
                 OpType::Pow => l.powf(r),
             };
-            if is_int {
-                Ok(Constant::Int(res as i32))
-            } else{
-                Ok(Constant::Float(res))
+            match var_type {
+                VarType::Int => Ok(Constant::Int(res as i32)),
+                VarType::Float => Ok(Constant::Float(res)),
+                _ => Err(ExecutionError::TypeViolation)
             }
         }
     }

@@ -40,7 +40,9 @@ fn floating_gcd(float x, float y) -> float {
     return x;
 }
 
-fn hello(string s) -> string {
+fn hello(string s1, string s2) -> string {
+    string s = s1 + s2;
+    print(s);
     return s;
 }
 
@@ -58,7 +60,7 @@ fn main() -> string {
     assert(sum_up(10) == 45);
 
     /* checking string stuff */
-    assert(hello("hello") == "hello");
+    assert(hello("hello", ", world") == "hello, world");
 
     /* floating point test */
     assert(floating_lcm(10.0, 12.0) == 60.0);
