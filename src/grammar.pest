@@ -18,10 +18,10 @@ reserved = {"print" | "if" | "else" | "while" | "true" | "false" | " " | "}" | "
 var_name = @{!reserved ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*}
 
 any = {"any"}
-array_inst = _{(vint | vfloat | vstring | any) ~ "[]"}
+array_inst = {(vint | vfloat | vstring | any) ~ "[]"}
 piped = {"|" ~ var_name ~ "|"}
 array_initial = {"[" ~ piped? ~ expr ~ ";" ~ expr ~ "]"}
-array_definition = {array_inst ~ var_name ~ "=" ~ array_initial }
+array_definition = {array_inst ~ var_name ~ "=" ~ (array_initial | func_call) }
 array_val = {"[" ~ list? ~ "]"}
 array_index = {var_name ~"[" ~ expr ~ "]"}
 var_type = {array_inst | vint | vfloat | vstring | vbool}
@@ -39,7 +39,7 @@ char = {
 }
 
 boolops = _{eq | geq | leq | neq | lt | gt}
-    eq = {"="}
+    eq = {"=="}
     geq = {">="}
     leq = {"<="}
     neq = {"!="}
@@ -64,7 +64,8 @@ boolnot = {not ~ (("(" ~ boolterm ~ ")") | boolterm) }
 del = {"del" ~ "(" ~ var_name ~ ")"}
 skip = {"skip"}
 print = {"print" ~ "(" ~ expr ~ ")"}
-builtin = {del | print}
+assert = {"assert(" ~ boolexpr}
+builtin = {del | print | assert}
 
 body = _{statement+}
 ifstm = {"if" ~ boolexpr ~ "{" ~ body+ ~ "}"}
@@ -78,8 +79,7 @@ func_def = {"fn" ~ var_name ~ "(" ~ params? ~ ")" ~ "->" ~ var_type ~ "{" ~ body
 
 item = _{int | float | var_type}
 list = {expr ~ ("," ~ expr)*}
-func_call = {var_name ~ "(" ~ list ~ ")"}
-
+func_call = {var_name ~ "(" ~ list? ~ ")"}
 
 assignment = {(array_index | (var_type? ~ var_name)) ~ "=" ~ (expr | string)}
 statement = _{((builtin | skip | array_definition |  assignment) ~ ";") | (return_stm | func_def | ifstm | whilestm) }

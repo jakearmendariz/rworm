@@ -136,6 +136,9 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
     )
 }
 
+// fn parse_type(pair:Pair<Rule>) -> Result<VarType, ParseError> {
+
+// }
 
 fn parse_parameters(params_rules:Pairs<Rule>) -> Result<Vec<(VarType, String)>, ParseError> {
     let mut params:Vec<(VarType, String)> = Vec::new();
@@ -145,10 +148,19 @@ fn parse_parameters(params_rules:Pairs<Rule>) -> Result<Vec<(VarType, String)>, 
 
         let var_type = match pair.next() {
             Some(var_type) => {
-                match var_type.into_inner().next().unwrap().as_rule() {
+                let first = var_type.into_inner().next().unwrap();
+                match first.as_rule() {
                     Rule::vint => VarType::Int,
                     Rule::vfloat => VarType::Float,
                     Rule::vstring => VarType::String,
+                    Rule::array_inst => {
+                        match first.into_inner().next().unwrap().as_rule() {
+                            Rule::vint => VarType::Int,
+                            Rule::vfloat => VarType::Float,
+                            Rule::vstring => VarType::String,
+                            _ => return Err(ParseError::FormatError(format!("parse_parameters() array_inst")))
+                        }
+                    },
                     _ => return {
                         Err(ParseError::FormatError(format!("parse_parameters() parameters")))
                     }
@@ -168,6 +180,7 @@ fn parse_return_stm(return_rule:Pair<Rule>)  -> Result<VarType, ParseError>{
         Rule::vint => VarType::Int,
         Rule::vfloat => VarType::Float,
         Rule::vstring => VarType::String,
+        Rule::array_inst => parse_return_stm(return_rule.into_inner().next().unwrap())?,
         _ => return {
             Err(ParseError::FormatError(format!("parse_return_stm() error on {}", return_rule.as_str())))
         }
@@ -215,7 +228,9 @@ pub fn parse_function(pair:Pair<Rule>, state:&mut State) -> Result<(), ParseErro
     Ok(())
 }
 
-/* parses ast into nodes, only handles one clause at a time. */
+/* 
+* parses ast into nodes, only handles one clause at a time.
+*/
 pub fn parse_ast(pair: Pair<Rule>, state:&mut State) -> Result<AstNode, ParseError> {
     let rule = pair.as_rule();
     let statement = pair.as_str();
@@ -231,15 +246,6 @@ pub fn parse_ast(pair: Pair<Rule>, state:&mut State) -> Result<AstNode, ParseErr
                         Rule::vint => VarType::Int,
                         Rule::vfloat => VarType::Float,
                         Rule::vstring => VarType::String,
-                        // Rule::array_inst => {
-                        //     match start_of_assign.into_inner().next().unwrap().as_rule() {
-                        //         Rule::vint => VarType::Int,
-                        //         Rule::vfloat => VarType::Float,
-                        //         Rule::vstring => VarType::String,
-                        //         Rule::any => VarType::Any,
-                        //         _ => return Err(ParseError::FormatError(format!("no type for arrayinst on {}\n", statement)))
-                        //     }
-                        // }
                         _ => return {
                             Err(ParseError::FormatError(format!("error parsing var type on {}\n", statement)))
                         }
@@ -259,15 +265,32 @@ pub fn parse_ast(pair: Pair<Rule>, state:&mut State) -> Result<AstNode, ParseErr
         Rule::array_definition => {
             // format of `int[] a = [expression; size];`
             let mut array_rules = pair.into_inner();
-            let array_type = match array_rules.next().unwrap().as_rule() {
+            // to get the type inside of array, we first have to pass the outer loop of array_inst
+            let array_type = match array_rules.next().unwrap().into_inner().next().unwrap().as_rule() {
                 Rule::vint => VarType::Int,
                 Rule::vfloat => VarType::Float,
                 Rule::vstring => VarType::String,
                 _ => unreachable!(),
             };
             let array_name = array_rules.next().unwrap().as_str().to_string();
-            let mut array_def = array_rules.next().unwrap().into_inner();
-            // expression can be a constant or a value to be evaulated to, var i represents the index of an array
+
+            let mut init_or_call = array_rules.next().unwrap();
+            let mut array_def = match init_or_call.as_rule() {
+                Rule::array_initial => init_or_call.into_inner(),
+                Rule::func_call => {
+                    let mut inner = init_or_call.into_inner();
+                    let func_name = inner.next().unwrap().as_str().to_string();
+                    let mut params = Vec::new();
+                    for item in inner.next().unwrap().into_inner() {
+                        // println!("item in funccall() : {:?}", item);
+                        params.push(parse_into_expr(item.into_inner()));
+                    }
+                    return Ok(AstNode::ArrayFromExp(array_type, array_name,
+                        Expr::ExpVal(Object::FuncCall(FuncCall {name:func_name, params:params}))));
+                },
+                _ => return Err(ParseError::GeneralParseError(String::from("non array type in front of array dec")))
+            };
+                // expression can be a constant or a value to be evaulated to, var i represents the index of an array
             let mut first = array_def.next().unwrap();
             // catch the piped variable, optional, but if there it's the index of the program
             let (piped, expression) = match first.as_rule() {
@@ -310,6 +333,7 @@ pub fn parse_ast(pair: Pair<Rule>, state:&mut State) -> Result<AstNode, ParseErr
                     let expression = parse_into_expr(builtin.into_inner());
                     Ok(AstNode::BuiltIn(BuiltIn::Print(expression)))
                 },
+                Rule::assert => Ok(AstNode::BuiltIn(BuiltIn::Assert(parse_bool_ast(&mut builtin.into_inner())))),
                 _ => unreachable!()
             }
         },

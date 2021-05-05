@@ -12,6 +12,7 @@ pub enum AstNode {
     Assignment(Option<VarType>, String, Expr),
     //type, name, optional piped variable for index, value expression, size expression
     ArrayDef(VarType, String, Option<String>, Expr, Expr), 
+    ArrayFromExp(VarType, String, Expr),
     // if bool then do ast
     If(BoolAst, Vec<Box<AstNode>>),
     While(BoolAst, Vec<Box<AstNode>>),
@@ -41,7 +42,8 @@ pub enum BoolAst {
 #[derive(Debug, Clone)]
 pub enum BuiltIn {
     Delete(String),
-    Print(Expr)
+    Print(Expr),
+    Assert(BoolAst)
 }
 
 #[derive(Debug, Clone)]
