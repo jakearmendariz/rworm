@@ -5,7 +5,7 @@ use std::cmp::Ordering;
 
 #[derive(Debug, Clone)]
 pub enum ExecutionError {
-    ValueDne,
+    ValueDne(String),
     DivideByZero,
     TypeViolation,
     NeedReturnStm,
@@ -109,7 +109,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 }, 
             };
         },
-        AstNode::ArrayDef(var_type, name, value_exp, length_exp) => {
+        AstNode::ArrayDef(var_type, name, piped, value_exp, length_exp) => {
             let len = match eval_expr(length_exp, state)? {
                 Constant::Int(i) => i as usize,
                 Constant::Float(f) => f as usize,
@@ -119,7 +119,12 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
             let mut elements:Vec<Constant> = Vec::new();
             for i in 0..len {
                 // not currently type checking need to add that later on
-                state.var_map.insert(String::from("i"), Constant::Int(i as i32));
+                match piped.clone() {
+                    Some(variable) => {
+                        println!("piped var:{}", variable);
+                        state.var_map.insert(variable, Constant::Int(i as i32)); ()},
+                    None => (),
+                };
                 elements.push(eval_expr(value_exp.clone(), state)?);
             }
             state.var_map.insert(name, Constant::Array(var_type, elements));
@@ -208,7 +213,7 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                     // get variable as a constant value
                     match state.var_map.get(&name) {
                         Some(value) => Ok(value.clone()),
-                        None => return Err(ExecutionError::ValueDne)
+                        None => return Err(ExecutionError::ValueDne(name))
                     }
                 },
                 Object::ArrayObj(var_type, elements) => {
@@ -221,12 +226,12 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                 Object::Constant(Constant::Array(var_type, elements)) => Ok(Constant::Array(var_type, elements)),
                 Object::Constant(Constant::ArrayIndex(name, index_exp)) => {
                     // get array from state map
-                    let mut array = match state.var_map.get(&name) {
+                    let mut array = match state.var_map.get(&name.clone()) {
                         Some(value) => match value.clone() {
                             Constant::Array(_var_type, elements) => elements,
                             _ => return Err(ExecutionError::TypeViolation),
                         },
-                        None => return Err(ExecutionError::ValueDne)
+                        None => return Err(ExecutionError::ValueDne(name))
                     };
                     // get the index, if its not number return error
                     let index = match eval_expr(*index_exp, state)? {
@@ -260,14 +265,8 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
             }
         },
         Expr::ExpOp(lhs, op, rhs) => {
-            let left = match eval_expr(*lhs, state) {
-                Ok(value) => value,
-                Err(_) => return Err(ExecutionError::ValueDne)
-            };
-            let right = match eval_expr(*rhs, state) {
-                Ok(value) => value,
-                Err(_) => return Err(ExecutionError::ValueDne)
-            };
+            let left = eval_expr(*lhs, state)?;
+            let right = eval_expr(*rhs, state)?;
             use Constant::{*};
             let (l, r, is_int) = match (left, right) {
                 (Int(l), Int(r)) => (l as f64, r as f64, true),

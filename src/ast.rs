@@ -8,8 +8,11 @@ pub struct State {
 
 #[derive(Debug, Clone)]
 pub enum AstNode {
+    // option(type) var_name = expression
     Assignment(Option<VarType>, String, Expr),
-    ArrayDef(VarType, String, Expr, Expr), //type, name, value expression, size expression
+    //type, name, optional piped variable for index, value expression, size expression
+    ArrayDef(VarType, String, Option<String>, Expr, Expr), 
+    // if bool then do ast
     If(BoolAst, Vec<Box<AstNode>>),
     While(BoolAst, Vec<Box<AstNode>>),
     BuiltIn(BuiltIn),

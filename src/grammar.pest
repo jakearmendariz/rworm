@@ -19,7 +19,8 @@ var_name = @{!reserved ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*}
 
 any = {"any"}
 array_inst = _{(vint | vfloat | vstring | any) ~ "[]"}
-array_initial = {"[" ~ expr ~ ";" ~ expr ~ "]"}
+piped = {"|" ~ var_name ~ "|"}
+array_initial = {"[" ~ piped? ~ expr ~ ";" ~ expr ~ "]"}
 array_definition = {array_inst ~ var_name ~ "=" ~ array_initial }
 array_val = {"[" ~ list? ~ "]"}
 array_index = {var_name ~"[" ~ expr ~ "]"}

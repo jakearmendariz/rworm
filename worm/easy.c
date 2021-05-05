@@ -6,7 +6,7 @@ fn sum(int a, int b) -> int {
 fn sum_up(int limit) -> int {
     int sum = 0;
     int j = 0;
-    int[] nums = [(i+1)*6; limit]; /* [1, 2, 3, 4] */
+    int[] nums = [|i| i; limit]; /* [1, 2, 3, 4] */
     while j < limit {
         sum = sum(sum, nums[j]); 
         print(nums[j]);

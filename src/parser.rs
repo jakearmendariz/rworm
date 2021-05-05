@@ -13,7 +13,7 @@ pub enum ParseError {
     FormatError(String),
     NoReturnType,
     UnencampslatedStatement,
-    GeneralParseError
+    GeneralParseError(String)
 }
 
 /* 
@@ -268,10 +268,17 @@ pub fn parse_ast(pair: Pair<Rule>, state:&mut State) -> Result<AstNode, ParseErr
             let array_name = array_rules.next().unwrap().as_str().to_string();
             let mut array_def = array_rules.next().unwrap().into_inner();
             // expression can be a constant or a value to be evaulated to, var i represents the index of an array
-            let expression = parse_into_expr(array_def.next().unwrap().into_inner());
+            let mut first = array_def.next().unwrap();
+            // catch the piped variable, optional, but if there it's the index of the program
+            let (piped, expression) = match first.as_rule() {
+                Rule::piped => (Some(first.into_inner().next().unwrap().as_str().to_string()), parse_into_expr(array_def.next().unwrap().into_inner())),
+                Rule::expr => (None, parse_into_expr(first.into_inner())),
+                _ => return Err(ParseError::GeneralParseError(String::from("Unmatched rule in piped slot of array def")))
+            };
+            // let expression = parse_into_expr(array_def.next().unwrap().into_inner());
             // size must be an uinteger, but parse into expression anyways in case a variable is passed in
             let size_expr = parse_into_expr(array_def.next().unwrap().into_inner());
-            Ok(AstNode::ArrayDef(array_type, array_name, expression, size_expr))
+            Ok(AstNode::ArrayDef(array_type, array_name, piped, expression, size_expr))
             
         }
         Rule::ifstm | Rule::whilestm => {
@@ -310,7 +317,7 @@ pub fn parse_ast(pair: Pair<Rule>, state:&mut State) -> Result<AstNode, ParseErr
             let return_expr = pair.into_inner().next().unwrap();
             Ok(AstNode::ReturnStm(parse_into_expr(return_expr.into_inner())))
         },
-        Rule::parse_error => return Err(ParseError::GeneralParseError),
+        Rule::parse_error => return Err(ParseError::GeneralParseError(format!("unmatched rule while parsing ast {:?}", rule))),
         Rule::EOI => return Err(ParseError::EndOfInput),
         _ => {
             println!("{:?} rule is unreachable while parsing", pair.as_rule());
