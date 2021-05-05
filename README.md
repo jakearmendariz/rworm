@@ -9,21 +9,29 @@ Jake Armendariz
 
 
 ## TODO
-arrays
-more complicatd sample program to test
-print statement that is more dynamic
-research llvm and either move in one two directions
-1) convert the current version of code to a compiled language
-2) Add dictionaries, then start messing around with weird language features and syntaxes to make this actually useful
+- String concatination and indexing
+- structs
+- Better error handling
+- weird stuff to make it unique and fun
+- Maybe....
+    - forloops
+    - json
+    - calling command line stuff
 
-### Arrays
-Arrays can be defined as a type `int[] arr = [expr(index as i); size]` ex: `int[] arr = [i; 3]` => `[0, 1, 2]` 
-- TODO
-    - update values of array
-    - arr[i] = 6
-- Ideas
-    - Add lazy evaluation
-    - int[] arr = [expression; ..]
+## Complete
+- Strongly typed
+- function oriented, must have return types to functions
+- arrays (see below)
+- int, floats, strings are primary types, each has an array type
+- nested expressions in every case, function calls, indexing
+- built in functions, print(), assert()
+
+## Unique
+#### Arrays
+Arrays can be defined as a type `int[] arr = [|i| i; size]` where i is the index value ex: `int[] arr = [|i| (i+1)^2; 3]` => `[1, 4, 9]` 
+
+
+
 
 ### Possible additonal features
 llvmenv = "0.3.1"
