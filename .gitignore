@@ -2,3 +2,8 @@ target/
 Cargo.lock
 .DS_Store
 project-proposal-jsarmend.pdf
+errors
+project-slides.pdf
+src/test.rs
+test
+while_slides.pdf

@@ -9,13 +9,14 @@ pub struct State {
 #[derive(Debug, Clone)]
 pub enum AstNode {
     Assignment(Option<VarType>, String, Expr),
+    ArrayDef(VarType, String, Expr, Expr), //type, name, value expression, size expression
     If(BoolAst, Vec<Box<AstNode>>),
     While(BoolAst, Vec<Box<AstNode>>),
     BuiltIn(BuiltIn),
-    FuncDef(Function),
     ReturnStm(Expr),
     Skip(),
 }
+
 
 #[derive(Debug, Clone)]
 pub struct Function {
@@ -77,6 +78,8 @@ pub enum Constant {
     Int(i32),
     Float(f64),
     String(String),
+    Array(VarType, Vec<Constant>),
+    ArrayIndex(String, Box<Expr>) // string for variable name, once retrieved the usize will get the constant value
 }
 
 /*
@@ -84,10 +87,35 @@ pub enum Constant {
 */
 #[derive(Debug, Clone)]
 pub enum Object {
-  Variable(String),
-  Constant(Constant),
-  FuncCall(FuncCall),
+    Variable(String),
+    Constant(Constant),
+    FuncCall(FuncCall),
+    ArrayObj(VarType, Vec<Expr>)
 }
+
+/*
+An array needs to be used in a couple of different places
+
+First:
+    It needs to be able to defined in one of two ways 
+        [0; 5] brackets around a [value, length]
+        [i; 5] or [i*2; 5]
+
+    Usually assignment is a var_type = expression
+    I need to add a seperate type where assignment of an array = array_definition
+    
+    So instead of assignment, I will deam this array_definition and it will take
+
+    type[] arr = [equation with variable i being the index of array; size];
+
+Second:
+    I want to be able to update the values of an array
+        arr[expr] = new_value; 
+
+Third:
+    I want to be able to access the values of an array in an expression
+        int a = arr[0];
+*/
 
 #[derive(Debug, Clone)]
 pub struct Operation {

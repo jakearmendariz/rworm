@@ -1,5 +1,5 @@
 int = { ("+" | "-")? ~ ASCII_DIGIT+ }
-float = @{ int ~ ("." ~ ASCII_DIGIT*) ~ (^"e" ~ int)? }
+float = @{ int ~ ("." ~ ASCII_DIGIT+) }
 
 operation = _{ add | subtract | multiply | divide | power }
     add      = { "+" }
@@ -9,18 +9,20 @@ operation = _{ add | subtract | multiply | divide | power }
     power    = { "^" }
 
 expr = { term ~ (operation ~ term)* }
-term = _{int | float | func_call | var_name | string | array_def | array_val | arr_index | "(" ~ expr ~ ")" }
+term = _{float | int  | func_call | array_index | var_name | string  | "(" ~ expr ~ ")" }
 
 COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 WHITESPACE = _{ " "+ | "\t" | NEWLINE+}
 reserved = {"print" | "if" | "else" | "while" | "true" | "false" | " " | "}" | "{" | ";" | ":"}
 
-var_name = @{!reserved ~ ASCII_ALPHA ~ ASCII_ALPHANUMERIC*}
+var_name = @{!reserved ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*}
 
-array_inst = @{(vint | vfloat | vstring) ~ "[]"}
-array_def = {"[" ~ var_type ~ ";" ~ int ~ "]"}
-array_val = {"[" ~ list ~ "]"}
-arr_index = {var_name ~"[" ~ int ~ "]"}
+any = {"any"}
+array_inst = _{(vint | vfloat | vstring | any) ~ "[]"}
+array_initial = {"[" ~ expr ~ ";" ~ expr ~ "]"}
+array_definition = {array_inst ~ var_name ~ "=" ~ array_initial }
+array_val = {"[" ~ list? ~ "]"}
+array_index = {var_name ~"[" ~ expr ~ "]"}
 var_type = {array_inst | vint | vfloat | vstring | vbool}
     vint = {"int"}
     vfloat = {"float"}
@@ -77,6 +79,7 @@ item = _{int | float | var_type}
 list = {expr ~ ("," ~ expr)*}
 func_call = {var_name ~ "(" ~ list ~ ")"}
 
-assignment = {var_type? ~ var_name ~ "=" ~ (expr | string)}
-statement = _{((builtin | skip | assignment) ~ ";") | (return_stm | func_def | ifstm | whilestm) }
+
+assignment = {(array_index | (var_type? ~ var_name)) ~ "=" ~ (expr | string)}
+statement = _{((builtin | skip | array_definition |  assignment) ~ ";") | (return_stm | func_def | ifstm | whilestm) }
 program = _{ SOI ~ func_def* ~ EOI }

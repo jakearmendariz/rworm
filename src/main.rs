@@ -6,12 +6,11 @@ extern crate lazy_static;
 mod ast;
 mod parser;
 mod evaluate;
-use crate::ast::{AstNode, State, Function, Constant};
+use crate::ast::{State, Function, Constant};
 use crate::parser::{*};
 use crate::evaluate::{*};
 use pest::Parser;
 use std::collections::{HashMap};
-use std::vec::Vec;
 use std::string::String;
 
 // builds default for state

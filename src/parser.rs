@@ -108,12 +108,19 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                 let func_name = inner.next().unwrap().as_str().to_string();
                 let mut params = Vec::new();
                 for item in inner.next().unwrap().into_inner() {
+                    // println!("item in funccall() : {:?}", item);
                     params.push(parse_into_expr(item.into_inner()));
                 }
                 Expr::ExpVal(Object::FuncCall(FuncCall {name:func_name, params:params}))
             },
             Rule::string => Expr::ExpVal(Object::Constant(Constant::String(pair.as_str().to_string()))),
             Rule::expr => parse_into_expr(pair.into_inner()),
+            Rule::array_index => {
+                let mut arrary_index_rules = pair.into_inner();
+                let array_name = arrary_index_rules.next().unwrap().as_str().to_string();
+                let index = parse_into_expr(arrary_index_rules.next().unwrap().into_inner());
+                Expr::ExpVal(Object::Constant(Constant::ArrayIndex(array_name, Box::new(index))))
+            },
             _ => unreachable!(),
         },
         |lhs: Expr, op: Pair<Rule>, rhs: Expr | {
@@ -219,10 +226,20 @@ pub fn parse_ast(pair: Pair<Rule>, state:&mut State) -> Result<AstNode, ParseErr
             let first_pos = inner_rules.next().unwrap();
             let (var_type, var_name) = match first_pos.as_rule() {
                 Rule::var_type => {
-                    let vartype = match first_pos.into_inner().next().unwrap().as_rule() {
+                    let start_of_assign = first_pos.into_inner().next().unwrap();
+                    let vartype = match start_of_assign.as_rule() {
                         Rule::vint => VarType::Int,
                         Rule::vfloat => VarType::Float,
                         Rule::vstring => VarType::String,
+                        // Rule::array_inst => {
+                        //     match start_of_assign.into_inner().next().unwrap().as_rule() {
+                        //         Rule::vint => VarType::Int,
+                        //         Rule::vfloat => VarType::Float,
+                        //         Rule::vstring => VarType::String,
+                        //         Rule::any => VarType::Any,
+                        //         _ => return Err(ParseError::FormatError(format!("no type for arrayinst on {}\n", statement)))
+                        //     }
+                        // }
                         _ => return {
                             Err(ParseError::FormatError(format!("error parsing var type on {}\n", statement)))
                         }
@@ -239,6 +256,24 @@ pub fn parse_ast(pair: Pair<Rule>, state:&mut State) -> Result<AstNode, ParseErr
             let expression = parse_into_expr(inner_rules.next().unwrap().into_inner());
             Ok(AstNode::Assignment(var_type, var_name.to_string(), expression))
         },
+        Rule::array_definition => {
+            // format of `int[] a = [expression; size];`
+            let mut array_rules = pair.into_inner();
+            let array_type = match array_rules.next().unwrap().as_rule() {
+                Rule::vint => VarType::Int,
+                Rule::vfloat => VarType::Float,
+                Rule::vstring => VarType::String,
+                _ => unreachable!(),
+            };
+            let array_name = array_rules.next().unwrap().as_str().to_string();
+            let mut array_def = array_rules.next().unwrap().into_inner();
+            // expression can be a constant or a value to be evaulated to, var i represents the index of an array
+            let expression = parse_into_expr(array_def.next().unwrap().into_inner());
+            // size must be an uinteger, but parse into expression anyways in case a variable is passed in
+            let size_expr = parse_into_expr(array_def.next().unwrap().into_inner());
+            Ok(AstNode::ArrayDef(array_type, array_name, expression, size_expr))
+            
+        }
         Rule::ifstm | Rule::whilestm => {
             let mut inner_rules = pair.into_inner();
             let mut bool_exp = inner_rules.next().unwrap().into_inner();
