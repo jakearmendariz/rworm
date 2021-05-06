@@ -2,8 +2,8 @@ use crate::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct State {
-    pub var_map:HashMap<String, Constant>,
-    pub func_map:HashMap<String, Function>,
+    pub var_map: HashMap<String, Constant>,
+    pub func_map: HashMap<String, Function>,
 }
 
 #[derive(Debug, Clone)]
@@ -12,10 +12,10 @@ pub enum AstNode {
     Assignment(Option<VarType>, String, Expr),
     //type, name, optional piped variable for index, value expression, size expression
     // int[] arr = [|opt| expr1; expr2]
-    ArrayDef(VarType, String, Option<String>, Expr, Expr), 
+    ArrayDef(VarType, String, Option<String>, Expr, Expr),
     // int[] arr = function(that returns an array)
     ArrayFromExp(VarType, String, Expr),
-    // arr[exp1] = exp2; 
+    // arr[exp1] = exp2;
     ArrayIndexAssignment(String, Expr, Expr),
     // if bool then do ast
     If(Vec<(BoolAst, Vec<Box<AstNode>>)>),
@@ -25,13 +25,12 @@ pub enum AstNode {
     Skip(),
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Function {
-    pub name:String,
-    pub params:Vec<(VarType, String)>,
-    pub return_type:VarType,
-    pub statements:Vec<Box<AstNode>>,
+    pub name: String,
+    pub params: Vec<(VarType, String)>,
+    pub return_type: VarType,
+    pub statements: Vec<Box<AstNode>>,
 }
 
 #[derive(Debug, Clone)]
@@ -40,14 +39,14 @@ pub enum BoolAst {
     And(Box<BoolAst>, Box<BoolAst>),
     Or(Box<BoolAst>, Box<BoolAst>),
     Exp(BoolExp),
-    Const(bool)
+    Const(bool),
 }
 
 #[derive(Debug, Clone)]
 pub enum BuiltIn {
     Delete(String),
     Print(Expr),
-    Assert(BoolAst)
+    Assert(BoolAst),
 }
 
 #[derive(Debug, Clone)]
@@ -60,7 +59,7 @@ pub enum BoolOp {
     Geq,
     Leq,
     Lt,
-    Gt
+    Gt,
 }
 
 #[derive(Debug, Clone)]
@@ -78,8 +77,8 @@ pub enum VarType {
 
 #[derive(Debug, Clone)]
 pub struct FuncCall {
-    pub name:String,
-    pub params: Vec<Expr>
+    pub name: String,
+    pub params: Vec<Expr>,
 }
 
 #[derive(Debug, Clone)]
@@ -88,7 +87,7 @@ pub enum Constant {
     Float(f64),
     String(String),
     Array(VarType, Vec<Constant>),
-    ArrayIndex(String, Box<Expr>) // string for variable name, once retrieved the usize will get the constant value
+    ArrayIndex(String, Box<Expr>), // string for variable name, once retrieved the usize will get the constant value
 }
 
 /*
@@ -99,14 +98,14 @@ pub enum Object {
     Variable(String),
     Constant(Constant),
     FuncCall(FuncCall),
-    ArrayObj(VarType, Vec<Expr>)
+    ArrayObj(VarType, Vec<Expr>),
 }
 
 #[derive(Debug, Clone)]
 pub struct Operation {
-    op:OpType,
-    left:Box<Expr>,
-    right:Box<Expr>
+    op: OpType,
+    left: Box<Expr>,
+    right: Box<Expr>,
 }
 
 #[derive(Debug, Clone)]
@@ -115,5 +114,5 @@ pub enum OpType {
     Mult,
     Sub,
     Div,
-    Pow
+    Pow,
 }
