@@ -18,7 +18,7 @@ pub enum AstNode {
     // arr[exp1] = exp2; 
     ArrayIndexAssignment(String, Expr, Expr),
     // if bool then do ast
-    If(BoolAst, Vec<Box<AstNode>>),
+    If(Vec<(BoolAst, Vec<Box<AstNode>>)>),
     While(BoolAst, Vec<Box<AstNode>>),
     BuiltIn(BuiltIn),
     ReturnStm(Expr),

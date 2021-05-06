@@ -30,11 +30,14 @@ fn floating_lcm(float a, float b) -> float {
 }
 
 fn floating_gcd(float x, float y) -> float {
-    while(x != y) {
+    while(true) {
         if x > y {
             x = x - y;
-        } if x < y {
+            print(x);
+        } else if x < y {
             y = y - x;
+        } else if(y == x) {
+            return x;
         }
     }
     return x;

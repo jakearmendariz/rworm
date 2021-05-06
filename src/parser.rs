@@ -224,6 +224,7 @@ pub fn parse_function(pair:Pair<Rule>, state:&mut State) -> Result<(), ParseErro
         stms.push(Box::new(ast));
     }
     let function = Function {name:fn_name.clone(), return_type:return_type, params:params, statements:stms};
+    println!("function:{:?}", function.clone());
     state.func_map.insert(fn_name, function);
     Ok(())
 }
@@ -311,25 +312,53 @@ pub fn parse_ast(pair: Pair<Rule>, state:&mut State) -> Result<AstNode, ParseErr
             Ok(AstNode::ArrayDef(array_type, array_name, piped, expression, size_expr))
             
         }
-        Rule::ifstm | Rule::whilestm => {
+        Rule::whilestm => {
             let mut inner_rules = pair.into_inner();
             let mut bool_exp = inner_rules.next().unwrap().into_inner();
             let bool_ast = parse_bool_ast(&mut bool_exp);
             let mut stms = Vec::new();
 
             for stm in inner_rules { // two in forloop, one in while loop
-                let ast = match parse_ast(stm, state) {
-                    Ok(ast) => ast,
-                    Err(e) => return Err(e),
-                };
+                let ast = parse_ast(stm, state)?;
                 stms.push(Box::new(ast));
             }
 
-            match rule {
-                Rule::ifstm => Ok(AstNode::If(bool_ast, stms)),
-                Rule::whilestm => Ok(AstNode::While(bool_ast, stms)),
-                _ => unreachable!()
+            Ok(AstNode::While(bool_ast, stms))
+        },
+        Rule::ifstm => {
+            let mut inner_rules = pair.into_inner();
+            let mut if_set = Vec::new();
+            while(true){ //this will break once all if else have been parsed
+                let (ifstm, boolexp) = match inner_rules.next() {
+                    Some(stm) => {
+                        match stm.as_rule() {
+                            Rule::else_stm => {
+                                let inner = stm.into_inner();
+                                (
+                                    inner,
+                                    BoolAst::Const(true)
+                                )
+                            },
+                            _ => { //only if or if else statements get to this point, they are handled the same
+                                let mut inner = stm.into_inner();
+                                let mut boolast = inner.next().unwrap().into_inner();
+                                (
+                                    inner,
+                                    parse_bool_ast(&mut boolast)
+                                )
+                            }
+                        }
+                    },
+                    None => break,
+                };                
+                //get the body of statements
+                let mut stms:Vec<Box<AstNode>> = Vec::new();
+                for stm in ifstm {
+                    stms.push(Box::new(parse_ast(stm, state)?));
+                }
+                if_set.push((boolexp, stms));
             }
+            Ok(AstNode::If(if_set))
         },
         Rule::skip => return Ok(AstNode::Skip()),
         Rule::builtin => {

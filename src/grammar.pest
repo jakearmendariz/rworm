@@ -68,7 +68,11 @@ assert = {"assert(" ~ boolexpr}
 builtin = {del | print | assert}
 
 body = _{statement+}
-ifstm = {"if" ~ boolexpr ~ "{" ~ body+ ~ "}"}
+ifstm = {if_stm ~ elseif_stm* ~ else_stm?}
+if_stm = {"if" ~ boolexpr ~ "{" ~ body+ ~ "}"}
+elseif_stm = {"else if" ~ boolexpr ~ "{" ~ body ~ "}"}
+else_stm = {"else" ~ "{" ~ body ~ "}"}
+
 whilestm = {"while" ~ boolexpr ~ "{" ~ body+ ~ "}"}
 parse_error = {ASCII_ALPHANUMERIC*}
 

@@ -180,13 +180,16 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
             elements[index] = value;
             state.var_map.insert(name, Constant::Array(var_type, elements));
         },
-        AstNode::If(conditional, mut stms) => {
-            if eval_bool_ast(&conditional, state)? {
-                while stms.len() > 0 {
-                    match eval_ast(*stms.remove(0), state)? {
-                        Some(eval) => return Ok(Some(eval)),
-                        None => ()
+        AstNode::If(if_pairs) => {
+            for (conditional, mut stms) in if_pairs {
+                if eval_bool_ast(&conditional, state)? {
+                    while stms.len() > 0 {
+                        match eval_ast(*stms.remove(0), state)? {
+                            Some(eval) => return Ok(Some(eval)),
+                            None => ()
+                        }
                     }
+                    break;
                 }
             }
         },
