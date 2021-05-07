@@ -25,7 +25,6 @@ fn sum_up(int limit) -> int {
 
 fn floating_lcm(float a, float b) -> float {
     float ans = (a*b)/floating_gcd(a, b);
-    print(ans);
     return ans;
 }
 
@@ -33,7 +32,6 @@ fn floating_gcd(float x, float y) -> float {
     while(true) {
         if x > y {
             x = x - y;
-            print(x);
         } else if x < y {
             y = y - x;
         } else if(y == x) {

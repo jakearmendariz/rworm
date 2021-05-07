@@ -145,9 +145,6 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
     )
 }
 
-// fn parse_type(pair:Pair<Rule>) -> Result<VarType, ParseError> {
-
-// }
 
 fn parse_parameters(params_rules: Pairs<Rule>) -> Result<Vec<(VarType, String)>, ParseError> {
     let mut params: Vec<(VarType, String)> = Vec::new();
@@ -245,7 +242,6 @@ pub fn parse_function(pair: Pair<Rule>, state: &mut State) -> Result<(), ParseEr
         params: params,
         statements: stms,
     };
-    println!("function:{:?}", function.clone());
     state.func_map.insert(fn_name, function);
     Ok(())
 }
@@ -332,7 +328,6 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                     let func_name = inner.next().unwrap().as_str().to_string();
                     let mut params = Vec::new();
                     for item in inner.next().unwrap().into_inner() {
-                        // println!("item in funccall() : {:?}", item);
                         params.push(parse_into_expr(item.into_inner()));
                     }
                     return Ok(AstNode::ArrayFromExp(
@@ -379,7 +374,6 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             let mut stms = Vec::new();
 
             for stm in inner_rules {
-                // two in forloop, one in while loop
                 let ast = parse_ast(stm, state)?;
                 stms.push(Box::new(ast));
             }
@@ -389,7 +383,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
         Rule::ifstm => {
             let mut inner_rules = pair.into_inner();
             let mut if_set = Vec::new();
-            while (true) {
+            loop {
                 //this will break once all if else have been parsed
                 let (ifstm, boolexp) = match inner_rules.next() {
                     Some(stm) => {
