@@ -44,7 +44,6 @@ pub enum BoolAst {
 
 #[derive(Debug, Clone)]
 pub enum BuiltIn {
-    Delete(String),
     Print(Expr),
     Assert(BoolAst),
 }
@@ -90,6 +89,7 @@ pub enum Constant {
     ArrayIndex(String, Box<Expr>), // string for variable name, once retrieved the usize will get the constant value
 }
 
+
 /*
 * Objects can be constants values, or variable names that turn into constants, or function calls
 */
@@ -98,7 +98,6 @@ pub enum Object {
     Variable(String),
     Constant(Constant),
     FuncCall(FuncCall),
-    ArrayObj(VarType, Vec<Expr>),
 }
 
 #[derive(Debug, Clone)]

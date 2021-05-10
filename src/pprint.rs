@@ -112,41 +112,22 @@ fn eval_ast(ast:AstNode, state:&mut State, tab_count:u32) -> Result<Option<Const
             };
             // elements of the array
             let mut elements:Vec<Constant> = Vec::new();
-            let (variable, pipe) = match piped {
-                Some(piped) => (piped, true),
-                None => (String::from(""), false)
-            };
-            for i in 0..len {
-                // not currently type checking need to add that later on
-                if pipe {
-                    state.var_map.insert(variable.clone(), Constant::Int(i as i32));
-                }
-                elements.push(eval_expr(value_exp.clone(), state, tab_count)?);
-            }
             state.var_map.insert(name, Constant::Array(var_type, elements));
         },
         AstNode::ArrayFromExp(_, name, expr) => {
-            let (var_type, elements) = match eval_expr(expr, state, tab_count)? {
+            let (var_type, elements) = match eval_expr(expr.clone(), state, tab_count)? {
                 Constant::Array(var_type, elements) => (var_type, elements),
                 _ => return Err(ExecutionError::TypeViolation),
             };
+            tab_print(format!("{:?} {} = {}", var_type.clone(), name.clone(), expr_to_string(expr)), tab_count);
             state.var_map.insert(name, Constant::Array(var_type, elements));
         },
         AstNode::ArrayIndexAssignment(name, index_exp, value_exp) => {
             tab_print(format!("{}[{}] = {}", name.clone(), expr_to_string(index_exp.clone()), expr_to_string(value_exp.clone())), tab_count);
-            let (var_type, mut elements) = match get_value(name.clone(), state)? {
+            let (var_type, elements) = match get_value(name.clone(), state)? {
                 Constant::Array(var_type, elements) => (var_type, elements),
                 _ => return Err(ExecutionError::TypeViolation),
             };
-            let index = match eval_expr(index_exp, state, tab_count)? {
-                Constant::Int(i) => i as usize,
-                _ => return Err(ExecutionError::TypeViolation),
-            };
-            let value = eval_expr(value_exp, state, tab_count)?;
-            if ! type_matches_val(var_type.clone(), value.clone()) {
-                return Err(ExecutionError::TypeViolation);
-            };
-            elements[index] = value;
             state.var_map.insert(name, Constant::Array(var_type, elements));
         },
         AstNode::If(if_pairs) => {
@@ -162,7 +143,7 @@ fn eval_ast(ast:AstNode, state:&mut State, tab_count:u32) -> Result<Option<Const
                 }
             }
         },
-        AstNode::While(conditional, mut stms) => {
+        AstNode::While(conditional, stms) => {
             while eval_bool_ast(&conditional, state, tab_count)? {
                 for stm in stms.clone() {
                     match eval_ast(*stm.clone(), state, tab_count + 1)? {
@@ -174,10 +155,6 @@ fn eval_ast(ast:AstNode, state:&mut State, tab_count:u32) -> Result<Option<Const
         },
         AstNode::BuiltIn(builtin) => {
             match builtin {
-                BuiltIn::Delete(name) => {
-                    state.var_map.remove(&name);
-                    ()
-                },
                 BuiltIn::Print(exp) => {
                     println!("{:?} => {:?}", exp.clone(), eval_expr(exp, state, tab_count)?);
                 },
@@ -246,7 +223,6 @@ fn expr_to_string(exp:Expr) -> String {
                     // get variable as a constant value
                     name
                 },
-                Object::ArrayObj(var_type, elements) => String::from("arrayobj"),
                 Object::Constant(Constant::Array(var_type, elements)) => String::from("constant.array"),
                 Object::Constant(Constant::ArrayIndex(name, index_exp)) => {
                     // get array from state map
@@ -281,7 +257,9 @@ fn expr_to_string(exp:Expr) -> String {
     }
 }
 
-/* eval_expr evaluates inline expressions */
+/* 
+* eval_expr evaluates inline expressions 
+*/
 fn eval_expr(exp:Expr, state:&mut State, tab_count:u32) -> Result<Constant, ExecutionError> {
     // tab_print(expr_to_string(exp.clone()), tab_count);
     match exp {
@@ -293,13 +271,6 @@ fn eval_expr(exp:Expr, state:&mut State, tab_count:u32) -> Result<Constant, Exec
                         Some(value) => Ok(value.clone()),
                         None => return Err(ExecutionError::ValueDne(name))
                     }
-                },
-                Object::ArrayObj(var_type, elements) => {
-                    let mut arr_elements = Vec::new();
-                    for element in elements {
-                        arr_elements.push(eval_expr(element, state, tab_count)?);
-                    }
-                    Ok(Constant::Array(var_type, arr_elements))
                 },
                 Object::Constant(Constant::Array(var_type, elements)) => Ok(Constant::Array(var_type, elements)),
                 Object::Constant(Constant::ArrayIndex(name, index_exp)) => {

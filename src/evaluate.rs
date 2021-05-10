@@ -1,6 +1,7 @@
 use crate::ast::{*};
 use std::collections::HashMap;
 use std::cmp::Ordering;
+use log::{info, trace, warn};
 
 #[derive(Debug, Clone)]
 pub enum ExecutionError {
@@ -10,7 +11,7 @@ pub enum ExecutionError {
     NeedReturnStm,
     CannotFindFunction(String),
     General(String),
-    AssertionError(BoolAst)
+    AssertionError(BoolAst),
 }
 
 /* run program calls the main function to run the program */
@@ -18,7 +19,7 @@ pub fn run_program(state:&mut State) -> Result<Constant, ExecutionError> {
     let main_function = match state.func_map.get("main") {
         Some(func) => func,
         None => {
-            println!("Error parsing main function");
+            warn!("Error parsing main function");
             return Err(ExecutionError::CannotFindFunction("main".to_string()));
         },
     };
@@ -72,6 +73,9 @@ fn type_matches_val(var_type:VarType, val:Constant) -> bool {
     }
 }
 
+/* 
+* returns a value or that a value does not exist 
+*/
 fn get_value(name:String, state:&mut State) -> Result<Constant, ExecutionError>{
     match state.var_map.get(&name.clone()) {
         Some(value) => Ok(value.clone()),
@@ -79,6 +83,29 @@ fn get_value(name:String, state:&mut State) -> Result<Constant, ExecutionError>{
     }
 }
 
+impl Constant {
+    fn get_type(self, mut state:State) -> Result<VarType, ExecutionError> {
+        Ok(match self {
+            Constant::String(_) => VarType::String,
+            Constant::Float(_) => VarType::Float,
+            Constant::Int(_) => VarType::Int,
+            Constant::Array(_,_) => return Err(ExecutionError::General(String::from("Cannot get type from array"))),
+            Constant::ArrayIndex(name, _) => {
+                // if it is an array, then retrieve the array from memory, then get its type
+                match get_value(name, &mut state)? {
+                    Constant::Array(var_type,_) => {
+                        var_type.clone()
+                    },
+                    _ => return Err(ExecutionError::TypeViolation),
+                }
+            },
+        })
+    }
+}
+
+/*
+* evaluate an ast, one line or one if/while stm
+*/
 fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, ExecutionError> {
     match ast {
         AstNode::Assignment(vtype, name, exp) => {
@@ -86,22 +113,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 Some(var_type) => var_type,
                 None => {
                     // if no variable type, turn it into an expression and parse value (error if dne)
-                    match eval_expr(Expr::ExpVal(Object::Variable(name.clone())), state)? {
-                        Constant::String(_) => VarType::String,
-                        Constant::Float(_) => VarType::Float,
-                        Constant::Int(_) => VarType::Int,
-                        Constant::Array(_,_) => return Err(ExecutionError::General(String::from("Cannot set array value"))),
-                        Constant::ArrayIndex(name, _) => {
-                            // if it is an array, then retrieve the array from memory, then get its type
-                            match get_value(name, state)? {
-                                Constant::Array(var_type,_) => {
-                                    var_type.clone()
-                                },
-                                //array access on not an array type
-                                _ => return Err(ExecutionError::TypeViolation),
-                            }
-                        },
-                    }
+                    eval_expr(Expr::ExpVal(Object::Variable(name.clone())), state)?.get_type(state.clone())?
                 }
             };
             // type check, variable type must match the result of expression
@@ -110,7 +122,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 (VarType::Float, Constant::Float(f)) => state.var_map.insert(name, Constant::Float(f)), 
                 (VarType::String, Constant::String(s)) => state.var_map.insert(name, Constant::String(s)),
                 (_, _) => {
-                    println!("type violation on assignment");
+                    trace!("type violation on assignment");
                     return Err(ExecutionError::TypeViolation)
                 }, 
             };
@@ -120,7 +132,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 Constant::Int(i) => i as usize,
                 Constant::Float(f) => f as usize,
                 _ => {
-                    println!("type violation on ArrayDef");
+                    trace!("type is not int or float for array index");
                     return Err(ExecutionError::TypeViolation);
                 },
             };
@@ -175,9 +187,9 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 }
             }
         },
-        AstNode::While(conditional, mut stms) => {
+        AstNode::While(conditional, stms) => {
             while eval_bool_ast(&conditional, state)? {
-                for stm in stms.clone() {
+                for stm in stms.iter() {
                     match eval_ast(*stm.clone(), state)? {
                         Some(eval) => return Ok(Some(eval)),
                         None => ()
@@ -187,10 +199,6 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
         },
         AstNode::BuiltIn(builtin) => {
             match builtin {
-                BuiltIn::Delete(name) => {
-                    state.var_map.remove(&name);
-                    ()
-                },
                 BuiltIn::Print(exp) => {
                     println!("{:?} => {:?}", exp.clone(), eval_expr(exp, state)?);
                 },
@@ -210,7 +218,9 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
     Ok(None)
 }
 
-/* evalulates booleans based on their conjunction */
+/* 
+* evalulates booleans based on their conjunction 
+*/
 fn eval_bool_ast(bool_ast:&BoolAst, state:&mut State) ->  Result<bool, ExecutionError> {
     Ok(match &*bool_ast {
         BoolAst::Not(body) => !eval_bool_ast(&*body, state)?,
@@ -221,7 +231,9 @@ fn eval_bool_ast(bool_ast:&BoolAst, state:&mut State) ->  Result<bool, Execution
     })
 }
 
-/* evaluates expressions and constants to true false values */
+/* 
+* evaluates expressions and constants to true false values 
+*/
 fn eval_bool(bool_exp:&BoolExp, state:&mut State) ->  Result<bool, ExecutionError> {
     let BoolExp(lhs,op,rhs)= &*bool_exp;
     use Constant::{*};
@@ -263,13 +275,13 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                         None => return Err(ExecutionError::ValueDne(name))
                     }
                 },
-                Object::ArrayObj(var_type, elements) => {
-                    let mut arr_elements = Vec::new();
-                    for element in elements {
-                        arr_elements.push(eval_expr(element, state)?);
-                    }
-                    Ok(Constant::Array(var_type, arr_elements))
-                },
+                // Object::ArrayObj(var_type, elements) => {
+                //     let mut arr_elements = Vec::new();
+                //     for element in elements {
+                //         arr_elements.push(eval_expr(element, state)?);
+                //     }
+                //     Ok(Constant::Array(var_type, arr_elements))
+                // },
                 Object::Constant(Constant::Array(var_type, elements)) => Ok(Constant::Array(var_type, elements)),
                 Object::Constant(Constant::ArrayIndex(name, index_exp)) => {
                     // get array from state map
@@ -277,7 +289,7 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                         Some(value) => match value.clone() {
                             Constant::Array(_var_type, elements) => elements,
                             _ => {
-                                println!("array index type violation");
+                                warn!("array index type violation");
                                 return Err(ExecutionError::TypeViolation);
                             }
                         },
@@ -306,7 +318,7 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                             (VarType::Int, Constant::Int(_)) | (VarType::Int, Constant::Array(_,_)) | (VarType::Float, Constant::Float(_)) | (VarType::String, Constant::String(_)) 
                                 => var_map.insert(param_name.to_string(), param_const),
                             _ => return {
-                                println!("type violation in object::funccall");
+                                warn!("type violation in object::funccall");
                                 Err(ExecutionError::TypeViolation)
                             }
                         };   
