@@ -1,6 +1,7 @@
 use crate::ast::{*};
 use std::collections::HashMap;
 use std::cmp::Ordering;
+use log::{info, trace, warn};
 // use std::array::IntoIter;
 
 #[derive(Debug, Clone)]
@@ -300,23 +301,25 @@ fn eval_expr(exp:Expr, state:&mut State, tab_count:u32) -> Result<Constant, Exec
                     // need a new var map for the function, just the parameters
                     let mut var_map:HashMap<String, Constant> = HashMap::new();
                     let function = state.func_map.get(&func_call.name).unwrap();
-                    let Function{name:n, params, return_type:rt, statements:_} = function.clone();
-                    tab_print(format!("{}({:?}) -> {:?}", n.clone(), params.clone(), rt), tab_count);
+                    let mut var_stack:Vec<(String, u32)> = Vec::new();
+                    let stack_lvl:u32 = 0;
+                    let Function{name:_, params, return_type:_, statements:_} = function.clone();
                     // iterate through the parameters provided and the function def, 
                     for (expr, (var_type, param_name)) in func_call.params.iter().zip(params.iter()) {
                         let param_const = eval_expr(expr.clone(), &mut state.clone(), tab_count)?;
+                        var_stack.push((param_name.clone(), 0));
                         match (var_type, &param_const) {
                             (VarType::Int, Constant::Int(_)) | (VarType::Int, Constant::Array(_,_)) | (VarType::Float, Constant::Float(_)) | (VarType::String, Constant::String(_)) 
                                 => var_map.insert(param_name.to_string(), param_const),
                             _ => return {
-                                println!("type violation in object::funccall");
+                                warn!("type violation in object::funccall");
                                 Err(ExecutionError::TypeViolation)
                             }
                         };   
                     }
                     let func_map = state.func_map.clone();
-                    let mut func_state = State {var_map, func_map}; 
-                    Ok(eval_func(function.clone(), &mut func_state, tab_count + 1)?)
+                    let mut func_state = State {var_map, func_map, var_stack, stack_lvl}; 
+                    Ok(eval_func(function.clone(), &mut func_state, tab_count)?)
                 },
             }
         },

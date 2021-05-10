@@ -55,6 +55,7 @@ impl PartialOrd for Constant {
 
 /* execute turns a ast object into a Result */
 pub fn eval_func(function:Function, state:&mut State) -> Result<Constant, ExecutionError> {
+    state.increment_stack_level();
     for ast in function.statements {
         // execute ast will run a single statement or loop, if there is a return value, exit out of function
         match eval_ast(*ast, state)? {
@@ -62,6 +63,7 @@ pub fn eval_func(function:Function, state:&mut State) -> Result<Constant, Execut
             None => ()
         }
     }
+    state.pop_stack();
     Err(ExecutionError::NeedReturnStm)
 }
 
@@ -149,7 +151,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 }
                 elements.push(eval_expr(value_exp.clone(), state)?);
             }
-            state.var_map.insert(name, Constant::Array(var_type, elements));
+            state.save_variable(name, Constant::Array(var_type, elements));
         },
         AstNode::ArrayFromExp(_, name, expr) => {
             let (var_type, elements) = match eval_expr(expr, state)? {
@@ -175,6 +177,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
             state.var_map.insert(name, Constant::Array(var_type, elements));
         },
         AstNode::If(if_pairs) => {
+            state.increment_stack_level();
             for (conditional, mut stms) in if_pairs {
                 if eval_bool_ast(&conditional, state)? {
                     while stms.len() > 0 {
@@ -186,8 +189,10 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                     break;
                 }
             }
+            state.pop_stack();
         },
         AstNode::While(conditional, stms) => {
+            state.increment_stack_level();
             while eval_bool_ast(&conditional, state)? {
                 for stm in stms.iter() {
                     match eval_ast(*stm.clone(), state)? {
@@ -196,6 +201,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                     }
                 }
             }
+            state.pop_stack();
         },
         AstNode::BuiltIn(builtin) => {
             match builtin {
@@ -263,7 +269,9 @@ fn eval_bool(bool_exp:&BoolExp, state:&mut State) ->  Result<bool, ExecutionErro
 }
 
 
-/* eval_expr evaluates inline expressions */
+/* 
+* eval_expr evaluates inline expressions 
+*/
 fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
     match exp {
         Expr::ExpVal(num) => {
@@ -275,13 +283,6 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                         None => return Err(ExecutionError::ValueDne(name))
                     }
                 },
-                // Object::ArrayObj(var_type, elements) => {
-                //     let mut arr_elements = Vec::new();
-                //     for element in elements {
-                //         arr_elements.push(eval_expr(element, state)?);
-                //     }
-                //     Ok(Constant::Array(var_type, arr_elements))
-                // },
                 Object::Constant(Constant::Array(var_type, elements)) => Ok(Constant::Array(var_type, elements)),
                 Object::Constant(Constant::ArrayIndex(name, index_exp)) => {
                     // get array from state map
@@ -310,10 +311,15 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                     // need a new var map for the function, just the parameters
                     let mut var_map:HashMap<String, Constant> = HashMap::new();
                     let function = state.func_map.get(&func_call.name).unwrap();
+                    let mut var_stack:Vec<(String, u32)> = Vec::new();
+                    let stack_lvl:u32 = 0;
                     let Function{name:_, params, return_type:_, statements:_} = function.clone();
+                    let func_clone = function.clone();
+                    let func_map = state.func_map.clone();
                     // iterate through the parameters provided and the function def, 
                     for (expr, (var_type, param_name)) in func_call.params.iter().zip(params.iter()) {
                         let param_const = eval_expr(expr.clone(), &mut state.clone())?;
+                        var_stack.push((param_name.clone(), 0));
                         match (var_type, &param_const) {
                             (VarType::Int, Constant::Int(_)) | (VarType::Int, Constant::Array(_,_)) | (VarType::Float, Constant::Float(_)) | (VarType::String, Constant::String(_)) 
                                 => var_map.insert(param_name.to_string(), param_const),
@@ -323,9 +329,8 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                             }
                         };   
                     }
-                    let func_map = state.func_map.clone();
-                    let mut func_state = State {var_map, func_map}; 
-                    Ok(eval_func(function.clone(), &mut func_state)?)
+                    let mut func_state = State {var_map, func_map, var_stack, stack_lvl}; 
+                    Ok(eval_func(func_clone, &mut func_state)?)
                 },
             }
         },

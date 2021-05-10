@@ -19,11 +19,11 @@ use crate::evaluate::*;
 
 // builds default for state
 fn build_default_state() -> State {
-    let var_map: HashMap<String, Constant> = HashMap::new();
-    let func_map: HashMap<String, Function> = HashMap::new();
     State {
-        var_map: var_map,
-        func_map: func_map,
+        var_map: HashMap::new(),
+        func_map: HashMap::new(),
+        var_stack:Vec::new(),
+        stack_lvl:0,
     }
 }
 
@@ -67,5 +67,6 @@ fn main() {
         };
         println!("{:?}", result);
     }
+    println!("{:?}", state.var_map);
     
 }

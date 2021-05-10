@@ -4,6 +4,43 @@ use crate::HashMap;
 pub struct State {
     pub var_map: HashMap<String, Constant>,
     pub func_map: HashMap<String, Function>,
+    pub var_stack: Vec<(String, u32)>,
+    pub stack_lvl: u32,
+}
+
+impl State {
+    // increase stack level
+    pub fn increment_stack_level(&mut self) {
+        self.stack_lvl += 1;
+    }
+
+    /* pops all variables off the stack that are on a lower level of the stack */
+    pub fn pop_stack(&mut self) {
+        self.stack_lvl -= 1;
+        let mut last_pos = self.var_stack.len() - 1;
+        // loop, deleting the variables that are out of scope of the current level
+        loop {
+            if self.var_stack[last_pos].1 > self.stack_lvl {
+                self.var_map.remove(&self.var_stack[last_pos].0);
+                self.var_stack.remove(last_pos);
+                if last_pos == 0 {
+                    break;
+                }
+                last_pos -= 1;
+            } else {
+                break;
+            }
+        }
+    }
+
+    // save variable to stack
+    pub fn save_variable(&mut self, var_name:String, value:Constant) {
+        match self.var_map.get(&var_name) {
+            Some(_) => self.var_stack.push((var_name.clone(), self.stack_lvl)),
+            None => (), // variable was already inserted
+        }
+        self.var_map.insert(var_name, value);
+    }
 }
 
 #[derive(Debug, Clone)]
