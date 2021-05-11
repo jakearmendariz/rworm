@@ -109,7 +109,7 @@ impl Constant {
 * evaluate an ast, one line or one if/while stm
 */
 fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, ExecutionError> {
-    match ast {
+    match ast.clone() {
         AstNode::Assignment(vtype, name, exp) => {
             let variable_type:VarType = match vtype {
                 Some(var_type) => var_type,
@@ -120,9 +120,9 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
             };
             // type check, variable type must match the result of expression
             match (variable_type,  eval_expr(exp, state)?) {
-                (VarType::Int, Constant::Int(i)) => state.var_map.insert(name, Constant::Int(i)), 
-                (VarType::Float, Constant::Float(f)) => state.var_map.insert(name, Constant::Float(f)), 
-                (VarType::String, Constant::String(s)) => state.var_map.insert(name, Constant::String(s)),
+                (VarType::Int, Constant::Int(i)) => state.save_variable(name, Constant::Int(i)), 
+                (VarType::Float, Constant::Float(f)) => state.save_variable(name, Constant::Float(f)), 
+                (VarType::String, Constant::String(s)) => state.save_variable(name, Constant::String(s)),
                 (_, _) => {
                     trace!("type violation on assignment");
                     return Err(ExecutionError::TypeViolation)
@@ -192,16 +192,17 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
             state.pop_stack();
         },
         AstNode::While(conditional, stms) => {
-            state.increment_stack_level();
             while eval_bool_ast(&conditional, state)? {
+                state.increment_stack_level();
                 for stm in stms.iter() {
                     match eval_ast(*stm.clone(), state)? {
                         Some(eval) => return Ok(Some(eval)),
                         None => ()
                     }
                 }
+                state.pop_stack();
             }
-            state.pop_stack();
+            
         },
         AstNode::BuiltIn(builtin) => {
             match builtin {
@@ -280,7 +281,10 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                     // get variable as a constant value
                     match state.var_map.get(&name) {
                         Some(value) => Ok(value.clone()),
-                        None => return Err(ExecutionError::ValueDne(name))
+                        None => {
+                            println!("error doesn;t exist while evaluating expr");
+                            return Err(ExecutionError::ValueDne(name));
+                        }
                     }
                 },
                 Object::Constant(Constant::Array(var_type, elements)) => Ok(Constant::Array(var_type, elements)),
@@ -312,7 +316,7 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                     let mut var_map:HashMap<String, Constant> = HashMap::new();
                     let function = state.func_map.get(&func_call.name).unwrap();
                     let mut var_stack:Vec<(String, u32)> = Vec::new();
-                    let stack_lvl:u32 = 0;
+                    // let stack_lvl:u32 = 0;
                     let Function{name:_, params, return_type:_, statements:_} = function.clone();
                     let func_clone = function.clone();
                     let func_map = state.func_map.clone();
@@ -329,7 +333,7 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                             }
                         };   
                     }
-                    let mut func_state = State {var_map, func_map, var_stack, stack_lvl}; 
+                    let mut func_state = State {var_map, func_map, var_stack, stack_lvl:0}; 
                     Ok(eval_func(func_clone, &mut func_state)?)
                 },
             }

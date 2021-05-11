@@ -5,15 +5,11 @@ extern crate lazy_static;
 
 mod ast;
 mod evaluate;
-mod pprint;
 mod parser;
 use crate::ast::{Constant, Function, State};
 use crate::parser::*;
 use pest::Parser;
 use std::collections::HashMap;
-use std::string::String;
-use std::env;
-use crate::pprint::*;
 use crate::evaluate::*;
 
 
@@ -42,31 +38,15 @@ fn main() {
             return;
         }
     }
-    let run_pretty = match env::args().nth(1) {
-        Some(a) => {
-           if a.eq("pretty") {
-                true
-           } else {
-                false
-           }
-        },
-        None => {
-            false
-        },
+
+    // match type_evaluation(&mut state) {
+
+    // }
+
+    let result = match run_program(&mut state) {
+        Ok(res) => Ok(res),
+        Err(e) => Err(e),
     };
-    if run_pretty {
-        let result = match pp_run_program(&mut state) {
-            Ok(res) => Ok(res),
-            Err(e) => Err(e),
-        };
-        println!("{:?}", result);
-    } else {
-        let result = match run_program(&mut state) {
-            Ok(res) => Ok(res),
-            Err(e) => Err(e),
-        };
-        println!("{:?}", result);
-    }
-    println!("{:?}", state.var_map);
+    println!("{:?}", result);
     
 }

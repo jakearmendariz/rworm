@@ -36,10 +36,14 @@ impl State {
     // save variable to stack
     pub fn save_variable(&mut self, var_name:String, value:Constant) {
         match self.var_map.get(&var_name) {
-            Some(_) => self.var_stack.push((var_name.clone(), self.stack_lvl)),
-            None => (), // variable was already inserted
+            Some(_) => (), // variable was already inserted
+            None => self.var_stack.push((var_name.clone(), self.stack_lvl)), 
         }
         self.var_map.insert(var_name, value);
+    }
+
+    pub fn _print_stack(&mut self) {
+        println!("lvl: {} & variable stack: {:?}", self.stack_lvl, self.var_stack);
     }
 }
 
