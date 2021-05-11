@@ -85,26 +85,6 @@ fn get_value(name:String, state:&mut State) -> Result<Constant, ExecutionError>{
     }
 }
 
-impl Constant {
-    fn get_type(self, mut state:State) -> Result<VarType, ExecutionError> {
-        Ok(match self {
-            Constant::String(_) => VarType::String,
-            Constant::Float(_) => VarType::Float,
-            Constant::Int(_) => VarType::Int,
-            Constant::Array(_,_) => return Err(ExecutionError::General(String::from("Cannot get type from array"))),
-            Constant::ArrayIndex(name, _) => {
-                // if it is an array, then retrieve the array from memory, then get its type
-                match get_value(name, &mut state)? {
-                    Constant::Array(var_type,_) => {
-                        var_type.clone()
-                    },
-                    _ => return Err(ExecutionError::TypeViolation),
-                }
-            },
-        })
-    }
-}
-
 /*
 * evaluate an ast, one line or one if/while stm
 */
@@ -115,7 +95,21 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 Some(var_type) => var_type,
                 None => {
                     // if no variable type, turn it into an expression and parse value (error if dne)
-                    eval_expr(Expr::ExpVal(Object::Variable(name.clone())), state)?.get_type(state.clone())?
+                    match eval_expr(Expr::ExpVal(Object::Variable(name.clone())), state)? {
+                        Constant::String(_) => VarType::String,
+                        Constant::Float(_) => VarType::Float,
+                        Constant::Int(_) => VarType::Int,
+                        Constant::Array(_,_) => return Err(ExecutionError::General(String::from("Cannot get type from array"))),
+                        Constant::ArrayIndex(name, _) => {
+                            // if it is an array, then retrieve the array from memory, then get its type
+                            match get_value(name, state)? {
+                                Constant::Array(var_type,_) => {
+                                    var_type.clone()
+                                },
+                                _ => return Err(ExecutionError::TypeViolation),
+                            }
+                        },
+                    }
                 }
             };
             // type check, variable type must match the result of expression
@@ -144,6 +138,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 Some(piped) => (piped, true),
                 None => (String::from(""), false)
             };
+            state.increment_stack_level();
             for i in 0..len {
                 // not currently type checking need to add that later on
                 if pipe {
@@ -151,6 +146,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 }
                 elements.push(eval_expr(value_exp.clone(), state)?);
             }
+            state.pop_stack();
             state.save_variable(name, Constant::Array(var_type, elements));
         },
         AstNode::ArrayFromExp(_, name, expr) => {
@@ -158,7 +154,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 Constant::Array(var_type, elements) => (var_type, elements),
                 _ => return Err(ExecutionError::TypeViolation),
             };
-            state.var_map.insert(name, Constant::Array(var_type, elements));
+            state.save_variable(name, Constant::Array(var_type, elements));
         },
         AstNode::ArrayIndexAssignment(name, index_exp, value_exp) => {
             let (var_type, mut elements) = match get_value(name.clone(), state)? {
@@ -174,7 +170,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 return Err(ExecutionError::TypeViolation);
             };
             elements[index] = value;
-            state.var_map.insert(name, Constant::Array(var_type, elements));
+            state.save_variable(name, Constant::Array(var_type, elements));
         },
         AstNode::If(if_pairs) => {
             state.increment_stack_level();

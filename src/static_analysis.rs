@@ -28,9 +28,10 @@ pub enum StaticError {
 
 /* run program calls the main function to run the program */
 pub fn check_program(state:&mut State) -> Result<(), StaticError> {
-    for (_, function) in &state.func_map {
-        let returned_type = check_function(function.clone(), state)?.get_type();
-        if !matches!(returned_type, function.return_type) {
+    for (name, function) in &state.clone().func_map {
+        let returned_type = check_function(function.clone(), state)?;
+        let expected = &function.return_type;
+        if !type_match(returned_type, expected.clone()) {
             return Err(StaticError::TypeViolation);
         }
 
@@ -40,7 +41,12 @@ pub fn check_program(state:&mut State) -> Result<(), StaticError> {
 
 
 /* execute turns a ast object into a Result */
-pub fn check_function(function:Function, state:&mut State) -> Result<Constant, StaticError> {
+pub fn check_function(function:Function, state:&mut State) -> Result<VarType, StaticError> {
+    state.increment_stack_level();
+    // save parameters of the function into state
+    for (param_type, param_name) in function.params {
+        state.save_variable(param_name, default_const(param_type));
+    }
     for ast in function.statements {
         // execute ast will run a single statement or loop, if there is a return value, exit out of function
         match eval_ast(*ast, state)? {
@@ -48,6 +54,7 @@ pub fn check_function(function:Function, state:&mut State) -> Result<Constant, S
             None => ()
         }
     }
+    state.pop_stack();
     Err(StaticError::NeedReturnStm)
 }
 
@@ -70,15 +77,15 @@ fn get_value(name:String, state:&mut State) -> Result<Constant, StaticError>{
 }
 
 impl Constant {
-    fn get_type(self, mut state:State) -> Result<VarType, StaticError> {
+    fn get_type(self, state:&mut State) -> Result<VarType, StaticError> {
         Ok(match self {
             Constant::String(_) => VarType::String,
             Constant::Float(_) => VarType::Float,
             Constant::Int(_) => VarType::Int,
-            Constant::Array(_,_) => return Err(StaticError::General(String::from("Cannot get type from array"))),
+            Constant::Array(vtype,_) => vtype,
             Constant::ArrayIndex(name, _) => {
                 // if it is an array, then retrieve the array from memory, then get its type
-                match get_value(name, &mut state)? {
+                match get_value(name, state)? {
                     Constant::Array(var_type,_) => {
                         var_type.clone()
                     },
@@ -89,10 +96,18 @@ impl Constant {
     }
 }
 
+fn type_match(a:VarType, b:VarType) -> bool {
+    use VarType::{*};
+    match (a, b) {
+        (Int, Int) | (Float, Float) | (String, String) => true,
+        _ => false
+    }
+}
+
 /*
 * evaluate an ast, one line or one if/while stm
 */
-fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, StaticError> {
+fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticError> {
     match ast {
         AstNode::Assignment(vtype, name, exp) => {
             let variable_type:VarType = match vtype {
@@ -103,18 +118,19 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, StaticErr
                 }
             };
             // type check, variable type must match the result of expression
-            if matches!(variable_type.clone(), type_of_expr(exp, state)?) {
-                state.var_map.insert(name, default_const(variable_type));
+            let value_type = type_of_expr(exp, state)?;
+            if type_match(variable_type.clone(), value_type) {
+                state.save_variable(name, default_const(variable_type));
             } else {
+                warn!("type violation while assigning variable");
                 return Err(StaticError::TypeViolation);
             }
         },
         AstNode::ArrayDef(var_type, name, piped, value_exp, length_exp) => {
-            let len = match type_of_expr(length_exp, state)? {
-                Constant::Int(i) => i as usize,
-                Constant::Float(f) => f as usize,
+            match type_of_expr(length_exp, state)? {
+                VarType::Int => (),
                 _ => {
-                    trace!("type is not int or float for array index");
+                    warn!("length of array must be int");
                     return Err(StaticError::TypeViolation);
                 },
             };
@@ -124,74 +140,67 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, StaticErr
                 Some(piped) => (piped, true),
                 None => (String::from(""), false)
             };
-            for i in 0..len {
+            state.increment_stack_level();
+            for i in 0..2 {
                 // not currently type checking need to add that later on
                 if pipe {
-                    state.var_map.insert(variable.clone(), Constant::Int(i as i32));
+                    state.save_variable(variable.clone(), Constant::Int(i as i32));
                 }
-                elements.push(type_of_expr(value_exp.clone(), state)?);
+                type_of_expr(value_exp.clone(), state)?;
             }
+            state.pop_stack();
             state.save_variable(name, Constant::Array(var_type, elements));
         },
         AstNode::ArrayFromExp(_, name, expr) => {
-            let (var_type, elements) = match type_of_expr(expr, state)? {
-                Constant::Array(var_type, elements) => (var_type, elements),
-                _ => return Err(StaticError::TypeViolation),
-            };
-            state.var_map.insert(name, Constant::Array(var_type, elements));
+            let var_type = type_of_expr(expr, state)?;
+            state.save_variable(name, Constant::Array(var_type, Vec::new()));
         },
         AstNode::ArrayIndexAssignment(name, index_exp, value_exp) => {
-            let (var_type, mut elements) = match get_value(name.clone(), state)? {
+            let (var_type, _) = match get_value(name.clone(), state)? {
                 Constant::Array(var_type, elements) => (var_type, elements),
                 _ => return Err(StaticError::TypeViolation),
             };
-            let index = match type_of_expr(index_exp, state)? {
-                Constant::Int(i) => i as usize,
+            match type_of_expr(index_exp, state)? {
+                VarType::Int => (),
                 _ => return Err(StaticError::TypeViolation),
             };
-            let value = type_of_expr(value_exp, state)?;
-            if ! type_matches_val(var_type.clone(), value.clone()) {
+            let value_type = type_of_expr(value_exp, state)?;
+            if ! type_match(var_type, value_type) {
                 return Err(StaticError::TypeViolation);
             };
-            elements[index] = value;
-            state.var_map.insert(name, Constant::Array(var_type, elements));
         },
         AstNode::If(if_pairs) => {
             state.increment_stack_level();
             for (conditional, mut stms) in if_pairs {
-                if check_bool_ast(&conditional, state)? {
-                    while stms.len() > 0 {
-                        match eval_ast(*stms.remove(0), state)? {
-                            Some(eval) => return Ok(Some(eval)),
-                            None => ()
-                        }
-                    }
-                    break;
-                }
-            }
-            state.pop_stack();
-        },
-        AstNode::While(conditional, stms) => {
-            state.increment_stack_level();
-            while check_bool_ast(&conditional, state)? {
-                for stm in stms.iter() {
-                    match eval_ast(*stm.clone(), state)? {
-                        Some(eval) => return Ok(Some(eval)),
+                check_bool_ast(&conditional, state)?;
+                while stms.len() > 0 {
+                    match eval_ast(*stms.remove(0), state)? {
+                        Some(eval) => return Ok(Some(eval)), // TODO change this to type check every statement
                         None => ()
                     }
                 }
             }
             state.pop_stack();
         },
+        AstNode::While(conditional, stms) => {
+            check_bool_ast(&conditional, state)?;
+            state.increment_stack_level();
+            for stm in stms.iter() {
+                match eval_ast(*stm.clone(), state)? {
+                    Some(eval) => return Ok(Some(eval)), //if there was a return statement, return the value
+                    None => ()
+                }
+            }
+            state.pop_stack();
+            
+        },
         AstNode::BuiltIn(builtin) => {
             match builtin {
-                BuiltIn::Print(exp) => {
-                    println!("{:?} => {:?}", exp.clone(), type_of_expr(exp, state)?);
+                BuiltIn::Print(_) => {
+                    //nothing
                 },
-                BuiltIn::Assert(boolexp) => {
-                    if ! check_bool_ast(&boolexp.clone(), state)? {
-                        return Err(StaticError::AssertionError(boolexp));
-                    } 
+                BuiltIn::Assert(_) => {
+                    //nothing
                 }
             }
             ()
@@ -207,14 +216,15 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, StaticErr
 /* 
 * evalulates booleans based on their conjunction 
 */
-fn check_bool_ast(bool_ast:&BoolAst, state:&mut State) ->  Result<bool, StaticError> {
-    Ok(match &*bool_ast {
+fn check_bool_ast(bool_ast:&BoolAst, state:&mut State) ->  Result<(), StaticError> {
+    match &*bool_ast {
         BoolAst::Not(body) => check_bool_ast(&*body, state)?,
         BoolAst::And(a, b) => {check_bool_ast(&*a, state)?; check_bool_ast(&*b, state)?;},
         BoolAst::Or(a,b) => {check_bool_ast(&*a, state)?; check_bool_ast(&*b, state)?},
         BoolAst::Exp(exp) => check_bool(&*exp, state)?,
         BoolAst::Const(boolean) => (),
-    })
+    };
+    Ok(())
 }
 
 /* 
@@ -223,17 +233,18 @@ fn check_bool_ast(bool_ast:&BoolAst, state:&mut State) ->  Result<bool, StaticEr
 fn check_bool(bool_exp:&BoolExp, state:&mut State) ->  Result<(), StaticError> {
     let BoolExp(lhs,_,rhs)= &*bool_exp;
     // if 
-    if !matches!(type_of_expr(lhs.clone(), state)?, type_of_expr(rhs.clone(), state)?) {
+    let right = type_of_expr(rhs.clone(), state)?;
+    if ! type_match(type_of_expr(lhs.clone(), state)?, right) {
         return Err(StaticError::TypeViolation);
     };
     Ok(())
 }
 
 
-fn default_const(var_type:VarType) {
+fn default_const(var_type:VarType) -> Constant{
     match var_type {
         VarType::Int => Constant::Int(0),
-        VarType::Float => Constant::Float(0),
+        VarType::Float => Constant::Float(0.0),
         VarType::String => Constant::String(String::from(""))
     }
 }
@@ -249,14 +260,14 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                 Object::Variable(name) => {
                     // get variable as a constant value
                     match state.var_map.get(&name) {
-                        Some(value) => Ok(value.get_type(state)?),
+                        Some(value) => Ok(value.clone().get_type(state)?),
                         None => return Err(StaticError::ValueDne(name))
                     }
                 },
-                Object::Constant(Constant::Array(var_type, elements)) => Ok(var_type),
+                Object::Constant(Constant::Array(var_type, _elements)) => Ok(var_type),
                 Object::Constant(Constant::ArrayIndex(name, index_exp)) => {
                     match type_of_expr(*index_exp, state)? {
-                        Constant::Int(i) => (),
+                        VarType::Int => (),
                         _ => return Err(StaticError::General(String::from("array index must be a number")))
                     };
                     // get array from state map
@@ -267,7 +278,7 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                             },
                             _ => {
                                 warn!("array index type violation");
-                                Err(StaticError::TypeViolation);
+                                Err(StaticError::TypeViolation)
                             }
                         },
                         None => Err(StaticError::ValueDne(name))
@@ -279,21 +290,19 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                 Object::FuncCall(func_call) => {
                     // retrive function from memory, make sure its value matches
                     let function = match state.func_map.get(&func_call.name.clone()) {
-                        Ok(func) => func,
-                        Err(_) => StaticError::CannotFindFunction(func_call.name)
+                        Some(func) => func,
+                        None => return Err(StaticError::CannotFindFunction(func_call.name)),
                     };
                     let Function{name:_, params, return_type:return_type, statements:_} = function.clone();
                     // iterate through the parameters provided and the function def, 
                     for (expr, (var_type, param_name)) in func_call.params.iter().zip(params.iter()) {
                         let param_const = type_of_expr(expr.clone(), &mut state.clone())?;
-                        match (var_type, &param_const) {
-                            (VarType::Int, Constant::Int(_)) | (VarType::Int, Constant::Array(_,_)) | (VarType::Float, Constant::Float(_)) | (VarType::String, Constant::String(_)) 
-                                => (),
-                            _ => return {
-                                warn!("type violation in object::funccall");
+                        if ! type_match(var_type.clone(), param_const.clone()) {
+                            return {
+                                warn!("type violation in object::funccall\n\texpected: {:?} recieved {:?}", var_type, param_const);
                                 Err(StaticError::TypeViolation)
                             }
-                        };   
+                        }
                     }
                     // function input types match expected values, return a empty constant of matching type
                     Ok(return_type)
@@ -303,9 +312,8 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
         Expr::ExpOp(lhs, op, rhs) => {
             let left = type_of_expr(*lhs, state)?;
             let right = type_of_expr(*rhs, state)?;
-            use Constant::{*};
-            if matches!(left.clone(), right) {
-                Ok(left.get_type(state)?)
+            if type_match(left.clone(), right) {
+                Ok(left)
             } else {
                 Err(StaticError::TypeViolation)
             }
