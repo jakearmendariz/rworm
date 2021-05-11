@@ -2,7 +2,7 @@ use crate::ast::*;
 use pest::iterators::{Pair, Pairs};
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use std::vec::Vec;
-use log::{info, trace, warn};
+use log::{warn};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
@@ -321,7 +321,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             };
             let array_name = array_rules.next().unwrap().as_str().to_string();
 
-            let mut init_or_call = array_rules.next().unwrap();
+            let init_or_call = array_rules.next().unwrap();
             let mut array_def = match init_or_call.as_rule() {
                 Rule::array_initial => init_or_call.into_inner(),
                 Rule::func_call => {
@@ -347,7 +347,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 }
             };
             // expression can be a constant or a value to be evaulated to, var i represents the index of an array
-            let mut first = array_def.next().unwrap();
+            let first = array_def.next().unwrap();
             // catch the piped variable, optional, but if there it's the index of the program
             let (piped, expression) = match first.as_rule() {
                 Rule::piped => (

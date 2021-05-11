@@ -9,12 +9,13 @@ mod ast;
 mod evaluate;
 mod parser;
 mod static_analysis;
-use crate::ast::{Constant, Function, State};
+use crate::ast::{State};
 use crate::parser::*;
 use pest::Parser;
 use std::collections::HashMap;
 use crate::evaluate::*;
 use crate::static_analysis::check_program;
+use log::{info, trace};
 
 // builds default for state
 fn build_default_state() -> State {
@@ -38,7 +39,7 @@ fn main() {
     match parse_program(pairs, &mut state) {
         Ok(()) => (),
         Err(e) => {
-            println!("{:?}", e);
+            trace!("{:?}", e);
             return;
         }
     }
@@ -46,7 +47,7 @@ fn main() {
     match check_program(&mut state) {
         Ok(()) => (),
         Err(e) => {
-            println!("static_error: {:?}", e);
+            trace!("static_error: {:?}", e);
             return;
         }
     }
@@ -55,6 +56,6 @@ fn main() {
         Ok(res) => Ok(res),
         Err(e) => Err(e),
     };
-    println!("{:?}", result);
+    info!("{:?}", result);
     
 }

@@ -2,6 +2,14 @@
 Jake Armendariz
 
 
+# Stages
+Interpretter currently works in 3 stages
+- **parsing** turns raw text into an AST, catching parser errors
+- **static analysis** type checking, checks all values called exist
+- **execution** runs the abstract syntax tree, code will panic if this fails, as all errors should have been found in previous stages
+
+### Possible new stage: optimizer
+
 ## TODO
 - String concatination and indexing
 - structs

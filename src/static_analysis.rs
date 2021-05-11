@@ -13,9 +13,7 @@ I will check every function individually, checking that
     I will type check the calls to other functions are preformed correctly
 */
 use crate::ast::{*};
-use std::collections::HashMap;
-use std::cmp::Ordering;
-use log::{info, trace, warn};
+use log::{warn};
 
 #[derive(Debug, Clone)]
 pub enum StaticError {
@@ -28,7 +26,7 @@ pub enum StaticError {
 
 /* run program calls the main function to run the program */
 pub fn check_program(state:&mut State) -> Result<(), StaticError> {
-    for (name, function) in &state.clone().func_map {
+    for (_, function) in &state.clone().func_map {
         let returned_type = check_function(function.clone(), state)?;
         let expected = &function.return_type;
         if !type_match(returned_type, expected.clone()) {
@@ -56,14 +54,6 @@ pub fn check_function(function:Function, state:&mut State) -> Result<VarType, St
     }
     state.pop_stack();
     Err(StaticError::NeedReturnStm)
-}
-
-/* given the var type, and a value, tell if they match or not */
-fn type_matches_val(var_type:VarType, val:Constant) -> bool {
-    match (var_type,  val) {
-        (VarType::Int, Constant::Int(_)) | (VarType::Float, Constant::Float(_)) | (VarType::String, Constant::String(_)) => true,
-        (_, _) => false, 
-    }
 }
 
 /* 
@@ -135,7 +125,6 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticErro
                 },
             };
             // elements of the array
-            let mut elements:Vec<Constant> = Vec::new();
             let (variable, pipe) = match piped {
                 Some(piped) => (piped, true),
                 None => (String::from(""), false)
@@ -149,7 +138,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticErro
                 type_of_expr(value_exp.clone(), state)?;
             }
             state.pop_stack();
-            state.save_variable(name, Constant::Array(var_type, elements));
+            state.save_variable(name, Constant::Array(var_type, Vec::new()));
         },
         AstNode::ArrayFromExp(_, name, expr) => {
             let var_type = type_of_expr(expr, state)?;
@@ -196,11 +185,11 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticErro
         },
         AstNode::BuiltIn(builtin) => {
             match builtin {
-                BuiltIn::Print(_) => {
-                    //nothing
+                BuiltIn::Print(exp) => {
+                    type_of_expr(exp, state)?;
                 },
-                BuiltIn::Assert(_) => {
-                    //nothing
+                BuiltIn::Assert(boolast) => {
+                    check_bool_ast(&boolast, state)?;
                 }
             }
             ()
@@ -222,7 +211,7 @@ fn check_bool_ast(bool_ast:&BoolAst, state:&mut State) ->  Result<(), StaticErro
         BoolAst::And(a, b) => {check_bool_ast(&*a, state)?; check_bool_ast(&*b, state)?;},
         BoolAst::Or(a,b) => {check_bool_ast(&*a, state)?; check_bool_ast(&*b, state)?},
         BoolAst::Exp(exp) => check_bool(&*exp, state)?,
-        BoolAst::Const(boolean) => (),
+        BoolAst::Const(_) => (),
     };
     Ok(())
 }
@@ -284,18 +273,18 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                         None => Err(StaticError::ValueDne(name))
                     }
                 },
-                Object::Constant(Constant::Float(f)) => Ok(VarType::Float),
-                Object::Constant(Constant::Int(i)) => Ok(VarType::Int),
-                Object::Constant(Constant::String(s)) => Ok(VarType::String),
+                Object::Constant(Constant::Float(_)) => Ok(VarType::Float),
+                Object::Constant(Constant::Int(_)) => Ok(VarType::Int),
+                Object::Constant(Constant::String(_)) => Ok(VarType::String),
                 Object::FuncCall(func_call) => {
                     // retrive function from memory, make sure its value matches
                     let function = match state.func_map.get(&func_call.name.clone()) {
                         Some(func) => func,
                         None => return Err(StaticError::CannotFindFunction(func_call.name)),
                     };
-                    let Function{name:_, params, return_type:return_type, statements:_} = function.clone();
+                    let Function{name:_, params, return_type, statements:_} = function.clone();
                     // iterate through the parameters provided and the function def, 
-                    for (expr, (var_type, param_name)) in func_call.params.iter().zip(params.iter()) {
+                    for (expr, (var_type, _)) in func_call.params.iter().zip(params.iter()) {
                         let param_const = type_of_expr(expr.clone(), &mut state.clone())?;
                         if ! type_match(var_type.clone(), param_const.clone()) {
                             return {
@@ -309,7 +298,7 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                 },
             }
         },
-        Expr::ExpOp(lhs, op, rhs) => {
+        Expr::ExpOp(lhs, _, rhs) => {
             let left = type_of_expr(*lhs, state)?;
             let right = type_of_expr(*rhs, state)?;
             if type_match(left.clone(), right) {
