@@ -58,18 +58,11 @@ pub fn eval_func(function:Function, state:&mut State) -> Result<Constant, Execut
     panic!("no return statement from function")
 }
 
-/* 
-* returns a value or that a value does not exist 
-*/
-// fn get_value(name:&String, state:&mut State) -> Constant {
-//     return *state.var_map.get(name).unwrap();
-// }
-
 /*
 * evaluate an ast, one line or one if/while stm
 */
 fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, ExecutionError> {
-    match ast.clone() {
+    match ast {
         AstNode::Assignment(_, name, exp) => {
             let value = eval_expr(exp, state)?;
             state.save_variable(name, value);
@@ -97,6 +90,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
             state.save_variable(name, Constant::Array(var_type, elements));
         },
         AstNode::ArrayFromExp(_, name, expr) => {
+            // expecting a function that returns an array
             let (var_type, elements) = match eval_expr(expr, state)? {
                 Constant::Array(var_type, elements) => (var_type, elements),
                 _ => panic!("type mismatch found during execution"),
@@ -150,10 +144,10 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
         AstNode::BuiltIn(builtin) => {
             match builtin {
                 BuiltIn::Print(exp) => {
-                    println!("{:?} => {:?}", exp.clone(), eval_expr(exp, state)?);
+                    println!("{:?} => {:?}", exp, eval_expr(exp.clone(), state)?);
                 },
                 BuiltIn::Assert(boolexp) => {
-                    if ! eval_bool_ast(&boolexp.clone(), state)? {
+                    if ! eval_bool_ast(&boolexp, state)? {
                         return Err(ExecutionError::AssertionError(boolexp));
                     } 
                 }

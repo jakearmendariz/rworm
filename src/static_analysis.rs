@@ -21,7 +21,6 @@ pub enum StaticError {
     TypeViolation,
     NeedReturnStm,
     CannotFindFunction(String),
-    General(String),
 }
 
 /* run program calls the main function to run the program */
@@ -257,7 +256,7 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                 Object::Constant(Constant::ArrayIndex(name, index_exp)) => {
                     match type_of_expr(*index_exp, state)? {
                         VarType::Int => (),
-                        _ => return Err(StaticError::General(String::from("array index must be a number")))
+                        _ => return Err(StaticError::TypeViolation)
                     };
                     // get array from state map
                     match state.var_map.get(&name.clone()) {

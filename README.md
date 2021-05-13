@@ -9,6 +9,7 @@ Interpretter currently works in 3 stages
 - **execution** runs the abstract syntax tree, code will panic if this fails, as all errors should have been found in previous stages
 
 ### Possible new stage: optimizer
+Current abstract syntax trees
 
 ## TODO
 - String concatination and indexing
