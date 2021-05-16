@@ -113,6 +113,7 @@ pub enum Expr {
 pub enum VarType {
     Int,
     Float,
+    Char,
     String,
 }
 
@@ -120,6 +121,7 @@ impl std::fmt::Display for VarType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
        match *self {
             VarType::Int => write!(f, "int"),
+            VarType::Char => write!(f, "char"),
             VarType::Float => write!(f, "float"),
             VarType::String => write!(f, "string"),
        }
@@ -137,6 +139,7 @@ pub enum Constant {
     Int(i32),
     Float(f64),
     String(String),
+    Char(char),
     Array(VarType, Vec<Constant>),
     ArrayIndex(String, Box<Expr>), // string for variable name, once retrieved the usize will get the constant value
 }
@@ -147,6 +150,7 @@ impl std::fmt::Display for Constant {
        match &*self {
            Constant::Int(i) => write!(f, "{}", i),
            Constant::Float(fl) => write!(f, "{}", fl),
+           Constant::Char(c) => write!(f, "{}", c),
            Constant::String(s) => write!(f, "{}", s),
            Constant::Array(t,n) => write!(f, "{}[{}]", t, n.len()),
            Constant::ArrayIndex(a,i) => write!(f, "{}[{:?}]", a, *i),

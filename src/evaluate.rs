@@ -22,6 +22,7 @@ impl PartialEq for Constant {
         match (self, other) {
             (Int(i), Int(j)) => i == j,
             (Float(i), Float(j)) => i == j,
+            (Char(i), Char(j)) => i == j,
             (String(i), String(j)) => i.eq(j),
             _ => false
         }
@@ -35,6 +36,7 @@ impl PartialOrd for Constant {
         Some(match (self, other) {
             (Int(i), Int(j)) => i.cmp(j),
             (Float(i), Float(j)) => (*i as i64).cmp(&(*j as i64)),
+            (Char(i), Char(j)) => i.cmp(j),
             (String(i), String(j)) => i.cmp(j),
             _ => return None,
         })
@@ -184,6 +186,7 @@ fn eval_bool(bool_exp:&BoolExp, state:&mut State) ->  Result<bool, ExecutionErro
     let (lres, rres) = match (eval_expr(lhs.clone(), state)?, eval_expr(rhs.clone(), state)?) {
         (Int(i), Int(j)) => (i as f64,j as f64),
         (Float(i), Float(j)) => (i, j),
+        (Char(i), Char(j)) => (i as u32 as f64,j as u32 as f64),
         (String(s1), String(s2)) => {
             return Ok(match op {
                 BoolOp::Eq => s1 == s2,
@@ -238,6 +241,7 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                 Object::Constant(Constant::Float(f)) => Ok(Constant::Float(f)),
                 Object::Constant(Constant::Int(i)) => Ok(Constant::Int(i)),
                 Object::Constant(Constant::String(s)) => Ok(Constant::String(s)),
+                Object::Constant(Constant::Char(c)) => Ok(Constant::Char(c)),
                 Object::FuncCall(func_call) => {
                     // need a new var map for the function, just the parameters
                     let mut var_map:HashMap<String, Constant> = HashMap::new();
@@ -268,7 +272,19 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                 (String(l), String(r)) => match op {
                     OpType::Add => return Ok(Constant::String(format!("{}{}", l, r))),
                     _ => panic!("expr operation on strings only allow +"),
-                }
+                },
+                (Char(l), Char(r)) => match op {
+                    OpType::Add => return Ok(Constant::String(format!("{}{}", l, r))),
+                    _ => panic!("expr operation on strings only allow +"),
+                },
+                (Char(l), String(r)) => match op {
+                    OpType::Add => return Ok(Constant::String(format!("{}{}", l, r))),
+                    _ => panic!("expr operation on strings only allow +"),
+                },
+                (String(l), Char(r)) => match op {
+                    OpType::Add => return Ok(Constant::String(format!("{}{}", l, r))),
+                    _ => panic!("expr operation on strings only allow +"),
+                },
                 _ => panic!("expr operation on mismatching types")
             };
             let res = match op {

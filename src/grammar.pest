@@ -9,7 +9,7 @@ operation = _{ add | subtract | multiply | divide | power }
     power    = { "^" }
 
 expr = { term ~ (operation ~ term)* }
-term = _{float | int  | func_call | array_index | var_name | string  | "(" ~ expr ~ ")" }
+term = _{float | int | char | func_call | array_index | var_name | string  | "(" ~ expr ~ ")" }
 
 COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 WHITESPACE = _{ " "+ | "\t" | NEWLINE+}
@@ -18,25 +18,28 @@ reserved = {"print" | "if" | "else" | "while" | "true" | "false" | " " | "}" | "
 var_name = @{!reserved ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*}
 
 any = {"any"}
-array_inst = {(vint | vfloat | vstring | any) ~ "[]"}
+array_inst = {(vint | vfloat | vchar | vstring | any) ~ "[]"}
 piped = {"|" ~ var_name ~ "|"}
 array_initial = {"[" ~ piped? ~ expr ~ ";" ~ expr ~ "]"}
 array_definition = {array_inst ~ var_name ~ "=" ~ (array_initial | func_call) }
 array_val = {"[" ~ list? ~ "]"}
 array_index = {var_name ~"[" ~ expr ~ "]"}
-var_type = {array_inst | vint | vfloat | vstring | vbool}
+var_type = {array_inst | vint | vfloat | vstring | vbool | vchar}
     vint = {"int"}
     vfloat = {"float"}
     vstring = {"string"}
     vbool = {"bool"}
+    vchar = {"char"}
 
 string = ${ "\"" ~ inner ~ "\"" }
-inner = @{ char* }
-char = {
+inner = @{ chars* }
+chars = {
     !("\"" | "\\") ~ ANY
     | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
+
+char = ${"\'" ~ chars ~ "\'"}
 
 boolops = _{eq | geq | leq | neq | lt | gt}
     eq = {"=="}

@@ -110,6 +110,13 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
             Rule::int => Expr::ExpVal(Object::Constant(Constant::Int(
                 pair.as_str().parse::<i32>().unwrap(),
             ))),
+            Rule::char => Expr::ExpVal(Object::Constant(Constant::Char(
+                {
+                    let character = pair.into_inner().next().unwrap().as_str();
+                    println!("character : {}", character);
+                    character.chars().next().unwrap()
+                }
+            ))),
             Rule::var_name => Expr::ExpVal(Object::Variable(pair.as_str().to_string())),
             Rule::func_call => {
                 let mut inner = pair.into_inner();
@@ -163,11 +170,13 @@ fn parse_parameters(params_rules: Pairs<Rule>) -> Result<Vec<(VarType, String)>,
                 match first.as_rule() {
                     Rule::vint => VarType::Int,
                     Rule::vfloat => VarType::Float,
+                    Rule::vchar => VarType::Char,
                     Rule::vstring => VarType::String,
                     Rule::array_inst => match first.into_inner().next().unwrap().as_rule() {
                         Rule::vint => VarType::Int,
                         Rule::vfloat => VarType::Float,
                         Rule::vstring => VarType::String,
+                        Rule::vchar => VarType::Char,
                         _ => {
                             return Err(ParseError::FormatError(format!(
                                 "parse_parameters() array_inst"
@@ -196,6 +205,7 @@ fn parse_return_stm(return_rule: Pair<Rule>) -> Result<VarType, ParseError> {
         Rule::vint => VarType::Int,
         Rule::vfloat => VarType::Float,
         Rule::vstring => VarType::String,
+        Rule::vchar => VarType::Char,
         Rule::array_inst => parse_return_stm(return_rule.into_inner().next().unwrap())?,
         _ => {
             return {
@@ -269,6 +279,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                         Rule::vint => VarType::Int,
                         Rule::vfloat => VarType::Float,
                         Rule::vstring => VarType::String,
+                        Rule::vchar => VarType::Char,
                         _ => {
                             return {
                                 Err(ParseError::FormatError(format!(
@@ -321,6 +332,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 Rule::vint => VarType::Int,
                 Rule::vfloat => VarType::Float,
                 Rule::vstring => VarType::String,
+                Rule::vchar => VarType::Char,
                 _ => unreachable!(),
             };
             let array_name = array_rules.next().unwrap().as_str().to_string();

@@ -102,6 +102,7 @@ impl Constant {
             Constant::String(_) => VarType::String,
             Constant::Float(_) => VarType::Float,
             Constant::Int(_) => VarType::Int,
+            Constant::Char(_) => VarType::Char,
             Constant::Array(vtype,_) => vtype,
             Constant::ArrayIndex(name, _) => {
                 // if it is an array, then retrieve the array from memory, then get its type
@@ -119,7 +120,7 @@ impl Constant {
 fn type_match(a:VarType, b:VarType) -> bool {
     use VarType::{*};
     match (a, b) {
-        (Int, Int) | (Float, Float) | (String, String) => true,
+        (Int, Int) | (Float, Float) | (String, String) | (Char, Char)=> true,
         _ => false
     }
 }
@@ -263,6 +264,7 @@ fn default_const(var_type:VarType) -> Constant{
     match var_type {
         VarType::Int => Constant::Int(0),
         VarType::Float => Constant::Float(0.0),
+        VarType::Char => Constant::Char(' '),
         VarType::String => Constant::String(String::from(""))
     }
 }
@@ -304,6 +306,7 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                 },
                 Object::Constant(Constant::Float(_)) => Ok(VarType::Float),
                 Object::Constant(Constant::Int(_)) => Ok(VarType::Int),
+                Object::Constant(Constant::Char(_)) => Ok(VarType::Char),
                 Object::Constant(Constant::String(_)) => Ok(VarType::String),
                 Object::FuncCall(func_call) => {
                     // retrive function from memory, make sure its value matches
@@ -330,11 +333,20 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
         Expr::ExpOp(lhs, _, rhs) => {
             let left = type_of_expr(*lhs, state)?;
             let right = type_of_expr(*rhs, state)?;
-            if type_match(left.clone(), right) {
-                Ok(left)
-            } else {
-                Err(StaticError::TypeViolation)
+            use VarType::*;
+            match (left.clone(), right.clone()) {
+                (Char, Char) => Ok(VarType::String),
+                (Char, String) => Ok(VarType::String),
+                (String, Char) => Ok(VarType::String),
+                (_, _) => {
+                    if type_match(left.clone(), right) {
+                        Ok(left)
+                    } else {
+                        Err(StaticError::TypeViolation)
+                    }
+                }
             }
+            
         }
     }
 }
