@@ -13,7 +13,7 @@ I will check every function individually, checking that
     I will type check the calls to other functions are preformed correctly
 */
 use crate::ast::{*};
-use log::{warn};
+use log::{error};
 
 #[derive(Debug, Clone)]
 pub enum StaticError {
@@ -21,40 +21,71 @@ pub enum StaticError {
     TypeViolation,
     NeedReturnStm,
     CannotFindFunction(String),
+    CompileError,
 }
 
 /* run program calls the main function to run the program */
 pub fn check_program(state:&mut State) -> Result<(), StaticError> {
-    for (_, function) in &state.clone().func_map {
-        let returned_type = check_function(function.clone(), state)?;
-        let expected = &function.return_type;
-        if !type_match(returned_type, expected.clone()) {
-            return Err(StaticError::TypeViolation);
+    let mut error = false;
+    for (name, function) in &state.clone().func_map {
+        match check_function(name.clone(), function.clone(), function.return_type.clone(),  state) {
+            Ok(()) => (),
+            Err(_) => {
+                error = true;
+            }
         }
-
     }
-    Ok(())
+    if error {
+        Err(StaticError::CompileError)
+    } else {
+        Ok(())
+    }
 }
 
 
 /* execute turns a ast object into a Result */
-pub fn check_function(function:Function, state:&mut State) -> Result<VarType, StaticError> {
+pub fn check_function(name:String, function:Function, expected_rt_type:VarType, state:&mut State) -> Result<(), StaticError> {
     state.increment_stack_level();
     // save parameters of the function into state
     for (param_type, param_name) in function.params {
         state.save_variable(param_name, default_const(param_type));
     }
+    let mut i = 0;
+    let mut error = false;
+    let mut return_stm = false;
+    let mut return_type = VarType::Int;
     for ast in function.statements {
         // execute ast will run a single statement or loop, if there is a return value, exit out of function
-        match eval_ast(*ast, state)? {
-            Some(val) => return Ok(val),
-            None => ()
+        match eval_ast(*ast, state) {
+            Ok(res) => match res {
+                Some(val) => {
+                    return_type = val;
+                    return_stm = true;
+                },
+                None => ()
+            },
+            Err(e) => {
+                error!("Error in function \'{}\' on line {}, error: {:?}", name.clone(), i, e);
+                error = true;
+            }
         }
+        i += 1;
     }
     state.pop_stack();
-    Err(StaticError::NeedReturnStm)
+    if ! return_stm {
+        error!("Error in {} no return type", name);
+    } else {
+        if !type_match(return_type, expected_rt_type) {
+            error!("Type mismatch error");
+            error = true;
+        }
+    }
+    if error {
+        Err(StaticError::NeedReturnStm)
+    } else {
+        Ok(())
+    }
 }
-
 /* 
 * returns a value or that a value does not exist 
 */
@@ -111,7 +142,6 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticErro
             if type_match(variable_type.clone(), value_type) {
                 state.save_variable(name, default_const(variable_type));
             } else {
-                warn!("type violation while assigning variable");
                 return Err(StaticError::TypeViolation);
             }
         },
@@ -119,7 +149,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticErro
             match type_of_expr(length_exp, state)? {
                 VarType::Int => (),
                 _ => {
-                    warn!("length of array must be int");
+                    error!("length of array must be int");
                     return Err(StaticError::TypeViolation);
                 },
             };
@@ -265,7 +295,7 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                                 Ok(var_type)
                             },
                             _ => {
-                                warn!("array index type violation");
+                                error!("array index type violation");
                                 Err(StaticError::TypeViolation)
                             }
                         },
@@ -287,7 +317,7 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                         let param_const = type_of_expr(expr.clone(), &mut state.clone())?;
                         if ! type_match(var_type.clone(), param_const.clone()) {
                             return {
-                                warn!("type violation in object::funccall\n\texpected: {:?} recieved {:?}", var_type, param_const);
+                                error!("type violation in object::funccall\n\texpected: {:?} recieved {:?}", var_type, param_const);
                                 Err(StaticError::TypeViolation)
                             }
                         }

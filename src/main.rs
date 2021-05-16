@@ -16,6 +16,9 @@ use std::collections::HashMap;
 use crate::evaluate::*;
 use crate::static_analysis::check_program;
 use log::{info, trace};
+use std::fs::File;
+use serde_json::{Result, Value};
+use std::io::prelude::*;
 
 // builds default for state
 fn build_default_state() -> State {
@@ -32,30 +35,75 @@ fn build_default_state() -> State {
 */
 fn main() {
     pretty_env_logger::init();
-    let expression = std::fs::read_to_string("worm/easy.c").expect("cannot read file"); //from file
-    let pairs = WormParser::parse(Rule::program, &expression).unwrap_or_else(|e| panic!("{}", e));
-    let mut state = build_default_state();
-    // parses the program into an AST, saves the functions AST in the state to be called upon later
-    match parse_program(pairs, &mut state) {
-        Ok(()) => (),
-        Err(e) => {
-            trace!("{:?}", e);
-            return;
+    let first_arg = std::env::args().nth(1).expect("expected a filename");
+    let second_arg;
+    if first_arg == "-c" {
+        // compile only
+        second_arg = std::env::args().nth(2).expect("expected a filename");
+        let expression = std::fs::read_to_string(&format!("{}", second_arg)[..]).expect("cannot read file"); //from file
+        let pairs = WormParser::parse(Rule::program, &expression).unwrap_or_else(|e| panic!("{}", e));
+        let mut state = build_default_state();
+        // parses the program into an AST, saves the functions AST in the state to be called upon later
+        match parse_program(pairs, &mut state) {
+            Ok(()) => (),
+            Err(e) => {
+                trace!("{:?}", e);
+                return;
+            }
         }
-    }
 
-    match check_program(&mut state) {
-        Ok(()) => (),
-        Err(e) => {
-            trace!("static_error: {:?}", e);
-            return;
+        match check_program(&mut state) {
+            Ok(()) => (),
+            Err(e) => {
+                return;
+            }
         }
-    }
 
-    let result = match run_program(&mut state) {
-        Ok(res) => Ok(res),
-        Err(e) => Err(e),
-    };
-    info!("{:?}", result);
-    
+        let encoded: Vec<u8> = bincode::serialize(&state).unwrap();
+        let filename = &format!("{}.o", second_arg)[..];
+        let mut file = File::create(filename).unwrap();
+        file.write(&encoded);
+        info!("compiled");
+        //write to file
+
+    } else if first_arg == "-e" {
+        // execute only
+        second_arg = std::env::args().nth(2).expect("expected a filename");
+        let contents = std::fs::read_to_string(second_arg)
+            .expect("Something went wrong reading the file");
+        let mut decoded:State = bincode::deserialize(&contents.as_bytes()).unwrap();
+        let result = match run_program(&mut decoded) {
+            Ok(res) => Ok(res),
+            Err(e) => Err(e),
+        };
+        println!("exec result: {:?}", result);
+
+    } else {
+        // compile and execute
+        let filename = &format!("{}", first_arg)[..];
+        let expression = std::fs::read_to_string(filename).expect("cannot read file"); //from file
+        let pairs = WormParser::parse(Rule::program, &expression).unwrap_or_else(|e| panic!("{}", e));
+        let mut state = build_default_state();
+        // parses the program into an AST, saves the functions AST in the state to be called upon later
+        match parse_program(pairs, &mut state) {
+            Ok(()) => (),
+            Err(e) => {
+                trace!("parse error {:?}", e);
+                return;
+            }
+        }
+
+        match check_program(&mut state) {
+            Ok(()) => (),
+            Err(e) => {
+                return;
+            }
+        }
+
+        let result = match run_program(&mut state) {
+            Ok(res) => Ok(res),
+            Err(e) => Err(e),
+        };
+        info!("{:?}", result);
+    }
 }

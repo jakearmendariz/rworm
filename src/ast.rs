@@ -1,6 +1,7 @@
 use crate::HashMap;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct State {
     pub var_map: HashMap<String, Constant>,
     pub func_map: HashMap<String, Function>,
@@ -47,7 +48,7 @@ impl State {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AstNode {
     // option(type) var_name = expression
     Assignment(Option<VarType>, String, Expr),
@@ -66,7 +67,7 @@ pub enum AstNode {
     Skip(),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Function {
     pub name: String,
     pub params: Vec<(VarType, String)>,
@@ -74,7 +75,7 @@ pub struct Function {
     pub statements: Vec<Box<AstNode>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BoolAst {
     Not(Box<BoolAst>),
     And(Box<BoolAst>, Box<BoolAst>),
@@ -83,16 +84,16 @@ pub enum BoolAst {
     Const(bool),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BuiltIn {
     Print(Expr),
     Assert(BoolAst),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoolExp(pub Expr, pub BoolOp, pub Expr);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BoolOp {
     Eq,
     Neq,
@@ -102,26 +103,26 @@ pub enum BoolOp {
     Gt,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Expr {
     ExpVal(Object),
     ExpOp(Box<Expr>, OpType, Box<Expr>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum VarType {
     Int,
     Float,
     String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FuncCall {
     pub name: String,
     pub params: Vec<Expr>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Constant {
     Int(i32),
     Float(f64),
@@ -131,24 +132,37 @@ pub enum Constant {
 }
 
 
+impl std::fmt::Display for Constant {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+       match *self {
+           Constant::Int(_) => write!(f, "int"),
+           Constant::Float(_) => write!(f, "float"),
+           Constant::String(_) => write!(f, "string"),
+           Constant::Array(_,_) => write!(f, "array"),
+           Constant::ArrayIndex(_,_) => write!(f, "array index"),
+       }
+    }
+}
+
+
 /*
 * Objects can be constants values, or variable names that turn into constants, or function calls
 */
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Object {
     Variable(String),
     Constant(Constant),
     FuncCall(FuncCall),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Operation {
     op: OpType,
     left: Box<Expr>,
     right: Box<Expr>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum OpType {
     Add,
     Mult,

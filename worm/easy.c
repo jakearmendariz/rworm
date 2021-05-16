@@ -4,6 +4,8 @@
  
 fn sum(int a, int b) -> int {
     int c = a + b;
+    d = 6;
+    string a = 4;
     return c;
 }
 
