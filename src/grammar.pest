@@ -81,10 +81,12 @@ params = {dec ~ ("," ~ dec)*}
 return_stm = {"return" ~ expr ~ ";"}
 func_def = {"fn" ~ var_name ~ "(" ~ params? ~ ")" ~ "->" ~ var_type ~ "{" ~ body ~ "}"}
 
+import_stm = {"import" ~ string ~ ";"}
+
 item = _{int | float | var_type}
 list = {expr ~ ("," ~ expr)*}
 func_call = {var_name ~ "(" ~ list? ~ ")"}
 
 assignment = {(array_index | (var_type? ~ var_name)) ~ "=" ~ (expr | string)}
 statement = _{((builtin | skip | array_definition |  assignment) ~ ";") | (return_stm | func_def | ifstm | whilestm) }
-program = _{ SOI ~ func_def* ~ EOI }
+program = _{ SOI ~ (import_stm | func_def)* ~ EOI }

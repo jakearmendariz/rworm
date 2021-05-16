@@ -12,12 +12,10 @@ Interpretter currently works in 3 stages
 Current abstract syntax trees
 
 ## TODO
-- String concatination and indexing
-- structs
 - Better error handling
+- Importing other filesn 
 - weird stuff to make it unique and fun
 - Maybe....
-    - forloops
     - json
     - calling command line stuff
 

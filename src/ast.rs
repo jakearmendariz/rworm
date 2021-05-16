@@ -116,6 +116,16 @@ pub enum VarType {
     String,
 }
 
+impl std::fmt::Display for VarType {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+       match *self {
+            VarType::Int => write!(f, "int"),
+            VarType::Float => write!(f, "float"),
+            VarType::String => write!(f, "string"),
+       }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FuncCall {
     pub name: String,
@@ -134,12 +144,12 @@ pub enum Constant {
 
 impl std::fmt::Display for Constant {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-       match *self {
-           Constant::Int(_) => write!(f, "int"),
-           Constant::Float(_) => write!(f, "float"),
-           Constant::String(_) => write!(f, "string"),
-           Constant::Array(_,_) => write!(f, "array"),
-           Constant::ArrayIndex(_,_) => write!(f, "array index"),
+       match &*self {
+           Constant::Int(i) => write!(f, "{}", i),
+           Constant::Float(fl) => write!(f, "{}", fl),
+           Constant::String(s) => write!(f, "{}", s),
+           Constant::Array(t,n) => write!(f, "{}[{}]", t, n.len()),
+           Constant::ArrayIndex(a,i) => write!(f, "{}[{:?}]", a, *i),
        }
     }
 }

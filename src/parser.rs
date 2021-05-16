@@ -26,6 +26,10 @@ pub fn parse_program(pairs: Pairs<Rule>, state: &mut State) -> Result<(), ParseE
     for pair in pairs {
         match pair.as_rule() {
             Rule::EOI => continue,
+            Rule::import_stm => { 
+                parse_ast(pair, state)?; 
+                continue
+            },
             _ => parse_function(pair, state)?,
         }
     }
@@ -437,6 +441,15 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 "unmatched rule while parsing ast {:?}",
                 rule
             )))
+        }
+        Rule::import_stm => {
+            use pest::Parser;
+            let filename = pair.into_inner().next().unwrap().into_inner().next().unwrap().as_str();
+            let expression = std::fs::read_to_string(filename).expect("cannot read file"); //from file
+            let pairs = WormParser::parse(Rule::program, &expression).unwrap_or_else(|e| panic!("{}", e));
+            // parses the program into an AST, saves the functions AST in the state to be called upon later
+            parse_program(pairs, state)?;
+            Ok(AstNode::Skip())
         }
         Rule::EOI => return Err(ParseError::EndOfInput),
         _ => {

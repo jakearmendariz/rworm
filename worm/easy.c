@@ -2,12 +2,7 @@
 * Worm Programming language test suite
 */
  
-fn sum(int a, int b) -> int {
-    int c = a + b;
-    d = 6;
-    string a = 4;
-    return c;
-}
+import "worm/medium.c";
 
 fn provide_arr(int limit) -> int[] {
     int[] nums = [|i| i; limit];

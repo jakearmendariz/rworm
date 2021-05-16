@@ -50,7 +50,7 @@ pub fn check_function(name:String, function:Function, expected_rt_type:VarType, 
     for (param_type, param_name) in function.params {
         state.save_variable(param_name, default_const(param_type));
     }
-    let mut i = 0;
+    let mut i = 1;
     let mut error = false;
     let mut return_stm = false;
     let mut return_type = VarType::Int;
@@ -75,8 +75,8 @@ pub fn check_function(name:String, function:Function, expected_rt_type:VarType, 
     if ! return_stm {
         error!("Error in {} no return type", name);
     } else {
-        if !type_match(return_type, expected_rt_type) {
-            error!("Type mismatch error");
+        if !type_match(return_type.clone(), expected_rt_type.clone()) {
+            error!("Type mismatch error, expected: {}, recieved: {}", expected_rt_type, return_type);
             error = true;
         }
     }
