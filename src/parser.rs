@@ -113,7 +113,6 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
             Rule::char => Expr::ExpVal(Object::Constant(Constant::Char(
                 {
                     let character = pair.into_inner().next().unwrap().as_str();
-                    println!("character : {}", character);
                     character.chars().next().unwrap()
                 }
             ))),

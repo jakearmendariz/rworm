@@ -17,8 +17,7 @@ fn floating_gcd(float x, float y) -> float {
 }
 
 fn hello(string s1, string s2) -> string {
-    string s = s1 + s2;
-    return s;
+    return s1 + s2;
 }
 
 fn fucking_with_arrays(int[] b) -> int {

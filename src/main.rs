@@ -15,7 +15,7 @@ use pest::Parser;
 use std::collections::HashMap;
 use crate::evaluate::*;
 use crate::static_analysis::check_program;
-use log::{info, trace};
+use log::{info, trace, error};
 use std::fs::File;
 use serde_json::{Result, Value};
 use std::io::prelude::*;
@@ -55,6 +55,7 @@ fn main() {
         match check_program(&mut state) {
             Ok(()) => (),
             Err(e) => {
+                error!("{}", e);
                 return;
             }
         }
@@ -96,6 +97,7 @@ fn main() {
         match check_program(&mut state) {
             Ok(()) => (),
             Err(e) => {
+                error!("{}", e);
                 return;
             }
         }
