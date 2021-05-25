@@ -98,6 +98,9 @@ fn parse_bool_ast(conditional: &mut Pairs<Rule>) -> BoolAst {
         },
     )
 }
+fn remove_whitespace(s: &mut String) {
+    s.retain(|c| !c.is_whitespace());
+}
 
 /* parses pairs of rules from peg parser into a expression */
 fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
@@ -107,9 +110,12 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
             Rule::float => Expr::ExpVal(Object::Constant(Constant::Float(
                 pair.as_str().parse::<f64>().unwrap(),
             ))),
-            Rule::int => Expr::ExpVal(Object::Constant(Constant::Int(
-                pair.as_str().parse::<i32>().unwrap(),
-            ))),
+            Rule::int => {
+                println!("`{}`", pair.as_str());
+                let mut no_whitespace = pair.as_str().to_string();
+                remove_whitespace(&mut no_whitespace);
+                Expr::ExpVal(Object::Constant(Constant::Int(no_whitespace.parse::<i32>().unwrap())))
+            },
             Rule::char => Expr::ExpVal(Object::Constant(Constant::Char(
                 {
                     let character = pair.into_inner().next().unwrap().as_str();
@@ -151,6 +157,7 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
             Rule::multiply => Expr::ExpOp(Box::new(lhs), OpType::Mult, Box::new(rhs)),
             Rule::divide => Expr::ExpOp(Box::new(lhs), OpType::Div, Box::new(rhs)),
             Rule::power => Expr::ExpOp(Box::new(lhs), OpType::Pow, Box::new(rhs)),
+            Rule::modulus => Expr::ExpOp(Box::new(lhs), OpType::Modulus, Box::new(rhs)),
             _ => unreachable!(),
         },
     )
@@ -434,7 +441,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 Rule::print => {
                     let expression = parse_into_expr(builtin.into_inner());
                     Ok(AstNode::BuiltIn(BuiltIn::Print(expression)))
-                }
+                },
                 Rule::assert => Ok(AstNode::BuiltIn(BuiltIn::Assert(parse_bool_ast(
                     &mut builtin.into_inner(),
                 )))),

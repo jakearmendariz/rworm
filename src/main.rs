@@ -17,7 +17,6 @@ use crate::evaluate::*;
 use crate::static_analysis::check_program;
 use log::{info, trace, error};
 use std::fs::File;
-use serde_json::{Result, Value};
 use std::io::prelude::*;
 
 // builds default for state
@@ -63,7 +62,10 @@ fn main() {
         let encoded: Vec<u8> = bincode::serialize(&state).unwrap();
         let filename = &format!("{}.o", second_arg)[..];
         let mut file = File::create(filename).unwrap();
-        file.write(&encoded);
+        match file.write(&encoded) {
+            Ok(_) => (),
+            Err(_) => error!("error writing to file")
+        }
         info!("compiled");
         //write to file
 
@@ -102,10 +104,9 @@ fn main() {
             }
         }
 
-        let result = match run_program(&mut state) {
-            Ok(res) => Ok(res),
-            Err(e) => Err(e),
+        match run_program(&mut state) {
+            Ok(res) => info!("{}", res),
+            Err(e) => error!("{:?}", e),
         };
-        info!("{:?}", result);
     }
 }

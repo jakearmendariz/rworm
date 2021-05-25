@@ -238,7 +238,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticErro
                 },
                 BuiltIn::Assert(boolast) => {
                     check_bool_ast(&boolast, state)?;
-                }
+                },
             }
             ()
         },
@@ -315,6 +315,8 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                             Constant::Array(var_type, _) => {
                                 Ok(var_type)
                             },
+                            Constant::Int(_) => Ok(VarType::Int),
+                            Constant::String(_) => Ok(VarType::Char),
                             _ => {
                                 Err(StaticError::ArrayIndex(name, String::from("non array value")))
                             }
@@ -328,22 +330,47 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                 Object::Constant(Constant::String(_)) => Ok(VarType::String),
                 Object::FuncCall(func_call) => {
                     // retrive function from memory, make sure its value matches
-                    let function = match state.func_map.get(&func_call.name.clone()) {
-                        Some(func) => func,
-                        None => return Err(StaticError::CannotFindFunction(func_call.name)),
-                    };
-                    let Function{name:_, params, return_type, statements:_} = function.clone();
-                    // iterate through the parameters provided and the function def, 
-                    for (expr, (var_type, _)) in func_call.params.iter().zip(params.iter()) {
-                        let param_const = type_of_expr(expr.clone(), &mut state.clone())?;
-                        if ! type_match(var_type.clone(), param_const.clone()) {
-                            return {
-                                Err(StaticError::TypeViolation(var_type.clone(), param_const))
+                    if func_call.name == "len" { // builtin
+                        if func_call.params.len() != 1 {
+                            Err(StaticError::General("Error len requires exactly 1 arg".to_string()))
+                        } else {
+                            Ok(VarType::Int)
+                            // match func_call.params.pop().expect("No argument in func_call to len()") { // match the expression, determine if its an array or string
+                            //     Expr::ExpVal(num) => {
+                            //         match(num) {
+                            //             Object::Variable(name) => {
+                            //                 println!("state:{:?}", state.var_map.clone());
+                            //                 match get_value(name, state)? {
+                            //                     Constant::Array(_, _) | Constant::String(_) => Ok(VarType::Int),
+                            //                     Constant::Int(_) => Err(StaticError::General("got int when an array was smaller".to_string())),
+                            //                     _ => Err(StaticError::General("recognized variable in len, didn't eval to type string or array".to_string()))
+                            //                 }
+                            //             },
+                            //             Object::Constant(Constant::Array(_, _)) | Object::Constant(Constant::String(_)) => Ok(VarType::Int),
+                            //             _ => Err(StaticError::General("expected type string or array".to_string()))
+                            //         }
+                            //     }
+                            //     _ => Err(StaticError::General("Error not expression value inside of len()".to_string()))
+                            // }
+                        }
+                    } else {
+                        let function = match state.func_map.get(&func_call.name.clone()) {
+                            Some(func) => func,
+                            None => return Err(StaticError::CannotFindFunction(func_call.name)),
+                        };
+                        let Function{name:_, params, return_type, statements:_} = function.clone();
+                        // iterate through the parameters provided and the function def, 
+                        for (expr, (var_type, _)) in func_call.params.iter().zip(params.iter()) {
+                            let param_const = type_of_expr(expr.clone(), &mut state.clone())?;
+                            if ! type_match(var_type.clone(), param_const.clone()) {
+                                return {
+                                    Err(StaticError::TypeViolation(var_type.clone(), param_const))
+                                }
                             }
                         }
+                        // function input types match expected values, return a empty constant of matching type
+                        Ok(return_type)
                     }
-                    // function input types match expected values, return a empty constant of matching type
-                    Ok(return_type)
                 },
             }
         },

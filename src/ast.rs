@@ -144,6 +144,20 @@ pub enum Constant {
     ArrayIndex(String, Box<Expr>), // string for variable name, once retrieved the usize will get the constant value
 }
 
+// impl std::fmt::Display for Constant {
+//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         match *self {
+//             Int(i) => write!(f, "{}", i),
+//             Float(f)=> write!(f, "{}", f),
+//             String(s)=> write!(f, "{}", s),
+//             Char(c)=> write!(f, "{}", c),
+//             Array(vtype, list)=> write!(f, "{}{:?}", vtype, list),
+//             ArrayIndex(name, exp)=> write!(f, "{}{:?}", name, exp),
+//         }
+//     }
+// }
+
+
 
 impl std::fmt::Display for Constant {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -183,4 +197,5 @@ pub enum OpType {
     Sub,
     Div,
     Pow,
+    Modulus
 }

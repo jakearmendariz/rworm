@@ -152,7 +152,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                     if ! eval_bool_ast(&boolexp, state)? {
                         return Err(ExecutionError::AssertionError(boolexp));
                     } 
-                }
+                },
             }
             ()
         },
@@ -224,19 +224,28 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                 Object::Constant(Constant::Array(var_type, elements)) => Ok(Constant::Array(var_type, elements)),
                 Object::Constant(Constant::ArrayIndex(name, index_exp)) => {
                     // get array from state map
-                    let mut array = match state.var_map.get(&name.clone()).unwrap().clone() {
-                        Constant::Array(_var_type, elements) => elements,
-                        _ => panic!("trying to index a variable thats not an array"),                        
-                    };
                     // get the index, if its not number return error
                     let index = match eval_expr(*index_exp, state)? {
                         Constant::Int(i) => i as usize,
                         _ => panic!("array index not a number")
                     };
-                    if index > array.len() {
-                        return Err(ExecutionError::IndexOutOfBounds(name, index));
-                    }
-                    return Ok(array.remove(index));
+                    match state.var_map.get(&name.clone()).unwrap().clone() {
+                        Constant::Array(_var_type, mut elements) => {
+                            if elements.len() <= index {
+                                return Err(ExecutionError::IndexOutOfBounds(name, index))
+                            }else {
+                                return Ok(elements.remove(index))
+                            }
+                        },
+                        Constant::String(s) => {
+                            if s.len() <= index {
+                                return Err(ExecutionError::IndexOutOfBounds(name, index))
+                            }else {
+                                return Ok(Constant::Char(s.as_bytes()[index as usize] as char))
+                            }
+                        },
+                        _ => panic!("trying to index a variable thats not an array"),                        
+                    };
                 },
                 Object::Constant(Constant::Float(f)) => Ok(Constant::Float(f)),
                 Object::Constant(Constant::Int(i)) => Ok(Constant::Int(i)),
@@ -244,21 +253,29 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                 Object::Constant(Constant::Char(c)) => Ok(Constant::Char(c)),
                 Object::FuncCall(func_call) => {
                     // need a new var map for the function, just the parameters
-                    let mut var_map:HashMap<String, Constant> = HashMap::new();
-                    let function = state.func_map.get(&func_call.name).unwrap();
-                    let mut var_stack:Vec<(String, u32)> = Vec::new();
-                    // let stack_lvl:u32 = 0;
-                    let Function{name:_, params, return_type:_, statements:_} = function.clone();
-                    let func_clone = function.clone();
-                    let func_map = state.func_map.clone();
-                    // iterate through the parameters provided and the function def, 
-                    for (expr, (_, param_name)) in func_call.params.iter().zip(params.iter()) {
-                        let param_const = eval_expr(expr.clone(), &mut state.clone())?;
-                        var_stack.push((param_name.clone(), 0));
-                        var_map.insert(param_name.to_string(), param_const);
+                    if func_call.name == "len".to_string() {
+                        match eval_expr(func_call.params[0].clone(), state)? {
+                            Constant::Array(_, elements) => Ok(Constant::Int(elements.len() as i32)),
+                            Constant::String(s) => Ok(Constant::Int(s.len() as i32)),
+                            _ => panic!("panicked tried to find the length of a non array string")
+                        }
+                    } else {
+                        let mut var_map:HashMap<String, Constant> = HashMap::new();
+                        let function = state.func_map.get(&func_call.name).unwrap();
+                        let mut var_stack:Vec<(String, u32)> = Vec::new();
+                        // let stack_lvl:u32 = 0;
+                        let Function{name:_, params, return_type:_, statements:_} = function.clone();
+                        let func_clone = function.clone();
+                        let func_map = state.func_map.clone();
+                        // iterate through the parameters provided and the function def, 
+                        for (expr, (_, param_name)) in func_call.params.iter().zip(params.iter()) {
+                            let param_const = eval_expr(expr.clone(), &mut state.clone())?;
+                            var_stack.push((param_name.clone(), 0));
+                            var_map.insert(param_name.to_string(), param_const);
+                        }
+                        let mut func_state = State {var_map, func_map, var_stack, stack_lvl:0}; 
+                        Ok(eval_func(func_clone, &mut func_state)?)
                     }
-                    let mut func_state = State {var_map, func_map, var_stack, stack_lvl:0}; 
-                    Ok(eval_func(func_clone, &mut func_state)?)
                 },
             }
         },
@@ -298,6 +315,7 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                     l / r
                 },
                 OpType::Pow => l.powf(r),
+                OpType::Modulus => l % r,
             };
             match var_type {
                 VarType::Int => Ok(Constant::Int(res as i32)),
