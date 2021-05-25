@@ -1,7 +1,7 @@
 /* 
 * Worm Programming language test suite
-*/
- 
+
+*/ 
 import "worm/medium.c";
 
 fn sum(int a, int b) -> int {
@@ -30,10 +30,9 @@ fn sum_up(int limit) -> int {
     int j = 0;
     int[] nums = provide_arr(limit);
     while j < limit {
-        thesum = sum(nums[j], thesum); 
+        int a = nums[j];
+        thesum = sum(a, thesum); 
         j = j + 1;
     }
     return thesum;
 }
-
-

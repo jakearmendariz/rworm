@@ -122,13 +122,14 @@ impl Constant {
             Constant::Float(_) => VarType::Float,
             Constant::Int(_) => VarType::Int,
             Constant::Char(_) => VarType::Char,
-            Constant::Array(vtype,_) => vtype,
+            Constant::Array(vtype,_) => VarType::Array(Box::new(vtype)),
             Constant::ArrayIndex(name, _) => {
                 // if it is an array, then retrieve the array from memory, then get its type
                 match get_value(name.clone(), state)? {
                     Constant::Array(var_type,_) => {
                         var_type.clone()
                     },
+                    Constant::String(_) => VarType::Char,
                     _ => return Err(StaticError::ArrayIndex(name, format!("cannot index non array value"))),
                 }
             },
@@ -140,6 +141,7 @@ fn type_match(a:VarType, b:VarType) -> bool {
     use VarType::{*};
     match (a, b) {
         (Int, Int) | (Float, Float) | (String, String) | (Char, Char)=> true,
+        (Array(_), Array(_)) => true, // TODO seperate for array types as well
         _ => false
     }
 }
@@ -148,6 +150,7 @@ fn type_match(a:VarType, b:VarType) -> bool {
 * evaluate an ast, one line or one if/while stm
 */
 fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticError> {
+    // println!("state:{:?}\n{:?}\n", state.var_map, ast.clone());
     match ast {
         AstNode::Assignment(vtype, name, exp) => {
             let variable_type:VarType = match vtype {
@@ -189,7 +192,13 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticErro
             state.save_variable(name, Constant::Array(var_type, Vec::new()));
         },
         AstNode::ArrayFromExp(_, name, expr) => {
-            let var_type = type_of_expr(expr, state)?;
+            let var_type = match type_of_expr(expr, state)? {
+                VarType::Array(value) => *value,
+                VarType::Int => return Err(StaticError::TypeViolation(VarType::Array(Box::new(VarType::Int)), VarType::Int)),
+                VarType::Float => return Err(StaticError::TypeViolation(VarType::Array(Box::new(VarType::Float)), VarType::Float)),
+                VarType::Char => return Err(StaticError::TypeViolation(VarType::Array(Box::new(VarType::Char)), VarType::Char)),
+                VarType::String => return Err(StaticError::TypeViolation(VarType::Array(Box::new(VarType::String)), VarType::String)),
+            };
             state.save_variable(name, Constant::Array(var_type, Vec::new()));
         },
         AstNode::ArrayIndexAssignment(name, index_exp, value_exp) => {
@@ -284,7 +293,8 @@ fn default_const(var_type:VarType) -> Constant{
         VarType::Int => Constant::Int(0),
         VarType::Float => Constant::Float(0.0),
         VarType::Char => Constant::Char(' '),
-        VarType::String => Constant::String(String::from(""))
+        VarType::String => Constant::String(String::from("")),
+        VarType::Array(var_type) => Constant::Array(*var_type, Vec::new()) 
     }
 }
 
@@ -303,13 +313,14 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                         None => return Err(StaticError::ValueDne(name))
                     }
                 },
-                Object::Constant(Constant::Array(var_type, _elements)) => Ok(var_type),
+                Object::Constant(Constant::Array(var_type, _elements)) => Ok(VarType::Array(Box::new(var_type))),
                 Object::Constant(Constant::ArrayIndex(name, index_exp)) => {
                     match type_of_expr(*index_exp, state)? {
                         VarType::Int => (),
                         _ => return Err(StaticError::ArrayIndex(name, String::from("non int accessing array")))
                     };
                     // get array from state map
+                    
                     match state.var_map.get(&name.clone()) {
                         Some(value) => match value.clone() {
                             Constant::Array(var_type, _) => {

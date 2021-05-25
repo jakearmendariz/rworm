@@ -31,3 +31,7 @@ Current abstract syntax trees
 ## Unique
 #### Arrays
 Arrays can be defined as a type `int[] arr = [|i| i; size]` where i is the index value ex: `int[] arr = [|i| (i+1)^2; 3]` => `[1, 4, 9]` 
+
+
+When using an array as an AST::NODE, its type should be the type of value inside of the array
+When defining a parameter or return value, it should be the VarType::Array(othertype)

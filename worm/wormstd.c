@@ -27,6 +27,7 @@ fn first(string s) -> char {
     return s[0];
 }
 
+/*
 fn main() -> int[] {
     int[] arr = [|i| i; 10];
     int[] arr2 = append(arr, 11);
@@ -35,3 +36,4 @@ fn main() -> int[] {
     return arr2;
 }
 
+*/
