@@ -1,5 +1,6 @@
 use crate::HashMap;
 use serde::{Serialize, Deserialize};
+use std::cmp::Ordering;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct State {
@@ -181,7 +182,7 @@ pub enum VarType {
     Char,
     String,
     Array(Box<VarType>),
-    // Map,
+    Map,
 }
 
 impl std::fmt::Display for VarType {
@@ -191,7 +192,8 @@ impl std::fmt::Display for VarType {
             VarType::Char => write!(f, "char"),
             VarType::Float => write!(f, "float"),
             VarType::String => write!(f, "string"),
-            VarType::Array(vtype) => write!(f, "{}[]", vtype)
+            VarType::Array(vtype) => write!(f, "{}[]", vtype),
+            VarType::Map => write!(f, "map"),
        }
     }
 }
@@ -210,8 +212,80 @@ pub enum Constant {
     Char(char),
     Array(VarType, Vec<Constant>),
     ArrayIndex(String, Box<Expr>), // string for variable name, once retrieved the usize will get the constant value
-    // Map(HashMap<Constant, Constant>),
+    Map(WormMap),
 }
+
+/*
+* hashmap implementation is literally linear
+* I wanted to be able to nest hashmaps in this version I can
+*/
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WormMap {
+    pairs:Vec<(Constant, Constant)>
+}
+
+impl WormMap {
+    pub fn get(self, key:Constant) -> Option<Constant> {
+        for (stored_key, stored_val) in &self.pairs {
+            if(*stored_key == key) {
+                return Some(stored_val.clone());
+            }
+        }
+        return None;
+    }
+
+    pub fn insert(&mut self, key:Constant, value:Constant) {
+        self.remove(key.clone());
+        self.pairs.push((key, value));
+    }
+
+    pub fn remove(&mut self, key:Constant) -> Result<(), &'static str> {
+        let mut index = 0;
+        for (stored_key, stored_val) in &self.pairs {
+            if(*stored_key == key) {
+                self.pairs.remove(index);
+                return Ok(());
+            }
+            index += 1;
+        }
+        return Err("key:value pair does not exist in hashmap");
+    }
+}
+
+// Checks equality amon the constants
+impl PartialEq for Constant {
+    fn eq(&self, other: &Self) -> bool {
+        use Constant::*;
+        match (self, other) {
+            (Int(i), Int(j)) => i == j,
+            (Float(i), Float(j)) => i == j,
+            (Char(i), Char(j)) => i == j,
+            (String(i), String(j)) => i.eq(j),
+            _ => false
+        }
+    }
+}
+
+// impl Eq for Constant {}
+
+
+// Checks equality amon the constants
+impl PartialOrd for Constant {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        use Constant::*;
+        Some(match (self, other) {
+            (Int(i), Int(j)) => i.cmp(j),
+            (Float(i), Float(j)) => (*i as i64).cmp(&(*j as i64)),
+            (Char(i), Char(j)) => i.cmp(j),
+            (String(i), String(j)) => i.cmp(j),
+            _ => return None,
+        })
+    }
+}
+
+// #[derive(Debug, Clone, Serialize, Deserialize)]
+// pub enum Constant {
+
 
 
 impl std::fmt::Display for Constant {
@@ -223,6 +297,7 @@ impl std::fmt::Display for Constant {
            Constant::String(s) => write!(f, "{}", s),
            Constant::Array(t,n) => write!(f, "{}[{}]", t, n.len()),
            Constant::ArrayIndex(a,i) => write!(f, "{}[{}]", a, *i),
+           Constant::Map(_) => write!(f, "map{{}}")
        }
     }
 }

@@ -2,6 +2,7 @@ use crate::ast::*;
 use pest::iterators::{Pair, Pairs};
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use std::vec::Vec;
+use std::collections::HashMap;
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
@@ -143,7 +144,8 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                     array_name,
                     Box::new(index),
                 )))
-            }
+            },
+            Rule::hash_obj => Expr::ExpVal(Object::Constant(Constant::Map(WormMap::default()))),
             _ => unreachable!(),
         },
         |lhs: Expr, op: Pair<Rule>, rhs: Expr| match op.as_rule() {
@@ -280,6 +282,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                         Rule::vfloat => VarType::Float,
                         Rule::vstring => VarType::String,
                         Rule::vchar => VarType::Char,
+                        Rule::hmap => VarType::Map,
                         Rule::array_dec => {
                             match start_of_assign.into_inner().next().unwrap().as_rule() {
                                 Rule::vint => VarType::Array(Box::new(VarType::Int)),
@@ -343,6 +346,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 Rule::vfloat => VarType::Float,
                 Rule::vstring => VarType::String,
                 Rule::vchar => VarType::Char,
+                Rule::hmap => VarType::Map,
                 // Rule::array_inst(_) => VarType::Array(Box::new(VarType::Int)),
                 _ => unreachable!(),
             };

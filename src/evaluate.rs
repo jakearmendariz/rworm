@@ -1,6 +1,5 @@
 use crate::ast::{*};
 use std::collections::HashMap;
-use std::cmp::Ordering;
 use colored::*;
 
 
@@ -16,35 +15,6 @@ pub fn run_program(state:&mut State) -> Result<Constant, ExecutionError> {
     let main_function = state.func_map.get("main").unwrap();
     Ok(eval_func(main_function.clone(), state)?)
 }
-
-// Checks equality amon the constants
-impl PartialEq for Constant {
-    fn eq(&self, other: &Self) -> bool {
-        use Constant::*;
-        match (self, other) {
-            (Int(i), Int(j)) => i == j,
-            (Float(i), Float(j)) => i == j,
-            (Char(i), Char(j)) => i == j,
-            (String(i), String(j)) => i.eq(j),
-            _ => false
-        }
-    }
-}
-
-// Checks equality amon the constants
-impl PartialOrd for Constant {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        use Constant::*;
-        Some(match (self, other) {
-            (Int(i), Int(j)) => i.cmp(j),
-            (Float(i), Float(j)) => (*i as i64).cmp(&(*j as i64)),
-            (Char(i), Char(j)) => i.cmp(j),
-            (String(i), String(j)) => i.cmp(j),
-            _ => return None,
-        })
-    }
-}
-
 
 /* execute turns a ast object into a Result */
 pub fn eval_func(function:Function, state:&mut State) -> Result<Constant, ExecutionError> {
@@ -104,6 +74,13 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
         AstNode::ArrayIndexAssignment(name, index_exp, value_exp) => {
             let (var_type, mut elements) = match state.var_map.get(&name).unwrap().clone() {
                 Constant::Array(var_type, elements) => (var_type, elements),
+                Constant::Map(mut hashmap) => {
+                    let index = eval_expr(index_exp, state)?;
+                    let value = eval_expr(value_exp, state)?;
+                    hashmap.insert(index, value); // insert into hash Constant:Constant Pair
+                    state.save_variable(name, Constant::Map(hashmap));
+                    return Ok(None);
+                },
                 _ => panic!("type mismatch found during execution"),
             };
             let index = match eval_expr(index_exp, state)? {
@@ -191,6 +168,8 @@ fn eval_bool(bool_exp:&BoolExp, state:&mut State) ->  Result<bool, ExecutionErro
         (Int(i), Int(j)) => (i as f64,j as f64),
         (Float(i), Float(j)) => (i, j),
         (Char(i), Char(j)) => (i as u32 as f64,j as u32 as f64),
+        (Map(_), _) => panic!("type violation in eval_bool, cannot compare map"),
+        (_, Map(_)) => panic!("type violation in eval_bool, cannot compare map"),
         (String(s1), String(s2)) => {
             return Ok(match op {
                 BoolOp::Eq => s1 == s2,
@@ -229,12 +208,13 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                 Object::Constant(Constant::ArrayIndex(name, index_exp)) => {
                     // get array from state map
                     // get the index, if its not number return error
-                    let index = match eval_expr(*index_exp, state)? {
-                        Constant::Int(i) => i as usize,
-                        _ => panic!("array index not a number")
-                    };
+
                     match state.var_map.get(&name.clone()).unwrap().clone() {
                         Constant::Array(_var_type, mut elements) => {
+                            let index = match eval_expr(*index_exp, state)? {
+                                Constant::Int(i) => i as usize,
+                                _ => panic!("array index not a number")
+                            };
                             if elements.len() <= index {
                                 return Err(ExecutionError::IndexOutOfBounds(name, index))
                             }else {
@@ -242,12 +222,23 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                             }
                         },
                         Constant::String(s) => {
+                            let index = match eval_expr(*index_exp, state)? {
+                                Constant::Int(i) => i as usize,
+                                _ => panic!("array index not a number")
+                            };
                             if s.len() <= index {
                                 return Err(ExecutionError::IndexOutOfBounds(name, index))
                             }else {
                                 return Ok(Constant::Char(s.as_bytes()[index as usize] as char))
                             }
                         },
+                        Constant::Map(hashmap) => {
+                            let index = eval_expr(*index_exp, state)?;
+                            match hashmap.get(index) {
+                                Some(val) => return Ok(val),
+                                None => panic!("Hashmap value does not exist"),
+                            }
+                        }
                         _ => panic!("trying to index a variable thats not an array"),                        
                     };
                 },
@@ -255,6 +246,7 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                 Object::Constant(Constant::Int(i)) => Ok(Constant::Int(i)),
                 Object::Constant(Constant::String(s)) => Ok(Constant::String(s)),
                 Object::Constant(Constant::Char(c)) => Ok(Constant::Char(c)),
+                Object::Constant(Constant::Map(hashmap)) => Ok(Constant::Map(hashmap)), // wack
                 Object::FuncCall(func_call) => {
                     // need a new var map for the function, just the parameters
                     if func_call.name == "len".to_string() {

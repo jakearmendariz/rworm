@@ -113,9 +113,14 @@ pub fn check_function(name:String, function:Function, expected_rt_type:VarType, 
 * returns a value or that a value does not exist 
 */
 fn get_value(name:String, state:&mut State) -> Result<Constant, StaticError>{
+    // println!("get_value `{}`", name.clone());
+    // println!("var_map `{:?}`", state.var_map);
     match state.var_map.get(&name.clone()) {
         Some(value) => Ok(value.clone()),
-        None => Err(StaticError::ValueDne(name))
+        None => {
+            // println!("get_value=>DNE(`{}`)", name.clone());
+            Err(StaticError::ValueDne(name))
+        }
     }
 }
 
@@ -127,6 +132,7 @@ impl Constant {
             Constant::Int(_) => VarType::Int,
             Constant::Char(_) => VarType::Char,
             Constant::Array(vtype,_) => VarType::Array(Box::new(vtype)),
+            Constant::Map(_) => VarType::Map,
             Constant::ArrayIndex(name, _) => {
                 // if it is an array, then retrieve the array from memory, then get its type
                 match get_value(name.clone(), state)? {
@@ -144,7 +150,7 @@ impl Constant {
 fn type_match(a:VarType, b:VarType) -> bool {
     use VarType::{*};
     match (a, b) {
-        (Int, Int) | (Float, Float) | (String, String) | (Char, Char)=> true,
+        (Int, Int) | (Float, Float) | (String, String) | (Char, Char) | (Map, Map)=> true,
         (Array(arr1), Array(arr2)) => {
             type_match(*arr1, *arr2)
         }, 
@@ -168,6 +174,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticErro
             // type check, variable type must match the result of expression
             let value_type = type_of_expr(exp, state)?;
             if type_match(variable_type.clone(), value_type.clone()) {
+                println!("saving variable:{}", name.clone());
                 state.save_variable(name, default_const(variable_type));
             } else {
                 return Err(StaticError::TypeViolation(variable_type, value_type));
@@ -203,12 +210,18 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticErro
                 VarType::Float => return Err(StaticError::TypeViolation(VarType::Array(Box::new(VarType::Float)), VarType::Float)),
                 VarType::Char => return Err(StaticError::TypeViolation(VarType::Array(Box::new(VarType::Char)), VarType::Char)),
                 VarType::String => return Err(StaticError::TypeViolation(VarType::Array(Box::new(VarType::String)), VarType::String)),
+                VarType::Map => return Err(StaticError::TypeViolation(VarType::Array(Box::new(VarType::Map)), VarType::Map)),
             };
             state.save_variable(name, Constant::Array(var_type, Vec::new()));
         },
         AstNode::ArrayIndexAssignment(name, index_exp, value_exp) => {
+            // println!("var_map:{:?}", state.var_map);
             let (var_type, _) = match get_value(name.clone(), state)? {
                 Constant::Array(var_type, elements) => (var_type, elements),
+                Constant::Map(map) => {
+                    println!("indexing into a hash, allow all types");
+                    return Ok(None); // allow all types inside of the hashmap
+                },
                 _ => return Err(StaticError::General(format!("length of array:\'{}\' must be int", name))),
             };
             match type_of_expr(index_exp, state)? {
@@ -292,14 +305,15 @@ fn check_bool(bool_exp:&BoolExp, state:&mut State) ->  Result<(), StaticError> {
     Ok(())
 }
 
-
+// default constants given a vartype
 fn default_const(var_type:VarType) -> Constant{
     match var_type {
         VarType::Int => Constant::Int(0),
         VarType::Float => Constant::Float(0.0),
         VarType::Char => Constant::Char(' '),
         VarType::String => Constant::String(String::from("")),
-        VarType::Array(var_type) => Constant::Array(*var_type, Vec::new()) 
+        VarType::Array(var_type) => Constant::Array(*var_type, Vec::new()),
+        VarType::Map => Constant::Map(WormMap::default()),
     }
 }
 
@@ -320,19 +334,28 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                 },
                 Object::Constant(Constant::Array(var_type, _elements)) => Ok(VarType::Array(Box::new(var_type))),
                 Object::Constant(Constant::ArrayIndex(name, index_exp)) => {
-                    match type_of_expr(*index_exp, state)? {
-                        VarType::Int => (),
-                        _ => return Err(StaticError::ArrayIndex(name, String::from("non int accessing array")))
-                    };
+
                     // get array from state map
-                    
                     match state.var_map.get(&name.clone()) {
                         Some(value) => match value.clone() {
                             Constant::Array(var_type, _) => {
+                                match type_of_expr(*index_exp, state)? {
+                                    VarType::Int => (),
+                                    _ => return Err(StaticError::ArrayIndex(name, String::from("non int accessing array")))
+                                };
                                 Ok(var_type)
                             },
-                            Constant::Int(_) => Ok(VarType::Int),
-                            Constant::String(_) => Ok(VarType::Char),
+                            Constant::Int(_) => Ok(VarType::Int), // I think this should error out
+                            Constant::String(_) => {
+                                match type_of_expr(*index_exp, state)? {
+                                    VarType::Int => (),
+                                    _ => return Err(StaticError::ArrayIndex(name, String::from("non int accessing array")))
+                                };
+                                Ok(VarType::Char)
+                            },
+                            Constant::Map(hashmap) => {
+                                Ok(VarType::Int) // TODO need to add an any type so our analysis accepts these values
+                            },
                             _ => {
                                 Err(StaticError::ArrayIndex(name, String::from("non array value")))
                             }
@@ -344,6 +367,7 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                 Object::Constant(Constant::Int(_)) => Ok(VarType::Int),
                 Object::Constant(Constant::Char(_)) => Ok(VarType::Char),
                 Object::Constant(Constant::String(_)) => Ok(VarType::String),
+                Object::Constant(Constant::Map(_)) => Ok(VarType::Map),
                 Object::FuncCall(func_call) => {
                     // retrive function from memory, make sure its value matches
                     if func_call.name == "len" { // builtin

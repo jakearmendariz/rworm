@@ -10,7 +10,7 @@ operation = _{ add | subtract | multiply | divide | power }
     modulus  = { "%" }
 
 expr = { term ~ (operation ~ term)* }
-term = _{float | int | char | func_call | array_index | var_name | string | "(" ~ expr ~ ")" }
+term = _{float | int | char | func_call | array_index | var_name | string | hash_obj | "(" ~ expr ~ ")" }
 
 COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 WHITESPACE = _{ " "+ | "\t" | NEWLINE+}
@@ -26,13 +26,14 @@ array_initial = {"[" ~ piped? ~ expr ~ ";" ~ expr ~ "]"}
 array_definition = {array_inst ~ var_name ~ "=" ~ (array_initial | func_call) }
 array_val = {"[" ~ list? ~ "]"}
 array_index = {var_name ~"[" ~ expr ~ "]"}
+hash_obj = {"{" ~ (expr ~ ":" ~ expr)? ~ "}"}
 var_type = {array_inst | vint | vfloat | vstring | vbool | vchar | hmap}
     vint = {"int"}
     vfloat = {"float"}
     vstring = {"string"}
     vbool = {"bool"}
     vchar = {"char"}
-    hmap = {"hashmap"}
+    hmap = {"map"}
 
 string = ${ "\"" ~ inner ~ "\"" }
 inner = @{ chars* }
