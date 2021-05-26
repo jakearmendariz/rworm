@@ -18,6 +18,9 @@ impl State {
     /* pops all variables off the stack that are on a lower level of the stack */
     pub fn pop_stack(&mut self) {
         self.stack_lvl -= 1;
+        if self.var_stack.len() == 0 {
+            return;
+        }
         let mut last_pos = self.var_stack.len() - 1;
         // loop, deleting the variables that are out of scope of the current level
         loop {
@@ -84,6 +87,19 @@ pub enum BoolAst {
     Const(bool),
 }
 
+impl std::fmt::Display for BoolAst {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use BoolAst::{*};
+        match &self {
+            Not(a) => write!(f, "{}", a),
+            And(a, b) => write!(f, "{} & {} ", a, b),
+            Or(a, b) => write!(f, "{} | {}", a, b),
+            Exp(a) => write!(f, "{}", a),
+            Const(a) =>  write!(f, "{}", a),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BuiltIn {
     Print(Expr),
@@ -101,6 +117,25 @@ pub enum BoolOp {
     Leq,
     Lt,
     Gt,
+}
+
+impl BoolOp {
+    pub fn as_str(self) -> &'static str{
+        match &self {
+            BoolOp::Eq => "==",
+            BoolOp::Neq => "!=",
+            BoolOp::Leq => "<=",
+            BoolOp::Geq => ">=",
+            BoolOp::Lt => "<",
+            BoolOp::Gt => ">",
+        }
+    }
+}
+
+impl std::fmt::Display for BoolExp {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{} {} {}", self.0, self.1.clone().as_str(), self.2)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,15 +174,14 @@ impl std::fmt::Display for Expr {
     }
 }
 
-
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum VarType {
     Int,
     Float,
     Char,
     String,
-    Array(Box<VarType>)
+    Array(Box<VarType>),
+    // Map,
 }
 
 impl std::fmt::Display for VarType {
@@ -176,6 +210,7 @@ pub enum Constant {
     Char(char),
     Array(VarType, Vec<Constant>),
     ArrayIndex(String, Box<Expr>), // string for variable name, once retrieved the usize will get the constant value
+    // Map(HashMap<Constant, Constant>),
 }
 
 
@@ -187,7 +222,7 @@ impl std::fmt::Display for Constant {
            Constant::Char(c) => write!(f, "{}", c),
            Constant::String(s) => write!(f, "{}", s),
            Constant::Array(t,n) => write!(f, "{}[{}]", t, n.len()),
-           Constant::ArrayIndex(a,i) => write!(f, "{}[{:?}]", a, *i),
+           Constant::ArrayIndex(a,i) => write!(f, "{}[{}]", a, *i),
        }
     }
 }

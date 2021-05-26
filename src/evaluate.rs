@@ -1,6 +1,8 @@
 use crate::ast::{*};
 use std::collections::HashMap;
 use std::cmp::Ordering;
+use colored::*;
+
 
 #[derive(Debug, Clone)]
 pub enum ExecutionError {
@@ -151,7 +153,9 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 BuiltIn::Assert(boolexp) => {
                     if ! eval_bool_ast(&boolexp, state)? {
                         return Err(ExecutionError::AssertionError(boolexp));
-                    } 
+                    } else {
+                        println!("{} {}", "ASSERTION PASS:".blue(), boolexp);
+                    }
                 },
             }
             ()

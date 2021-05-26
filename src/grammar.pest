@@ -10,7 +10,7 @@ operation = _{ add | subtract | multiply | divide | power }
     modulus  = { "%" }
 
 expr = { term ~ (operation ~ term)* }
-term = _{float | int | char | func_call | array_index | var_name | string  | "(" ~ expr ~ ")" }
+term = _{float | int | char | func_call | array_index | var_name | string | "(" ~ expr ~ ")" }
 
 COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 WHITESPACE = _{ " "+ | "\t" | NEWLINE+}
@@ -26,12 +26,13 @@ array_initial = {"[" ~ piped? ~ expr ~ ";" ~ expr ~ "]"}
 array_definition = {array_inst ~ var_name ~ "=" ~ (array_initial | func_call) }
 array_val = {"[" ~ list? ~ "]"}
 array_index = {var_name ~"[" ~ expr ~ "]"}
-var_type = {array_inst | vint | vfloat | vstring | vbool | vchar}
+var_type = {array_inst | vint | vfloat | vstring | vbool | vchar | hmap}
     vint = {"int"}
     vfloat = {"float"}
     vstring = {"string"}
     vbool = {"bool"}
     vchar = {"char"}
+    hmap = {"hashmap"}
 
 string = ${ "\"" ~ inner ~ "\"" }
 inner = @{ chars* }
@@ -52,8 +53,8 @@ boolops = _{eq | geq | leq | neq | lt | gt}
     gt = {">"}
 
 bool_joiners = _{and | or}
-    and = {"∧"}
-    or = {"∨"}
+    and = {"&"}
+    or = {"|"}
 
 not = _{"¬"}
 exprp = _{"("? ~ expr ~ ")"?}
