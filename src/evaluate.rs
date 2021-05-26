@@ -146,7 +146,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
         AstNode::BuiltIn(builtin) => {
             match builtin {
                 BuiltIn::Print(exp) => {
-                    println!("{:?} => {:?}", exp, eval_expr(exp.clone(), state)?);
+                    println!("\"{}\" => {}", exp, eval_expr(exp.clone(), state)?);
                 },
                 BuiltIn::Assert(boolexp) => {
                     if ! eval_bool_ast(&boolexp, state)? {

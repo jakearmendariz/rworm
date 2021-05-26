@@ -2,7 +2,6 @@ use crate::ast::*;
 use pest::iterators::{Pair, Pairs};
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use std::vec::Vec;
-use log::{warn};
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
@@ -66,8 +65,7 @@ fn parse_bool_exp(bool_exp: &mut Pairs<Rule>) -> BoolExp {
             Rule::leq => BoolOp::Leq,
             Rule::lt => BoolOp::Lt,
             Rule::gt => BoolOp::Gt,
-            rule => {
-                warn!("{:?}", rule);
+            _ => {
                 unreachable!();
             }
         },
@@ -87,7 +85,6 @@ fn parse_bool_ast(conditional: &mut Pairs<Rule>) -> BoolAst {
             Rule::boolexp => BoolAst::Exp(parse_bool_exp(&mut pair.into_inner())),
             Rule::boolexpr => parse_bool_ast(&mut pair.into_inner()),
             _ => {
-                warn!("{:?} rule is unreachable while parsing", pair.as_rule());
                 unreachable!();
             }
         },
@@ -127,7 +124,6 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                 let func_name = inner.next().unwrap().as_str().to_string();
                 let mut params = Vec::new();
                 for item in inner.next().unwrap().into_inner() {
-                    // warn!("item in funccall() : {:?}", item);
                     params.push(parse_into_expr(item.into_inner()));
                 }
                 Expr::ExpVal(Object::FuncCall(FuncCall {
@@ -230,7 +226,6 @@ pub fn parse_function(pair: Pair<Rule>, state: &mut State) -> Result<(), ParseEr
     match pair.as_rule() {
         Rule::func_def => (),
         _ => {
-            warn!("parse_function() on not a function: {}", pair.as_str());
             return Err(ParseError::UnencampslatedStatement);
         }
     }
@@ -475,7 +470,6 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
         }
         Rule::EOI => return Err(ParseError::EndOfInput),
         _ => {
-            warn!("{:?} rule is unreachable while parsing", pair.as_rule());
             unreachable!();
         }
     }

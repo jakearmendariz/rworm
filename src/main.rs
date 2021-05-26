@@ -1,9 +1,8 @@
 extern crate pest;
-extern crate pretty_env_logger;
 #[macro_use]
 extern crate pest_derive;
 extern crate lazy_static;
-extern crate log;
+extern crate colored;
 
 mod ast;
 mod evaluate;
@@ -15,9 +14,9 @@ use pest::Parser;
 use std::collections::HashMap;
 use crate::evaluate::*;
 use crate::static_analysis::check_program;
-use log::{info, trace, error};
 use std::fs::File;
 use std::io::prelude::*;
+use colored::*;
 
 // builds default for state
 fn build_default_state() -> State {
@@ -33,7 +32,6 @@ fn build_default_state() -> State {
 * Main function for worm interpretter
 */
 fn main() {
-    pretty_env_logger::init();
     let first_arg = std::env::args().nth(1).expect("expected a filename");
     let second_arg;
     if first_arg == "-c" {
@@ -46,7 +44,7 @@ fn main() {
         match parse_program(pairs, &mut state) {
             Ok(()) => (),
             Err(e) => {
-                trace!("{:?}", e);
+                println!("{} {:?}", "PARSE ERROR:".yellow().bold(), e);
                 return;
             }
         }
@@ -54,7 +52,7 @@ fn main() {
         match check_program(&mut state) {
             Ok(()) => (),
             Err(e) => {
-                error!("{}", e);
+                println!("{} {}", "STATIC ERROR:".red().bold(), e);
                 return;
             }
         }
@@ -64,9 +62,9 @@ fn main() {
         let mut file = File::create(filename).unwrap();
         match file.write(&encoded) {
             Ok(_) => (),
-            Err(_) => error!("error writing to file")
+            Err(_) => println!("{} could not write to file", "FILE ERROR:".red().bold())
         }
-        info!("compiled");
+        println!("{}", "Compile Successfully".green());
         //write to file
 
     } else if first_arg == "-e" {
@@ -75,11 +73,14 @@ fn main() {
         let contents = std::fs::read_to_string(second_arg)
             .expect("Something went wrong reading the file");
         let mut decoded:State = bincode::deserialize(&contents.as_bytes()).unwrap();
-        let result = match run_program(&mut decoded) {
-            Ok(res) => Ok(res),
-            Err(e) => Err(e),
+        match run_program(&mut decoded) {
+            Ok(result) => {
+                println!("{}: {}", "Execution Result".green(), result);
+            },
+            Err(e) => {
+                println!("{} {:?}", "EXECUTION ERROR:".red().bold(), e);
+            },
         };
-        println!("exec result: {:?}", result);
 
     } else {
         // compile and execute
@@ -91,7 +92,7 @@ fn main() {
         match parse_program(pairs, &mut state) {
             Ok(()) => (),
             Err(e) => {
-                trace!("parse error {:?}", e);
+                println!("{} {:?}", "PARSE ERROR:".red().bold(), e);
                 return;
             }
         }
@@ -99,14 +100,17 @@ fn main() {
         match check_program(&mut state) {
             Ok(()) => (),
             Err(e) => {
-                error!("{}", e);
+                println!("{} {}", "STATIC ERROR:".red().bold(), e);
                 return;
             }
         }
-
         match run_program(&mut state) {
-            Ok(res) => info!("{}", res),
-            Err(e) => error!("{:?}", e),
+            Ok(result) => {
+                println!("{}: {}", "Execution Result".green(), result);
+            },
+            Err(e) => {
+                println!("{} {:?}", "EXECUTION ERROR:".red().bold(), e);
+            },
         };
     }
 }

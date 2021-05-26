@@ -109,6 +109,38 @@ pub enum Expr {
     ExpOp(Box<Expr>, OpType, Box<Expr>),
 }
 
+impl Expr {
+    pub fn expr_to_str(self) -> String{
+        match &*&self {
+            Expr::ExpVal(object) => {
+                format!("{}", object)
+            },
+            Expr::ExpOp(exp1, op, exp2) => {
+                let p1 = exp1.clone().expr_to_str();
+                let p2 = exp2.clone().expr_to_str();
+                use OpType::{*};
+                let op = match op {
+                    Add => "+",
+                    Mult => "*",
+                    Sub => "-",
+                    Div => "/",
+                    Pow => "^",
+                    Modulus => "%",
+                };
+                format!("{}{}{}", p1, op, p2)
+            },
+        }
+    }
+}
+
+impl std::fmt::Display for Expr {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.clone().expr_to_str())
+    }
+}
+
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum VarType {
     Int,
@@ -169,6 +201,16 @@ pub enum Object {
     Variable(String),
     Constant(Constant),
     FuncCall(FuncCall),
+}
+
+impl std::fmt::Display for Object {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match &*self {
+            Object::Variable(x) => write!(f, "{}", x),
+            Object::Constant(c) => write!(f, "{}", c),
+            Object::FuncCall(func_call) => write!(f, "{}()", func_call.name),
+       }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

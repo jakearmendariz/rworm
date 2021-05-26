@@ -23,6 +23,12 @@ fn append(int[] arr, int a) -> int[] {
     return b;
 }
 
+fn prepend(int[] arr, int a) -> int[] {
+    int[] b = [|i| index_or_0(arr, i-1); len(arr)+1];
+    b[0] = a;
+    return b;
+}
+
 fn first(string s) -> char {
     return s[0];
 }

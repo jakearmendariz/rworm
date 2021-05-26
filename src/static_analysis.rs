@@ -13,7 +13,7 @@ I will check every function individually, checking that
     I will type check the calls to other functions are preformed correctly
 */
 use crate::ast::{*};
-use log::{error};
+use colored::*;
 
 #[derive(Debug, Clone)]
 pub enum StaticError {
@@ -24,6 +24,10 @@ pub enum StaticError {
     General(String),
     ArrayIndex(String, String), // array name, type of error
     Count(u16),
+}
+
+lazy_static::lazy_static! {
+    static ref STATIC_ERROR_MSG: ColoredString = "STATIC ERROR:".red().bold();
 }
 
 impl std::fmt::Display for StaticError {
@@ -83,7 +87,7 @@ pub fn check_function(name:String, function:Function, expected_rt_type:VarType, 
                 None => ()
             },
             Err(e) => {
-                error!("Error in function \'{}\' on line {}, error: {}", name.clone(), i, e);
+                println!("{} in function \'{}\' on line {}, error: {}", "STATIC ERROR:".red().bold(), name.clone(), i, e);
                 errors += 1;
             }
         }
@@ -91,11 +95,11 @@ pub fn check_function(name:String, function:Function, expected_rt_type:VarType, 
     }
     state.pop_stack();
     if ! return_stm {
-        error!("{}", StaticError::NeedReturnStm(name));
+        println!("{} {}", "STATIC ERROR:".red().bold(), StaticError::NeedReturnStm(name));
         errors += 1;
     } else {
         if !type_match(return_type.clone(), expected_rt_type.clone()) {
-            error!("{}", StaticError::TypeViolation(return_type, expected_rt_type));
+            println!("{} {}", "STATIC ERROR:".red().bold(), StaticError::TypeViolation(return_type, expected_rt_type));
             errors += 1;
         }
     }
@@ -150,7 +154,6 @@ fn type_match(a:VarType, b:VarType) -> bool {
 * evaluate an ast, one line or one if/while stm
 */
 fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticError> {
-    // println!("state:{:?}\n{:?}\n", state.var_map, ast.clone());
     match ast {
         AstNode::Assignment(vtype, name, exp) => {
             let variable_type:VarType = match vtype {
