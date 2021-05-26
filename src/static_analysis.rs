@@ -145,7 +145,9 @@ fn type_match(a:VarType, b:VarType) -> bool {
     use VarType::{*};
     match (a, b) {
         (Int, Int) | (Float, Float) | (String, String) | (Char, Char)=> true,
-        (Array(_), Array(_)) => true, // TODO seperate for array types as well
+        (Array(arr1), Array(arr2)) => {
+            type_match(*arr1, *arr2)
+        }, 
         _ => false
     }
 }

@@ -158,7 +158,6 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
     )
 }
 
-
 fn parse_parameters(params_rules: Pairs<Rule>) -> Result<Vec<(VarType, String)>, ParseError> {
     let mut params: Vec<(VarType, String)> = Vec::new();
     for param in params_rules {
@@ -282,7 +281,14 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                         Rule::vstring => VarType::String,
                         Rule::vchar => VarType::Char,
                         Rule::array_dec => {
-                            VarType::Array(Box::new(VarType::Int)) //TODO support other types
+                            match start_of_assign.into_inner().next().unwrap().as_rule() {
+                                Rule::vint => VarType::Array(Box::new(VarType::Int)),
+                                Rule::vfloat => VarType::Array(Box::new(VarType::Float)),
+                                Rule::vstring => VarType::Array(Box::new(VarType::String)),
+                                Rule::vchar => VarType::Array(Box::new(VarType::Char)),
+                                Rule::array_dec => return Err(ParseError::GeneralParseError("array dec inside of an array dec".to_string())),
+                                _ => return Err(ParseError::GeneralParseError("unexpected type while parsing type of an array".to_string())),
+                            }
                         }
                         _ => {
                             return {
