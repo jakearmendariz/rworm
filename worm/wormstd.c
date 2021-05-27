@@ -30,14 +30,33 @@ fn index_or_empty(char[] arr, int i) -> char {
     return arr[i];
 }
 
-fn pushchar(char[] arr, char a) -> char[] {
-    int[] b = [|i| index_or_empty(arr, i); len(arr)+1];
+fn push_char(char[] arr, char a) -> char[] {
+    char[] b = [|i| index_or_empty(arr, i); len(arr)+1];
     b[len(arr)] = a;
     return b;
 }
 
+
+fn map_index_or_empty(map[] arr, int i) -> map {
+    if i >= len(arr) | i < 0 {
+        return {};
+    }
+    return arr[i];
+}
+
+fn push_map(map[] arr, map a) -> map[] {
+    map[] b = [|i| map_index_or_empty(arr, i); len(arr)+1];
+    b[len(arr)] = a;
+    return b;
+}
+
+fn pop_map(map[] arr) -> map[] {
+    map[] b = [|i| arr[i]; len(arr)-1];
+    return b;
+}
+
 fn prepend_char(char[] arr, char a) -> char[] {
-    int[] b = [|i| index_or_empty(arr, i-1); len(arr)+1];
+    char[] b = [|i| index_or_empty(arr, i-1); len(arr)+1];
     b[0] = a;
     return b;
 }
@@ -47,12 +66,12 @@ fn peekchar(char[] arr) -> char {
 }
 
 fn popchar(char[] arr) -> char[] {
-    int[] b = [|i]| arr[i]; len(arr) - 1];
+    char[] b = [|i| arr[i]; len(arr) - 1];
     return b;
 }
 
-fn popleft(char[] arr) -> char[] {
-    int[] b = [|i]| arr[i+1]; len(arr) - 1];
+fn pop_left(char[] arr) -> char[] {
+    char[] b = [|i| arr[i+1]; len(arr) - 1];
     return b;
 }
 

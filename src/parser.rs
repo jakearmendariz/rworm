@@ -174,11 +174,13 @@ fn parse_parameters(params_rules: Pairs<Rule>) -> Result<Vec<(VarType, String)>,
                     Rule::vfloat => VarType::Float,
                     Rule::vchar => VarType::Char,
                     Rule::vstring => VarType::String,
+                    Rule::hmap => VarType::Map,
                     Rule::array_inst => VarType::Array(Box::new(match first.into_inner().next().unwrap().as_rule() {
                         Rule::vint => VarType::Int,
                         Rule::vfloat => VarType::Float,
                         Rule::vstring => VarType::String,
                         Rule::vchar => VarType::Char,
+                        Rule::hmap => VarType::Map,
                         _ => {
                             return Err(ParseError::FormatError(format!(
                                 "parse_parameters() array_inst"
@@ -208,6 +210,7 @@ fn parse_return_stm(return_rule: Pair<Rule>) -> Result<VarType, ParseError> {
         Rule::vfloat => VarType::Float,
         Rule::vstring => VarType::String,
         Rule::vchar => VarType::Char,
+        Rule::hmap => VarType::Map,
         Rule::array_inst => VarType::Array(Box::new(parse_return_stm(return_rule.into_inner().next().unwrap())?)),
         _ => {
             return {
@@ -450,6 +453,10 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 Rule::print => {
                     let expression = parse_into_expr(builtin.into_inner());
                     Ok(AstNode::BuiltIn(BuiltIn::Print(expression)))
+                },
+                Rule::static_print => {
+                    let expression = parse_into_expr(builtin.into_inner());
+                    Ok(AstNode::BuiltIn(BuiltIn::StaticPrint(expression)))
                 },
                 Rule::assert => Ok(AstNode::BuiltIn(BuiltIn::Assert(parse_bool_ast(
                     &mut builtin.into_inner(),

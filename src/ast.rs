@@ -105,6 +105,7 @@ impl std::fmt::Display for BoolAst {
 pub enum BuiltIn {
     Print(Expr),
     Assert(BoolAst),
+    StaticPrint(Expr),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

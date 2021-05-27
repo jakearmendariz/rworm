@@ -87,6 +87,7 @@ pub fn check_function(name:String, function:Function, expected_rt_type:VarType, 
                 None => ()
             },
             Err(e) => {
+                
                 println!("{} in function \'{}\' on line {}, error: {}", "STATIC ERROR:".red().bold(), name.clone(), i, e);
                 errors += 1;
             }
@@ -151,6 +152,9 @@ fn type_match(a:VarType, b:VarType) -> bool {
     use VarType::{*};
     match (a, b) {
         (Int, Int) | (Float, Float) | (String, String) | (Char, Char) | (Map, Map)=> true,
+        (Int, Char) => true, // allow int => char conversion
+        (Map, _) => true,
+        (_, Map) => true,
         (Array(arr1), Array(arr2)) => {
             type_match(*arr1, *arr2)
         }, 
@@ -174,7 +178,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticErro
             // type check, variable type must match the result of expression
             let value_type = type_of_expr(exp, state)?;
             if type_match(variable_type.clone(), value_type.clone()) {
-                println!("saving variable:{}", name.clone());
+                // println!("saving variable:{}", name.clone());
                 state.save_variable(name, default_const(variable_type));
             } else {
                 return Err(StaticError::TypeViolation(variable_type, value_type));
@@ -219,7 +223,7 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticErro
             let (var_type, _) = match get_value(name.clone(), state)? {
                 Constant::Array(var_type, elements) => (var_type, elements),
                 Constant::Map(map) => {
-                    println!("indexing into a hash, allow all types");
+                    // println!("indexing into a hash, allow all types");
                     return Ok(None); // allow all types inside of the hashmap
                 },
                 _ => return Err(StaticError::General(format!("length of array:\'{}\' must be int", name))),
@@ -261,6 +265,10 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<VarType>, StaticErro
         AstNode::BuiltIn(builtin) => {
             match builtin {
                 BuiltIn::Print(exp) => {
+                    type_of_expr(exp, state)?;
+                },
+                BuiltIn::StaticPrint(exp) => {
+                    println!("static_print: {}", exp.clone());
                     type_of_expr(exp, state)?;
                 },
                 BuiltIn::Assert(boolast) => {
@@ -353,8 +361,8 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                                 };
                                 Ok(VarType::Char)
                             },
-                            Constant::Map(hashmap) => {
-                                Ok(VarType::Int) // TODO need to add an any type so our analysis accepts these values
+                            Constant::Map(_hashmap) => {
+                                Ok(VarType::Map) // TODO need to add an any type so our analysis accepts these values
                             },
                             _ => {
                                 Err(StaticError::ArrayIndex(name, String::from("non array value")))
@@ -375,25 +383,15 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                             Err(StaticError::General("Error len requires exactly 1 arg".to_string()))
                         } else {
                             Ok(VarType::Int)
-                            // match func_call.params.pop().expect("No argument in func_call to len()") { // match the expression, determine if its an array or string
-                            //     Expr::ExpVal(num) => {
-                            //         match(num) {
-                            //             Object::Variable(name) => {
-                            //                 println!("state:{:?}", state.var_map.clone());
-                            //                 match get_value(name, state)? {
-                            //                     Constant::Array(_, _) | Constant::String(_) => Ok(VarType::Int),
-                            //                     Constant::Int(_) => Err(StaticError::General("got int when an array was smaller".to_string())),
-                            //                     _ => Err(StaticError::General("recognized variable in len, didn't eval to type string or array".to_string()))
-                            //                 }
-                            //             },
-                            //             Object::Constant(Constant::Array(_, _)) | Object::Constant(Constant::String(_)) => Ok(VarType::Int),
-                            //             _ => Err(StaticError::General("expected type string or array".to_string()))
-                            //         }
-                            //     }
-                            //     _ => Err(StaticError::General("Error not expression value inside of len()".to_string()))
-                            // }
                         }
-                    } else {
+                    } else if func_call.name == "parse_int" {
+                        if func_call.params.len() != 1 {
+                            Err(StaticError::General("Error len requires exactly 1 arg".to_string()))
+                        } else {
+                            Ok(VarType::Int)
+                        }
+                    }
+                    else {
                         let function = match state.func_map.get(&func_call.name.clone()) {
                             Some(func) => func,
                             None => return Err(StaticError::CannotFindFunction(func_call.name)),

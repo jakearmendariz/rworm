@@ -19,7 +19,7 @@ reserved = {"print" | "if" | "else" | "while" | "true" | "false" | " " | "}" | "
 var_name = @{!reserved ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*}
 
 any = {"any"}
-array_inst = {(vint | vfloat | vchar | vstring) ~ "[]"}
+array_inst = {(vint | vfloat | vchar | vstring | hmap) ~ "[]"}
 array_dec = {array_inst}
 piped = {"|" ~ var_name ~ "|"}
 array_initial = {"[" ~ piped? ~ expr ~ ";" ~ expr ~ "]"}
@@ -71,8 +71,9 @@ boolnot = {not ~ (("(" ~ boolterm ~ ")") | boolterm) }
 del = {"del" ~ "(" ~ var_name ~ ")"}
 skip = {"skip"}
 print = {"print" ~ "(" ~ expr ~ ")"}
+static_print = {"static_print" ~ "(" ~ expr ~ ")"}
 assert = {"assert(" ~ boolexpr}
-builtin = {del | print | assert}
+builtin = {del | print | static_print | assert}
 
 body = _{statement+}
 ifstm = {if_stm ~ elseif_stm* ~ else_stm?}

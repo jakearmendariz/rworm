@@ -37,9 +37,14 @@ pub fn eval_func(function:Function, state:&mut State) -> Result<Constant, Execut
 */
 fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, ExecutionError> {
     match ast {
-        AstNode::Assignment(_, name, exp) => {
+        AstNode::Assignment(vtype, name, exp) => {
             let value = eval_expr(exp, state)?;
-            state.save_variable(name, value);
+            //casting
+            let actual_val = match (vtype, value) {
+                (Some(VarType::Int), Constant::Char(c)) => Constant::Int(c as i32),
+                (_, val) => val,
+            };
+            state.save_variable(name, actual_val);
         },
         AstNode::ArrayDef(var_type, name, piped, value_exp, length_exp) => {
             let len = match eval_expr(length_exp, state)? {
@@ -127,6 +132,9 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
                 BuiltIn::Print(exp) => {
                     println!("\"{}\" => {}", exp, eval_expr(exp.clone(), state)?);
                 },
+                BuiltIn::StaticPrint(_) => {
+                    ()
+                },
                 BuiltIn::Assert(boolexp) => {
                     if ! eval_bool_ast(&boolexp, state)? {
                         return Err(ExecutionError::AssertionError(boolexp));
@@ -202,6 +210,7 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
             match num {
                 Object::Variable(name) => {
                     // get variable as a constant value
+                    // println!("execute name lookup: {}", name.clone());
                     Ok(state.var_map.get(&name).unwrap().clone())
                 },
                 Object::Constant(Constant::Array(var_type, elements)) => Ok(Constant::Array(var_type, elements)),
@@ -255,7 +264,14 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                             Constant::String(s) => Ok(Constant::Int(s.len() as i32)),
                             _ => panic!("panicked tried to find the length of a non array string")
                         }
-                    } else {
+                    } else if func_call.name == "parse_int".to_string() {
+                        match eval_expr(func_call.params[0].clone(), state)? {
+                            Constant::String(s) => Ok(Constant::Int(s.parse::<i32>().unwrap())),
+                            Constant::Char(c) => Ok(Constant::Int(c as i32 - 48)),
+                            _ => panic!("panicked tried to find the length of a non array string")
+                        }
+                    }
+                    else {
                         let mut var_map:HashMap<String, Constant> = HashMap::new();
                         let function = state.func_map.get(&func_call.name).unwrap();
                         let mut var_stack:Vec<(String, u32)> = Vec::new();
