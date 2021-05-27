@@ -23,6 +23,39 @@ fn append(int[] arr, int a) -> int[] {
     return b;
 }
 
+fn index_or_empty(char[] arr, int i) -> char {
+    if i >= len(arr) | i < 0 {
+        return ' ';
+    }
+    return arr[i];
+}
+
+fn pushchar(char[] arr, char a) -> char[] {
+    int[] b = [|i| index_or_empty(arr, i); len(arr)+1];
+    b[len(arr)] = a;
+    return b;
+}
+
+fn prepend_char(char[] arr, char a) -> char[] {
+    int[] b = [|i| index_or_empty(arr, i-1); len(arr)+1];
+    b[0] = a;
+    return b;
+}
+
+fn peekchar(char[] arr) -> char {
+    return arr[len(arr) -1];
+}
+
+fn popchar(char[] arr) -> char[] {
+    int[] b = [|i]| arr[i]; len(arr) - 1];
+    return b;
+}
+
+fn popleft(char[] arr) -> char[] {
+    int[] b = [|i]| arr[i+1]; len(arr) - 1];
+    return b;
+}
+
 fn prepend(int[] arr, int a) -> int[] {
     int[] b = [|i| index_or_0(arr, i-1); len(arr)+1];
     b[0] = a;
