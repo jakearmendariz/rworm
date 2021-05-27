@@ -386,9 +386,17 @@ fn type_of_expr(exp:Expr, state:&mut State) -> Result<VarType, StaticError> {
                         }
                     } else if func_call.name == "parse_int" {
                         if func_call.params.len() != 1 {
-                            Err(StaticError::General("Error len requires exactly 1 arg".to_string()))
+                            Err(StaticError::General("Error parse_int requires exactly 1 arg".to_string()))
                         } else {
                             Ok(VarType::Int)
+                        }
+                    }else if func_call.name == "user_input" {
+                        Ok(VarType::String)
+                    } else if func_call.name == "to_str" {
+                        if func_call.params.len() != 1 {
+                            Err(StaticError::General("Error to_str requires exactly 1 arg".to_string()))
+                        } else {
+                            Ok(VarType::String)
                         }
                     }
                     else {

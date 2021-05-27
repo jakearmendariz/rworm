@@ -106,7 +106,8 @@ fn main() {
         }
         match run_program(&mut state) {
             Ok(result) => {
-                println!("{}: {}", "Execution Result".green(), result);
+                // println!("{}: {}", "Execution Result".green(), result);
+                println!("{}", result);
             },
             Err(e) => {
                 println!("{} {:?}", "EXECUTION ERROR:".red().bold(), e);

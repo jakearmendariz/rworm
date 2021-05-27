@@ -159,7 +159,13 @@ fn eval_ast(ast:AstNode, state:&mut State) -> Result<Option<Constant>, Execution
 fn eval_bool_ast(bool_ast:&BoolAst, state:&mut State) ->  Result<bool, ExecutionError> {
     Ok(match &*bool_ast {
         BoolAst::Not(body) => !eval_bool_ast(&*body, state)?,
-        BoolAst::And(a, b) => eval_bool_ast(&*a, state)? & eval_bool_ast(&*b, state)?,
+        BoolAst::And(a, b) => {
+            if eval_bool_ast(&*a, state)? { // only evaluate the second if the first is true
+                eval_bool_ast(&*b, state)?
+            }else {
+                false
+            }
+        },
         BoolAst::Or(a,b) => eval_bool_ast(&*a, state)? | eval_bool_ast(&*b, state)?,
         BoolAst::Exp(exp) => eval_bool(&*exp, state)?,
         BoolAst::Const(boolean) => *boolean,
@@ -205,7 +211,7 @@ fn eval_bool(bool_exp:&BoolExp, state:&mut State) ->  Result<bool, ExecutionErro
 * eval_expr evaluates inline expressions 
 */
 fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
-    match exp {
+    match exp.clone() {
         Expr::ExpVal(num) => {
             match num {
                 Object::Variable(name) => {
@@ -225,6 +231,7 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                                 _ => panic!("array index not a number")
                             };
                             if elements.len() <= index {
+                                println!("exp: {}", exp);
                                 return Err(ExecutionError::IndexOutOfBounds(name, index))
                             }else {
                                 return Ok(elements.remove(index))
@@ -266,8 +273,21 @@ fn eval_expr(exp:Expr, state:&mut State) -> Result<Constant, ExecutionError> {
                         }
                     } else if func_call.name == "parse_int".to_string() {
                         match eval_expr(func_call.params[0].clone(), state)? {
-                            Constant::String(s) => Ok(Constant::Int(s.parse::<i32>().unwrap())),
+                            Constant::String(s) => {
+                                // println!("prase int from `{}`", s);
+                                Ok(Constant::Int(s.parse::<i32>().unwrap()))
+                            },
                             Constant::Char(c) => Ok(Constant::Int(c as i32 - 48)),
+                            _ => panic!("panicked tried to find the length of a non array string")
+                        }
+                    } else if func_call.name == "user_input".to_string() {
+                        let mut line = String::new();
+                        std::io::stdin().read_line(&mut line).unwrap();
+                        Ok(Constant::String(line))
+                    } else if func_call.name == "to_string".to_string() {
+                        match eval_expr(func_call.params[0].clone(), state)? {
+                            Constant::Int(i) => Ok(Constant::String(i.to_string())),
+                            Constant::Char(c) => Ok(Constant::String(c.to_string())),
                             _ => panic!("panicked tried to find the length of a non array string")
                         }
                     }
