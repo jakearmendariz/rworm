@@ -1,5 +1,5 @@
 use crate::HashMap;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,16 +39,19 @@ impl State {
     }
 
     // save variable to stack
-    pub fn save_variable(&mut self, var_name:String, value:Constant) {
+    pub fn save_variable(&mut self, var_name: String, value: Constant) {
         match self.var_map.get(&var_name) {
             Some(_) => (), // variable was already inserted
-            None => self.var_stack.push((var_name.clone(), self.stack_lvl)), 
+            None => self.var_stack.push((var_name.clone(), self.stack_lvl)),
         }
         self.var_map.insert(var_name, value);
     }
 
     pub fn _print_stack(&mut self) {
-        println!("lvl: {} & variable stack: {:?}", self.stack_lvl, self.var_stack);
+        println!(
+            "lvl: {} & variable stack: {:?}",
+            self.stack_lvl, self.var_stack
+        );
     }
 }
 
@@ -90,13 +93,13 @@ pub enum BoolAst {
 
 impl std::fmt::Display for BoolAst {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        use BoolAst::{*};
+        use BoolAst::*;
         match &self {
             Not(a) => write!(f, "{}", a),
             And(a, b) => write!(f, "{} & {} ", a, b),
             Or(a, b) => write!(f, "{} | {}", a, b),
             Exp(a) => write!(f, "{}", a),
-            Const(a) =>  write!(f, "{}", a),
+            Const(a) => write!(f, "{}", a),
         }
     }
 }
@@ -122,7 +125,7 @@ pub enum BoolOp {
 }
 
 impl BoolOp {
-    pub fn as_str(self) -> &'static str{
+    pub fn as_str(self) -> &'static str {
         match &self {
             BoolOp::Eq => "==",
             BoolOp::Neq => "!=",
@@ -147,15 +150,15 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn expr_to_str(self) -> String{
+    pub fn expr_to_str(self) -> String {
         match &*&self {
             Expr::ExpVal(object) => {
                 format!("{}", object)
-            },
+            }
             Expr::ExpOp(exp1, op, exp2) => {
                 let p1 = exp1.clone().expr_to_str();
                 let p2 = exp2.clone().expr_to_str();
-                use OpType::{*};
+                use OpType::*;
                 let op = match op {
                     Add => "+",
                     Mult => "*",
@@ -165,7 +168,7 @@ impl Expr {
                     Modulus => "%",
                 };
                 format!("{}{}{}", p1, op, p2)
-            },
+            }
         }
     }
 }
@@ -188,14 +191,14 @@ pub enum VarType {
 
 impl std::fmt::Display for VarType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-       match &*self {
+        match &*self {
             VarType::Int => write!(f, "int"),
             VarType::Char => write!(f, "char"),
             VarType::Float => write!(f, "float"),
             VarType::String => write!(f, "string"),
             VarType::Array(vtype) => write!(f, "{}[]", vtype),
             VarType::Map => write!(f, "map"),
-       }
+        }
     }
 }
 
@@ -222,34 +225,34 @@ pub enum Constant {
 */
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WormMap {
-    pairs:Vec<(Constant, Constant)>
+    pairs: Vec<(Constant, Constant)>,
 }
 
 impl WormMap {
-    pub fn get(self, key:Constant) -> Option<Constant> {
+    pub fn get(self, key: Constant) -> Option<Constant> {
         for (stored_key, stored_val) in &self.pairs {
-            if(*stored_key == key) {
+            if *stored_key == key {
                 return Some(stored_val.clone());
             }
         }
         return None;
     }
 
-    pub fn insert(&mut self, key:Constant, value:Constant) {
+    pub fn insert(&mut self, key: Constant, value: Constant) {
         self.remove(key.clone());
         self.pairs.push((key, value));
     }
 
-    pub fn remove(&mut self, key:Constant) -> Result<(), &'static str> {
+    pub fn remove(&mut self, key: Constant) {
         let mut index = 0;
-        for (stored_key, stored_val) in &self.pairs {
-            if(*stored_key == key) {
+        for (stored_key, _stored_val) in &self.pairs {
+            if *stored_key == key {
                 self.pairs.remove(index);
-                return Ok(());
+                return;
             }
             index += 1;
         }
-        return Err("key:value pair does not exist in hashmap");
+        return;
     }
 }
 
@@ -262,13 +265,12 @@ impl PartialEq for Constant {
             (Float(i), Float(j)) => i == j,
             (Char(i), Char(j)) => i == j,
             (String(i), String(j)) => i.eq(j),
-            _ => false
+            _ => false,
         }
     }
 }
 
 // impl Eq for Constant {}
-
 
 // Checks equality amon the constants
 impl PartialOrd for Constant {
@@ -287,22 +289,19 @@ impl PartialOrd for Constant {
 // #[derive(Debug, Clone, Serialize, Deserialize)]
 // pub enum Constant {
 
-
-
 impl std::fmt::Display for Constant {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-       match &*self {
-           Constant::Int(i) => write!(f, "{}", i),
-           Constant::Float(fl) => write!(f, "{}", fl),
-           Constant::Char(c) => write!(f, "{}", c),
-           Constant::String(s) => write!(f, "{}", s),
-           Constant::Array(t,n) => write!(f, "{}[{}]", t, n.len()),
-           Constant::ArrayIndex(a,i) => write!(f, "{}[{}]", a, *i),
-           Constant::Map(_) => write!(f, "map{{}}")
-       }
+        match &*self {
+            Constant::Int(i) => write!(f, "{}", i),
+            Constant::Float(fl) => write!(f, "{}", fl),
+            Constant::Char(c) => write!(f, "{}", c),
+            Constant::String(s) => write!(f, "{}", s),
+            Constant::Array(t, n) => write!(f, "{}[{}]", t, n.len()),
+            Constant::ArrayIndex(a, i) => write!(f, "{}[{}]", a, *i),
+            Constant::Map(_) => write!(f, "map{{}}"),
+        }
     }
 }
-
 
 /*
 * Objects can be constants values, or variable names that turn into constants, or function calls
@@ -320,7 +319,7 @@ impl std::fmt::Display for Object {
             Object::Variable(x) => write!(f, "{}", x),
             Object::Constant(c) => write!(f, "{}", c),
             Object::FuncCall(func_call) => write!(f, "{}()", func_call.name),
-       }
+        }
     }
 }
 
@@ -338,5 +337,5 @@ pub enum OpType {
     Sub,
     Div,
     Pow,
-    Modulus
+    Modulus,
 }

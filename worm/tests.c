@@ -20,7 +20,7 @@ fn main() -> string {
 
     /* array creation tests */
     int []arr = [|i| i; 5];
-    assert(fucking_with_arrays(arr) == 0);
+    assert(playing_with_arrays(arr) == 0);
 
     assert(char_stuff('a', 'b') == "abc");
 

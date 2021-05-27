@@ -1,5 +1,6 @@
 import "worm/wormstd.c";
 
+/* checks if a character is an operator */
 fn is_operator(char c) -> int {
     if c == '+' | c == '-' | c == '*' | c == '/' {
         return 0;
@@ -7,6 +8,7 @@ fn is_operator(char c) -> int {
     return -1;
 }
 
+/* builds a node in the expression tree */
 fn build_node(char data) -> map {
     map node = {};
     node["data"] = data;
@@ -14,7 +16,8 @@ fn build_node(char data) -> map {
     return node;
 }
 
-fn get_precedence_order(int empty) -> map {
+/* sets the order of precedence */
+fn get_precedence_order() -> map {
     map po = {};
     po['+'] = 0;
     po['-'] = 0;
@@ -23,6 +26,7 @@ fn get_precedence_order(int empty) -> map {
     return po;
 }
 
+/* extracts a substring that represents an integer */
 fn int_substring(string s, int index) -> string {
     string result = "";
     int i = index;
@@ -33,9 +37,10 @@ fn int_substring(string s, int index) -> string {
     return result;
 }
 
+/* converts the infix expression to a postfix expression (easier to turn into an expression tree from there) */
 fn infix_to_postfix(string infix) -> string {
     string postfix = "";
-    map precedence_order = get_precedence_order(0);
+    map precedence_order = get_precedence_order();
     char[] stack = [' '; 0];
     int index = 0;
     while index < len(infix) {
@@ -43,14 +48,14 @@ fn infix_to_postfix(string infix) -> string {
         if curr == ' ' {
             index = index + 1;
         }
-        else if is_operator(curr) == 0 {
-            /* is operator */
-            if curr == '-' & infix[index+1] != ' ' {
-                /* negative symbol, this is an operand */
+        else {
+            if (curr == '-' & infix[index+1] != ' ') | (is_operator(curr) != 0) {
+                /* Operand */
                 string num = int_substring(infix, index);
                 postfix = postfix + ' ' + num;
                 index = index + len(num);
             }
+            /* is operator */
             else if len(stack) == 0 {
                 stack = prepend_char(stack, curr);
                 index = index + 1;
@@ -69,11 +74,6 @@ fn infix_to_postfix(string infix) -> string {
                 }
             }
         }
-        else {
-            string num = int_substring(infix, index);            
-            postfix = postfix + ' ' +num + ' ';
-            index = index + len(num);
-        }
     }
     while len(stack) > 0 {
         char popped = stack[0];
@@ -83,9 +83,7 @@ fn infix_to_postfix(string infix) -> string {
     return postfix;
 }
 
-/*
-* Convert the postfix notation to a tree
-*/
+/* Convert the postfix notation to a tree */
 fn postfix_to_tree(string postfix) -> map {
     map[] stack = [{}; 0];
     int i = 0;
@@ -115,25 +113,23 @@ fn postfix_to_tree(string postfix) -> map {
     return stack[len(stack)-1];
 }
 
-
+/* executes the tree */
 fn evaluate_tree(map root) -> int {
     if root["is_op"] == 0 {
         int left = evaluate_tree(root["left"]);
         int right = evaluate_tree(root["right"]);
-        int res = 0;
         if root["data"] == '+' {
-            res = left + right;
+            return left + right;
         } else if root["data"] == '-' {
-            res = left - right;
+            return left - right;
         } else if root["data"] == '*' {
-            res = left * right;
+            return left * right;
         } else if root["data"] == '/' {
-            res = left / right;
+            return left / right;
         } else {
             print("unknown operation");
             return -1;
         }
-        return res;
     } else {
         int data = root["data"];
         return data;
@@ -141,14 +137,15 @@ fn evaluate_tree(map root) -> int {
     return 0;
 }
 
+/* turns string into postfix, then a tree, then it evaluates tree with a pres order traversal */
+fn evaluate_expression(string infix) -> int {
+    infix = pop_str(infix); /* remove the \n */
+    string postfix = infix_to_postfix(infix);
+    map root = postfix_to_tree(postfix + ' ');
+    return evaluate_tree(root);
+}
 
 fn main() -> int {
-    string infix = user_input(0);
-    infix = pop_str(infix);
-    /*print('`' + infix + '`');*/
-    string postfix = infix_to_postfix(infix);
-    /*print(postfix);*/
-    map root = postfix_to_tree(postfix + ' ');
-    int result = evaluate_tree(root);
-    return result;
+    string infix = user_input();
+    return evaluate_expression(infix);
 }

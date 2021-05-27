@@ -20,12 +20,12 @@ fn hello(string s1, string s2) -> string {
     return s1 + s2;
 }
 
-fn fucking_with_arrays(int[] b) -> int {
+fn playing_with_arrays(int[] b) -> int {
     string[] s = [""; 3];
     s[0] = "hello";
     s[1] = " ";
-    s[2] = "stupid";
-    assert(s[0] + s[1] + s[2] == "hello stupid");
+    s[2] = "world";
+    assert(s[0] + s[1] + s[2] == "hello world");
     return 0;
 }
 
