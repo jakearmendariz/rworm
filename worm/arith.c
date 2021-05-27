@@ -93,7 +93,7 @@ fn postfix_to_tree(string postfix) -> map {
             skip;
         } else if is_operator(curr) != 0 | postfix[i+1] != ' ' {
             /* operand */
-            map node = build_node(curr);
+            map node = {};
             node["is_op"] = -1;
             string s = int_substring(postfix, i); /* retrieves the substring containing the integer */
             node["data"] = parse_int(s); /* parses the integer string, gets the interger underneath */
@@ -131,8 +131,7 @@ fn evaluate_tree(map root) -> int {
             return -1;
         }
     } else {
-        int data = root["data"];
-        return data;
+        return root["data"];
     }
     return 0;
 }
