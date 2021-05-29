@@ -146,7 +146,7 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                 let mut arrary_index_rules = pair.into_inner();
                 let array_name = arrary_index_rules.next().unwrap().as_str().to_string();
                 let index = parse_into_expr(arrary_index_rules.next().unwrap().into_inner());
-                Expr::ExpVal(Object::Constant(Constant::ArrayIndex(
+                Expr::ExpVal(Object::Constant(Constant::Index(
                     array_name,
                     Box::new(index),
                 )))
@@ -270,7 +270,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                     let var_name = array_index_rule.next().unwrap().as_str().to_string();
                     let index_exp = parse_into_expr(array_index_rule.next().unwrap().into_inner());
                     let value_exp = parse_into_expr(inner_rules.next().unwrap().into_inner());
-                    return Ok(AstNode::ArrayIndexAssignment(
+                    return Ok(AstNode::IndexAssignment(
                         var_name, index_exp, value_exp,
                     ));
                 }

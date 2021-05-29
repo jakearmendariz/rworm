@@ -88,7 +88,7 @@ impl std::fmt::Display for Constant {
             Constant::Char(c) => write!(f, "{}", c),
             Constant::String(s) => write!(f, "{}", s),
             Constant::Array(t, n) => write!(f, "{}[{}]", t, n.len()),
-            Constant::ArrayIndex(a, i) => write!(f, "{}[{}]", a, *i),
+            Constant::Index(a, i) => write!(f, "{}[{}]", a, *i),
             Constant::Map(_) => write!(f, "map{{}}"),
         }
     }
@@ -101,8 +101,13 @@ impl std::fmt::Display for Object {
             Object::Constant(c) => write!(f, "{}", c),
             Object::FuncCall(func_call) => {
                 let mut result = format!("{}(", func_call.name);
+                let mut first = true;
                 for expr in &func_call.params {
-                    result.push_str(&format!("{}, ", expr)[..]);
+                    if !first {
+                        result.push_str(", ");
+                    }
+                    first = false;
+                    result.push_str(&format!("{}", expr)[..]);
                 }   
                 write!(f, "{})", result)
             },

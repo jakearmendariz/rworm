@@ -1,3 +1,4 @@
+
 fn sum(int a, int b) -> int {
     int c = a + b;
     return c;
@@ -25,12 +26,13 @@ fn scope_test(int limit) -> int{
 fn sum_up(int limit) -> int {
     int thesum = 0;
     int j = 0;
+    int[] a = providearr(limit);
     int[] nums = provide_arr(limit);
     while j < limit {
         thesum = sum(nums[j], thesum); 
         j = j + 1;
     }
-    j = "types are off";
+    j = "types are off"; /*0;*/
     return thesum;
 }
 

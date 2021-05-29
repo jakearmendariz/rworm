@@ -14,7 +14,7 @@ mod ordering;
 use crate::state::State;
 use crate::evaluate::*;
 use crate::parser::*;
-use crate::static_analysis::check_program;
+use crate::static_analysis::*;
 use colored::*;
 use pest::Parser;
 use std::collections::HashMap;

@@ -7,9 +7,9 @@ fn to_binary(int num) -> int[] {
         int val = 2 ^ index;
         if num >= val {
             num = num - val;
-            res = append(res, 1);
+            res = int_append(res, 1);
         }else {
-            res = append(res, 0);
+            res = int_append(res, 0);
         }
         index = index -1;
     }

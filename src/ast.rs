@@ -10,7 +10,7 @@ pub enum AstNode {
     // int[] arr = function(that returns an array)
     ArrayFromExp(VarType, String, Expr),
     // arr[exp1] = exp2;
-    ArrayIndexAssignment(String, Expr, Expr),
+    IndexAssignment(String, Expr, Expr),
     // if bool then do ast
     If(Vec<(BoolAst, Vec<Box<AstNode>>)>),
     While(BoolAst, Vec<Box<AstNode>>),
@@ -35,8 +35,6 @@ pub enum BoolAst {
     Exp(BoolExp),
     Const(bool),
 }
-
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BuiltIn {
@@ -86,9 +84,9 @@ pub enum Constant {
     Float(f64),
     String(String),
     Char(char),
-    Array(VarType, Vec<Constant>),
-    ArrayIndex(String, Box<Expr>), // string for variable name, once retrieved the usize will get the constant value
-    Map(WormMap),
+    Array(VarType, Vec<Constant>), // Arrays are fixed size in worm, but its easiest to implement with vec
+    Index(String, Box<Expr>), // string for variable name, expr will the the key or index (array or hashmap)
+    Map(WormMap), // custom type for hashmap
 }
 
 /*

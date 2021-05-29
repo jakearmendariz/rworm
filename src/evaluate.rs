@@ -78,7 +78,7 @@ fn eval_ast(ast: AstNode, state: &mut State) -> Result<Option<Constant>, Executi
             };
             state.save_variable(name, Constant::Array(var_type, elements));
         }
-        AstNode::ArrayIndexAssignment(name, index_exp, value_exp) => {
+        AstNode::IndexAssignment(name, index_exp, value_exp) => {
             let (var_type, mut elements) = match state.var_map.get(&name).unwrap().clone() {
                 Constant::Array(var_type, elements) => (var_type, elements),
                 Constant::Map(mut hashmap) => {
@@ -224,7 +224,7 @@ fn eval_expr(exp: Expr, state: &mut State) -> Result<Constant, ExecutionError> {
                 Object::Constant(Constant::Array(var_type, elements)) => {
                     Ok(Constant::Array(var_type, elements))
                 }
-                Object::Constant(Constant::ArrayIndex(name, index_exp)) => {
+                Object::Constant(Constant::Index(name, index_exp)) => {
                     // get array from state map
                     // get the index, if its not number return error
 

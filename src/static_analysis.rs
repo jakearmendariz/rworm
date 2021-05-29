@@ -15,7 +15,7 @@ pub enum StaticError {
     NeedReturnStm(String),
     CannotFindFunction(String),
     General(String),
-    ArrayIndex(String, String), // array name, type of error
+    Index(String, String), // array name, type of error
     Count(u16),
 }
 
@@ -33,7 +33,7 @@ impl std::fmt::Display for StaticError {
                 write!(f, "function \'{}\' does not exist", name)
             }
             StaticError::General(x) => write!(f, "{}", x),
-            StaticError::ArrayIndex(name, reason) => {
+            StaticError::Index(name, reason) => {
                 write!(f, "array index error in array \'{}\' for {}", name, reason)
             }
             StaticError::Count(x) => write!(f, "static analysis caught {} errors", x),
@@ -53,6 +53,10 @@ pub fn check_program(state: &mut State) -> Result<(), StaticError> {
             state,
         ) {
             Ok(()) => (),
+            Err(StaticError::Count(i)) => {
+                count += i;
+                error = true;
+            },
             Err(_) => {
                 count += 1;
                 error = true;
@@ -153,13 +157,13 @@ impl Constant {
             Constant::Char(_) => VarType::Char,
             Constant::Array(vtype, _) => VarType::Array(Box::new(vtype)),
             Constant::Map(_) => VarType::Map,
-            Constant::ArrayIndex(name, _) => {
+            Constant::Index(name, _) => {
                 // if it is an array, then retrieve the array from memory, then get its type
                 match get_value(name.clone(), state)? {
                     Constant::Array(var_type, _) => var_type.clone(),
                     Constant::String(_) => VarType::Char,
                     _ => {
-                        return Err(StaticError::ArrayIndex(
+                        return Err(StaticError::Index(
                             name,
                             format!("cannot index non array value"),
                         ))
@@ -266,7 +270,7 @@ fn eval_ast(ast: AstNode, state: &mut State) -> Result<Option<VarType>, StaticEr
             };
             state.save_variable(name, Constant::Array(var_type, Vec::new()));
         }
-        AstNode::ArrayIndexAssignment(name, index_exp, value_exp) => {
+        AstNode::IndexAssignment(name, index_exp, value_exp) => {
             // println!("var_map:{:?}", state.var_map);
             let (var_type, _) = match get_value(name.clone(), state)? {
                 Constant::Array(var_type, elements) => (var_type, elements),
@@ -407,7 +411,7 @@ fn type_of_expr(exp: Expr, state: &mut State) -> Result<VarType, StaticError> {
                 Object::Constant(Constant::Array(var_type, _elements)) => {
                     Ok(VarType::Array(Box::new(var_type)))
                 }
-                Object::Constant(Constant::ArrayIndex(name, index_exp)) => {
+                Object::Constant(Constant::Index(name, index_exp)) => {
                     // get array from state map
                     match state.var_map.get(&name.clone()) {
                         Some(value) => match value.clone() {
@@ -415,7 +419,7 @@ fn type_of_expr(exp: Expr, state: &mut State) -> Result<VarType, StaticError> {
                                 match type_of_expr(*index_exp, state)? {
                                     VarType::Int => (),
                                     _ => {
-                                        return Err(StaticError::ArrayIndex(
+                                        return Err(StaticError::Index(
                                             name,
                                             String::from("non int accessing array"),
                                         ))
@@ -428,7 +432,7 @@ fn type_of_expr(exp: Expr, state: &mut State) -> Result<VarType, StaticError> {
                                 match type_of_expr(*index_exp, state)? {
                                     VarType::Int => (),
                                     _ => {
-                                        return Err(StaticError::ArrayIndex(
+                                        return Err(StaticError::Index(
                                             name,
                                             String::from("non int accessing array"),
                                         ))
@@ -439,7 +443,7 @@ fn type_of_expr(exp: Expr, state: &mut State) -> Result<VarType, StaticError> {
                             Constant::Map(_hashmap) => {
                                 Ok(VarType::Map) // TODO need to add an any type so our analysis accepts these values
                             }
-                            _ => Err(StaticError::ArrayIndex(
+                            _ => Err(StaticError::Index(
                                 name,
                                 String::from("non array value"),
                             )),
