@@ -1,7 +1,7 @@
 /*
-* analysis.rs
-* program analysis, an inbetween stage between parsing and evaluation
-* main purpose is type checking and checking that all values referenced exist
+* mut.rs
+* Program analysis, but, without cloning, this part is still under development,
+* but I think this addition could make the program run much more quickly and smoothly
 */
 
 use crate::ast::*;
@@ -86,7 +86,7 @@ impl State {
         let mut return_type = VarType::Int;
         for ast in function.statements {
             // execute ast will run a single statement or loop, if there is a return value, exit out of function
-            match eval_ast(*ast, state) {
+            match self.eval_ast(*ast) {
                 Ok(res) => match res {
                     Some(val) => {
                         return_type = val;
@@ -142,20 +142,20 @@ impl State {
                     Some(var_type) => var_type,
                     None => {
                         // if no variable type, turn it into an expression and parse value (error if dne)
-                        type_of_expr(Expr::ExpVal(Object::Variable(name.clone())), state)?
+                        self.type_of_expr(Expr::ExpVal(Object::Variable(name.clone())))?
                     }
                 };
                 // type check, variable type must match the result of expression
-                let value_type = type_of_expr(exp, state)?;
+                let value_type = self.type_of_expr(exp)?;
                 if type_match(variable_type.clone(), value_type.clone()) {
                     // println!("saving variable:{}", name.clone());
-                    state.save_variable(name, default_const(variable_type));
+                    self.save_variable(name, default_const(variable_type));
                 } else {
                     return Err(StaticError::TypeViolation(variable_type, value_type));
                 }
             }
             AstNode::ArrayDef(var_type, name, piped, value_exp, length_exp) => {
-                match type_of_expr(length_exp, state)? {
+                match self.type_of_expr(length_exp)? {
                     VarType::Int => (),
                     _ => {
                         return Err(StaticError::General(format!(
@@ -169,19 +169,19 @@ impl State {
                     Some(piped) => (piped, true),
                     None => (String::from(""), false),
                 };
-                state.increment_stack_level();
+                self.increment_stack_level();
                 for i in 0..2 {
                     // not currently type checking need to add that later on
                     if pipe {
-                        state.save_variable(variable.clone(), Constant::Int(i as i32));
+                        self.save_variable(variable.clone(), Constant::Int(i as i32));
                     }
-                    type_of_expr(value_exp.clone(), state)?;
+                    self.type_of_expr(value_exp.clone())?;
                 }
-                state.pop_stack();
-                state.save_variable(name, Constant::Array(var_type, Vec::new()));
+                self.pop_stack();
+                self.save_variable(name, Constant::Array(var_type, Vec::new()));
             }
             AstNode::ArrayFromExp(_, name, expr) => {
-                let var_type = match type_of_expr(expr, state)? {
+                let var_type = match self.type_of_expr(expr)? {
                     VarType::Array(value) => *value,
                     VarType::Int => {
                         return Err(StaticError::TypeViolation(
@@ -214,11 +214,11 @@ impl State {
                         ))
                     }
                 };
-                state.save_variable(name, Constant::Array(var_type, Vec::new()));
+                self.save_variable(name, Constant::Array(var_type, Vec::new()));
             }
             AstNode::IndexAssignment(name, index_exp, value_exp) => {
                 // println!("var_map:{:?}", state.var_map);
-                let (var_type, _) = match get_value(name.clone(), state)? {
+                let (var_type, _) = match self.get_value(name.clone())? {
                     Constant::Array(var_type, elements) => (var_type, elements),
                     Constant::Map(_) => {
                         return Ok(None); // allow all types inside of the hashmap
@@ -230,7 +230,7 @@ impl State {
                         )))
                     }
                 };
-                match type_of_expr(index_exp, state)? {
+                match self.type_of_expr(index_exp)? {
                     VarType::Int => (),
                     _ => {
                         return Err(StaticError::General(format!(
@@ -239,7 +239,7 @@ impl State {
                         )))
                     }
                 };
-                let value_type = type_of_expr(value_exp, state)?;
+                let value_type = self.type_of_expr(value_exp)?;
                 if !type_match(var_type, value_type) {
                     return Err(StaticError::General(format!(
                         "length of array:\'{}\' must be int",
@@ -248,46 +248,46 @@ impl State {
                 };
             }
             AstNode::If(if_pairs) => {
-                state.increment_stack_level();
+                self.increment_stack_level();
                 for (conditional, mut stms) in if_pairs {
-                    check_bool_ast(&conditional, state)?;
+                    self.check_bool_ast(&conditional)?;
                     while stms.len() > 0 {
-                        match eval_ast(*stms.remove(0), state)? {
+                        match self.eval_ast(*stms.remove(0))? {
                             Some(eval) => return Ok(Some(eval)), // TODO change this to type check every statement
                             None => (),
                         }
                     }
                 }
-                state.pop_stack();
+                self.pop_stack();
             }
             AstNode::While(conditional, stms) => {
-                check_bool_ast(&conditional, state)?;
-                state.increment_stack_level();
+                self.check_bool_ast(&conditional)?;
+                self.increment_stack_level();
                 for stm in stms.iter() {
-                    match eval_ast(*stm.clone(), state)? {
+                    match self.eval_ast(*stm.clone())? {
                         Some(eval) => return Ok(Some(eval)), //if there was a return statement, return the value
                         None => (),
                     }
                 }
-                state.pop_stack();
+                self.pop_stack();
             }
             AstNode::BuiltIn(builtin) => {
                 match builtin {
                     BuiltIn::Print(exp) => {
-                        type_of_expr(exp, state)?;
+                        self.type_of_expr(exp)?;
                     }
                     BuiltIn::StaticPrint(exp) => {
                         println!("static_print: {}", exp.clone());
-                        type_of_expr(exp, state)?;
+                        self.type_of_expr(exp)?;
                     }
                     BuiltIn::Assert(boolast) => {
-                        check_bool_ast(&boolast, state)?;
+                        self.check_bool_ast(&boolast)?;
                     }
                 }
                 ()
             }
             AstNode::ReturnStm(expr) => {
-                return Ok(Some(type_of_expr(expr, state)?));
+                return Ok(Some(self.type_of_expr(expr)?));
             }
             AstNode::Skip() => (),
         }
@@ -331,14 +331,14 @@ impl State {
     /*
     * type_of_expr returns the type provided by an inline expression
     */
-    fn type_of_expr(exp: Expr, state: &mut State) -> Result<VarType, StaticError> {
+    fn type_of_expr(self, exp: Expr) -> Result<VarType, StaticError> {
         match exp {
             Expr::ExpVal(num) => {
                 match num {
                     Object::Variable(name) => {
                         // get variable as a constant value
-                        match state.var_map.get(&name) {
-                            Some(value) => Ok(value.clone().get_type(state)?),
+                        match self.var_map.get(&name) {
+                            Some(value) => Ok(value.clone().get_type(&mut self)?),
                             None => return Err(StaticError::ValueDne(name)),
                         }
                     }
@@ -347,10 +347,10 @@ impl State {
                     }
                     Object::Constant(Constant::Index(name, index_exp)) => {
                         // get array from state map
-                        match state.var_map.get(&name.clone()) {
+                        match self.var_map.get(&name.clone()) {
                             Some(value) => match value.clone() {
                                 Constant::Array(var_type, _) => {
-                                    match type_of_expr(*index_exp, state)? {
+                                    match self.type_of_expr(*index_exp)? {
                                         VarType::Int => (),
                                         _ => {
                                             return Err(StaticError::Index(
@@ -363,7 +363,7 @@ impl State {
                                 }
                                 Constant::Int(_) => Ok(VarType::Int), // I think this should error out
                                 Constant::String(_) => {
-                                    match type_of_expr(*index_exp, state)? {
+                                    match self.type_of_expr(*index_exp)? {
                                         VarType::Int => (),
                                         _ => {
                                             return Err(StaticError::Index(
@@ -390,7 +390,7 @@ impl State {
                     Object::Constant(Constant::Char(_)) => Ok(VarType::Char),
                     Object::Constant(Constant::String(_)) => Ok(VarType::String),
                     Object::Constant(Constant::Map(_)) => Ok(VarType::Map),
-                    Object::FuncCall(func_call) => {
+                    Object::FnCall(func_call) => {
                         // retrive function from memory, make sure its value matches
                         if func_call.name == "len" {
                             // builtin
@@ -420,7 +420,7 @@ impl State {
                                 Ok(VarType::String)
                             }
                         } else {
-                            let function = match state.func_map.get(&func_call.name.clone()) {
+                            let function = match self.func_map.get(&func_call.name.clone()) {
                                 Some(func) => func,
                                 None => return Err(StaticError::CannotFindFunction(func_call.name)),
                             };
@@ -432,7 +432,7 @@ impl State {
                             } = function.clone();
                             // iterate through the parameters provided and the function def,
                             for (expr, (var_type, _)) in func_call.params.iter().zip(params.iter()) {
-                                let param_const = type_of_expr(expr.clone(), &mut state.clone())?;
+                                let param_const = self.type_of_expr(expr.clone())?;
                                 if !type_match(var_type.clone(), param_const.clone()) {
                                     return {
                                         Err(StaticError::TypeViolation(var_type.clone(), param_const))
@@ -446,8 +446,8 @@ impl State {
                 }
             }
             Expr::ExpOp(lhs, _, rhs) => {
-                let left = type_of_expr(*lhs, state)?;
-                let right = type_of_expr(*rhs, state)?;
+                let left = self.type_of_expr(*lhs)?;
+                let right = self.type_of_expr(*rhs)?;
                 use VarType::*;
                 match (left.clone(), right.clone()) {
                     (Char, Char) => Ok(VarType::String),
@@ -464,7 +464,20 @@ impl State {
             }
         }
     }
-
+    /*
+    * returns a value or that a value does not exist
+    */
+    fn get_value(self, name: String) -> Result<Constant, StaticError> {
+        // println!("get_value `{}`", name.clone());
+        // println!("var_map `{:?}`", state.var_map);
+        match self.var_map.get(&name.clone()) {
+            Some(value) => Ok(value.clone()),
+            None => {
+                // println!("get_value=>DNE(`{}`)", name.clone());
+                Err(StaticError::ValueDne(name))
+            }
+        }
+    }
 
 
 }
@@ -492,7 +505,7 @@ impl Constant {
             Constant::Map(_) => VarType::Map,
             Constant::Index(name, _) => {
                 // if it is an array, then retrieve the array from memory, then get its type
-                match get_value(name.clone(), state)? {
+                match state.get_value(name.clone())? {
                     Constant::Array(var_type, _) => var_type.clone(),
                     Constant::String(_) => VarType::Char,
                     _ => {

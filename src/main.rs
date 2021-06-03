@@ -1,3 +1,9 @@
+/*
+* start of worm execution
+* opens the file, passes into worm strucutres to evaluate
+* allows for flags for just compilation, or for a complete run
+* NOTE the compilation compiles to binary, but the binary is not for a machine, but can be evaulated by evaluate.rs
+*/
 extern crate pest;
 #[macro_use]
 extern crate pest_derive;
@@ -110,7 +116,6 @@ fn main() {
         }
         match run_program(&mut state) {
             Ok(result) => {
-                // println!("{}: {}", "Execution Result".green(), result);
                 println!("{}", result);
             }
             Err(e) => {

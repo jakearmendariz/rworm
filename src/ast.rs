@@ -1,3 +1,7 @@
+/*
+* ast.rs
+* contains the ast features necessary in this program
+*/
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7,16 +11,20 @@ pub enum AstNode {
     //type, name, optional piped variable for index, value expression, size expression
     // int[] arr = [|opt| expr1; expr2]
     ArrayDef(VarType, String, Option<String>, Expr, Expr),
-    // int[] arr = function(that returns an array)
+    // int[] arr = function(that returns an array) TODO merge with assignment, this does not need its own value
     ArrayFromExp(VarType, String, Expr),
     // arr[exp1] = exp2;
     IndexAssignment(String, Expr, Expr),
     // if bool then do ast
     If(Vec<(BoolAst, Vec<Box<AstNode>>)>),
     While(BoolAst, Vec<Box<AstNode>>),
+    // these built in functions consume an entire line
     BuiltIn(BuiltIn),
+    // return from a function
     ReturnStm(Expr),
+    // Makes life easy when designing ast to have a skip value
     Skip(),
+    // TODO functions should be inner ast structures
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,6 +33,12 @@ pub struct Function {
     pub params: Vec<(VarType, String)>,
     pub return_type: VarType,
     pub statements: Vec<Box<AstNode>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FnCall {
+    pub name: String,
+    pub params: Vec<Expr>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,6 +57,7 @@ pub enum BuiltIn {
     StaticPrint(Expr),
 }
 
+// boolean expressions for conditional statements
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BoolExp(pub Expr, pub BoolOp, pub Expr);
 
@@ -56,12 +71,41 @@ pub enum BoolOp {
     Gt,
 }
 
+// expression represents 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Expr {
     ExpVal(Object),
     ExpOp(Box<Expr>, OpType, Box<Expr>),
 }
 
+// objects abstract away the constant to allow for variables and function calls
+// helpful in expressions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Object {
+    Variable(String),
+    Constant(Constant),
+    FnCall(FnCall),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Operation {
+    op: OpType,
+    left: Box<Expr>,
+    right: Box<Expr>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum OpType {
+    Add,
+    Mult,
+    Sub,
+    Div,
+    Pow,
+    Modulus,
+}
+
+// vartype and constants are the core of the language
+// all expressions evaluate to a specific type, which is represented as a constant
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum VarType {
     Int,
@@ -72,12 +116,7 @@ pub enum VarType {
     Map,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FuncCall {
-    pub name: String,
-    pub params: Vec<Expr>,
-}
-
+// TODO convert Float to be represented as two integers
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Constant {
     Int(i32),
@@ -92,6 +131,8 @@ pub enum Constant {
 /*
 * hashmap implementation is literally linear
 * I wanted to be able to nest hashmaps in this version I can
+* Its trash and would need to be replaced (if I had more time)
+* NOTE if I convert float to two integers instead, default hashmap implementation works
 */
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WormMap {
@@ -126,29 +167,4 @@ impl WormMap {
     }
 }
 
-/*
-* Objects can be constants values, or variable names that turn into constants, or function calls
-*/
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Object {
-    Variable(String),
-    Constant(Constant),
-    FuncCall(FuncCall),
-}
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Operation {
-    op: OpType,
-    left: Box<Expr>,
-    right: Box<Expr>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum OpType {
-    Add,
-    Mult,
-    Sub,
-    Div,
-    Pow,
-    Modulus,
-}

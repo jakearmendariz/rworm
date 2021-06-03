@@ -1,3 +1,5 @@
+// the grammar of worm
+// using the pest parser it is defined here to be turned into a rust structure in parser.rs
 int = { ("+" | "-")? ~ ASCII_DIGIT+ }
 float = @{ int ~ ("." ~ ASCII_DIGIT+) }
 

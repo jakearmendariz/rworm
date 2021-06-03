@@ -1,3 +1,7 @@
+/*
+* parser.rs
+* parses the program into an ast
+*/
 use crate::ast::*;
 use pest::iterators::{Pair, Pairs};
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
@@ -133,7 +137,7 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                     }
                     None => (),
                 }
-                Expr::ExpVal(Object::FuncCall(FuncCall {
+                Expr::ExpVal(Object::FnCall(FnCall {
                     name: func_name,
                     params: params,
                 }))
@@ -325,7 +329,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                     return Ok(AstNode::ArrayFromExp(
                         array_type,
                         array_name,
-                        Expr::ExpVal(Object::FuncCall(FuncCall {
+                        Expr::ExpVal(Object::FnCall(FnCall {
                             name: func_name,
                             params: params,
                         })),

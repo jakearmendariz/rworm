@@ -1,3 +1,4 @@
+// establishes ordering for constants but be handled explicitily
 use crate::ast::*;
 use std::cmp::Ordering;
 

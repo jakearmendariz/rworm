@@ -1,3 +1,6 @@
+/*
+* evaluates the ast, panics on missed type static errors, but catches execution errors and returns result
+*/
 use crate::ast::*;
 use crate::state::State;
 use colored::*;
@@ -267,7 +270,7 @@ fn eval_expr(exp: Expr, state: &mut State) -> Result<Constant, ExecutionError> {
                 Object::Constant(Constant::String(s)) => Ok(Constant::String(s)),
                 Object::Constant(Constant::Char(c)) => Ok(Constant::Char(c)),
                 Object::Constant(Constant::Map(hashmap)) => Ok(Constant::Map(hashmap)), // wack
-                Object::FuncCall(func_call) => {
+                Object::FnCall(func_call) => {
                     // need a new var map for the function, just the parameters
                     if func_call.name == "len".to_string() {
                         match eval_expr(func_call.params[0].clone(), state)? {

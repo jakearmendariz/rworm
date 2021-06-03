@@ -99,7 +99,7 @@ impl std::fmt::Display for Object {
         match &*self {
             Object::Variable(x) => write!(f, "{}", x),
             Object::Constant(c) => write!(f, "{}", c),
-            Object::FuncCall(func_call) => {
+            Object::FnCall(func_call) => {
                 let mut result = format!("{}(", func_call.name);
                 let mut first = true;
                 for expr in &func_call.params {

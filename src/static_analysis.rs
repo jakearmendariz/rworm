@@ -456,7 +456,7 @@ fn type_of_expr(exp: Expr, state: &mut State) -> Result<VarType, StaticError> {
                 Object::Constant(Constant::Char(_)) => Ok(VarType::Char),
                 Object::Constant(Constant::String(_)) => Ok(VarType::String),
                 Object::Constant(Constant::Map(_)) => Ok(VarType::Map),
-                Object::FuncCall(func_call) => {
+                Object::FnCall(func_call) => {
                     // retrive function from memory, make sure its value matches
                     if func_call.name == "len" {
                         // builtin

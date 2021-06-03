@@ -1,8 +1,20 @@
-# rWorm PL Interpretter
+# Worm PL Interpretter
 Jake Armendariz
 
+## Download Requirments
+- Rust 2018
+- Cargo (rust package manager)
 
-# Stages
+## How to Compile
+- make clean
+- make
+
+## How to Run (Submitting binary for assignment to make it easier to run if you don't want to download rust)
+- ./worm-pl worm/<wormfile>
+- ./worm-pl worm/tests.c (.c extension for syntax highlighting, this is Worm code, not C)
+- ./worm-pl worm/arith.c (works similar to first assignment, user must add input)
+
+## Stages
 Interpretter currently works in 3 stages
 - **parsing** turns raw text into an AST, catching parser errors
 - **static analysis** type checking, checks all values called exist
@@ -13,11 +25,8 @@ Current abstract syntax trees
 
 ## TODO
 - Better error handling
-- Importing other filesn 
-- weird stuff to make it unique and fun
-- Maybe....
-    - json
-    - calling command line stuff
+- convert to from functions -> methods
+- compile to llvm? (hopefully)
 
 ## Complete
 - Strongly typed
@@ -29,9 +38,14 @@ Current abstract syntax trees
 - built in functions, print(), assert()
 
 ## Unique
-#### Arrays
-Arrays can be defined as a type `int[] arr = [|i| i; size]` where i is the index value ex: `int[] arr = [|i| (i+1)^2; 3]` => `[1, 4, 9]` 
+**Pass by Value:** All parameters are pass by value, not pass by reference. 
 
+**No Void Function** Because all functions are pass by value, every function must have a return value, otherwise they would have no purpose.
 
-When using an array as an AST::NODE, its type should be the type of value inside of the array
-When defining a parameter or return value, it should be the VarType::Array(othertype)
+**No Declaration, only Assignment** In order to reduce the amount of errors, every variable must be assigned a value when it is declared
+
+**Array Definition** I tried to create a unique way to declare arrays in worm. Every array can be defined either by a function return or by a `[value; size]` so if a programmer wants an array of all zeros they can do `[0; 20]`. For more dynamic changes, I allow a piping of values, so if `[|i| i; 20]` builds an array counting 0-19. Or even `[|index| index^2; 100]` builds an array of size 100
+
+**map type** Integrated into the language is a custom hashmap type that can map from any variable type into any other. Right now there is no type checking involved in this stage, which is clearly a large problem. So to solve this problem, although the map type is from any type to any other, once a key is assigned to a value, the variable type initially assigned to the key is stuck for the lifetime of the hashmap.
+
+Thus, if someone does `map["id"] = 0` then `map["id"] = "0"` there will be a type error, but `map["id"] = 2` causes no such violation
