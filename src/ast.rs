@@ -11,8 +11,6 @@ pub enum AstNode {
     //type, name, optional piped variable for index, value expression, size expression
     // int[] arr = [|opt| expr1; expr2]
     ArrayDef(VarType, String, Option<String>, Expr, Expr),
-    // int[] arr = function(that returns an array) TODO merge with assignment, this does not need its own value
-    ArrayFromExp(VarType, String, Expr),
     // arr[exp1] = exp2;
     IndexAssignment(String, Expr, Expr),
     // if bool then do ast
@@ -25,6 +23,7 @@ pub enum AstNode {
     // Makes life easy when designing ast to have a skip value
     Skip(),
     // TODO functions should be inner ast structures
+    Function(Function),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

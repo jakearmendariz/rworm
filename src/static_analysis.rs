@@ -191,6 +191,11 @@ fn type_match(a: VarType, b: VarType) -> bool {
 */
 fn eval_ast(ast: AstNode, state: &mut State) -> Result<Option<VarType>, StaticError> {
     match ast {
+        AstNode::Function(func) => {
+            let return_type = func.return_type.clone();
+            check_function(func.name.clone(), func, return_type.clone(), state)?;
+            return Ok(Some(return_type));
+        }
         AstNode::Assignment(vtype, name, exp) => {
             let variable_type: VarType = match vtype {
                 Some(var_type) => var_type,
@@ -232,42 +237,6 @@ fn eval_ast(ast: AstNode, state: &mut State) -> Result<Option<VarType>, StaticEr
                 type_of_expr(value_exp.clone(), state)?;
             }
             state.pop_stack();
-            state.save_variable(name, Constant::Array(var_type, Vec::new()));
-        }
-        AstNode::ArrayFromExp(_, name, expr) => {
-            let var_type = match type_of_expr(expr, state)? {
-                VarType::Array(value) => *value,
-                VarType::Int => {
-                    return Err(StaticError::TypeViolation(
-                        VarType::Array(Box::new(VarType::Int)),
-                        VarType::Int,
-                    ))
-                }
-                VarType::Float => {
-                    return Err(StaticError::TypeViolation(
-                        VarType::Array(Box::new(VarType::Float)),
-                        VarType::Float,
-                    ))
-                }
-                VarType::Char => {
-                    return Err(StaticError::TypeViolation(
-                        VarType::Array(Box::new(VarType::Char)),
-                        VarType::Char,
-                    ))
-                }
-                VarType::String => {
-                    return Err(StaticError::TypeViolation(
-                        VarType::Array(Box::new(VarType::String)),
-                        VarType::String,
-                    ))
-                }
-                VarType::Map => {
-                    return Err(StaticError::TypeViolation(
-                        VarType::Array(Box::new(VarType::Map)),
-                        VarType::Map,
-                    ))
-                }
-            };
             state.save_variable(name, Constant::Array(var_type, Vec::new()));
         }
         AstNode::IndexAssignment(name, index_exp, value_exp) => {

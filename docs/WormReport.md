@@ -1,18 +1,18 @@
-# Building a Statically Typed Interpretted Language
+# Building a Statically Typed Interpreted Language
 Jake Armendariz
 
 ## Introduction
-As the world of computer science expands the number and complexity of programming is increasing rapidly. With an increasing amount of languages there are an increasing amount of tradeoffs and design decisions to make in the process. When building larger languages (production level) they often grow in complexity and syntatic decisions are traded out for semantic needs. This quarter, my goal was to build a small language that is as simple, clean and with a structure that reduces bad programming practice.
+As the world of computer science expands, the number and complexity of programming languages are rapidly increasing. Production level languages often grow in complexity, leading to a bulky design in which simplicity is traded off for semantic desires. This quarter, my goal was to build a small language that is as simple, clean and structured.
 
 
 ## Design
-In order to direct my design, I tried to build an ideal language for a beginner. Often, when learning to program, the first question a beginner asks is "Which language should I learn?". The most common languages recommended seem to be Python and Java, both of which fall short in a couple of categories. Python is missing types, lacks any enforced structure and because its strictly interprettedon the programmer. Java on the other hand, requires far too much overhead and can be intiminating to a new programmer as they have to see type way too many words before creating a simple hello world. 
+In order to direct my design, I tried to build an ideal language for a beginner. Often, when learning to program, the first question a beginner asks is "Which language should I learn?". The most common languages I hear suggested are Python and Java, both of which fall short in a couple of categories. Python is missing types and an enforced structure which lets the programmer ignore fundamental programming idioms while learning. Java on the other hand, requires far too much overhead and can be intimidating to a new programmer. 
 
-My goal was to build a language that fit in the middle, simple like python, but less intimating then Java. I decided to call this language Worm, named for its small size, and my appreciation for python's simplicity.
+My goal was to build a language that merged the best aspects of both languages, simple like Python, but with a structure similar to Java/C. I decided to call this language Worm, named for its small size, and my appreciation for Python's simplicity.
 
-I decided any beginner should learn about types, functions, arrays, hashmaps. I wanted to present these features in a very intential way. So similar to Java and C variables are expressed in the format `vartype varname` or `int x`. Functions must have explicit return types and parameters and arrays and maps can be built in types to reduce syntax complexity when learning new datastructures.
+When learning to program, there are a number of abstractions, data structures and features that programmers should be exposed to. The following are the features that I believed to be necessary for Worm to include: types, functions, arrays, and hashmaps. In order to express these types explicitly, types are expressed in the format `vartype varname` or `int x`, similar to Java or C. Functions must have explicit return types and parameters, and arrays and maps are built-in types to reduce syntactic complexity when learning new data structures.
 
-The "Hello World" of Worm is decidely simple. 
+The "Hello World" of Worm is decidedly simple. 
 
 ```
 fn main() -> int {
@@ -29,58 +29,33 @@ int, float, char, string, map,
 int[], float[], char[], string[]
 ```
 
-Along with some basic rules, I added some custom, unique semantic features to worm that I thought would help enforce good practice in a new programmer.
+Along with some basic rules, I added some custom, unique semantic features to Worm that I thought would help enforce good habits in a new programmer.
 
 **Pass by Value:** All parameters are pass by value, not pass by reference. 
 
-**No Void Function** Because all functions are pass by value, every function must have a return value, otherwise they would have no purpose.
+**No Void Function** Because all functions are pass by value, every function must have a return value, otherwise, they would have no purpose.
 
-**No Declaration, only Assignment** In order to reduce the amount of errors, every variable must be assigned a value when it is declared
+**No Declaration, only Assignment** In order to reduce the number of errors, every variable must be assigned a value when it is declared.
 
-**Array Definition** I tried to create a unique way to declare arrays in worm. Every array can be defined either by a function return or by a `[value; size]` so if a programmer wants an array of all zeros they can do `[0; 20]`. For more dynamic changes, I allow a piping of values, so if `[|i| i; 20]` builds an array counting 0-19. Or even `[|index| index^2; 100]` builds an array of size 100
+**Array Definition** Every array can be defined either by a function return or by a `[value; size]` so if a programmer wants an array of all zeros they can do `[0; 20]`. For more dynamic changes, I allow piping of values, so if `[|i| i; 20]` builds an array counting 0-19. Or even `[|index| index^2; 100]` builds an array of size 100 with each value squared [0,1, 4, 9, 16 ..]
 
-**map type** Integrated into the language is a custom hashmap type that can map from any variable type into any other. Right now there is no type checking involved in this stage, which is clearly a large problem. So to solve this problem, although the map type is from any type to any other, once a key is assigned to a value, the variable type initially assigned to the key is stuck for the lifetime of the hashmap.
+**map type** Integrated into the language, is a custom hashmap type that can map from any variable type to another. In order to do type checking on the map, once a key is assigned to a value, the variable type initially assigned to the key is constant for the lifetime of the key, despite deletions.
 
-Thus, if someone does `map["id"] = 0` then `map["id"] = "0"` there will be a type error, but `map["id"] = 2` causes no such violation
+Thus, if someone does `map["id"] = 0` then `map["id"] = "0"` there will be a type error, but `map["id"] = 2` is legal.
 
 ## Static Analyzer and Error Checking
-I have found good error messaging to be an essential part in programming in good language design. It's I acredit error messaging to be a large part in the shift from C to Rust in modern system programming.
+I have found well-executed error messaging to be an essential part of a practical programming language, so I tried to spend a lot of time on the type system and proper error messages. I used a parser library to build the Worm interpreter, and it limited my ability to create effective error messages, as I couldn't reference specific line numbers or text when writing error messages. Instead, I used function names, and function lines to indicate where the bug occurred.
 
+Static analysis is performed after parsing and before execution, it will analyze the AST by checking every line to ensure that types match by inspecting each expression's values/variables/(function calls). It will also look at possible errors in variable scope, existence, function returns, parameters, and once finished it will print all of the errors, count them, if the number of errors > 0, then the program will stop before reaching the evaluation stage.
 
 
 ## Sample Program
 
-In order to demonstrate Worm's capabilities as a working language, I wrote some sample programs in it. One of which 
+In order to demonstrate Worm's capabilities as a working language, I wrote some sample programs. This is part of the working program that can parse and evaluate an expression string. 
 
 
 ```
 import "worm/wormstd.c";
-
-/* checks if a character is an operator */
-fn is_operator(char c) -> int {
-    if c == '+' | c == '-' | c == '*' | c == '/' {
-        return 0;
-    }
-    return -1;
-}
-
-/* builds a node in the expression tree */
-fn build_node(char data) -> map {
-    map node = {};
-    node["data"] = data;
-    node["is_op"] = is_operator(data);
-    return node;
-}
-
-/* sets the order of precedence */
-fn get_precedence_order() -> map {
-    map po = {};
-    po['+'] = 0;
-    po['-'] = 0;
-    po['*'] = 1;
-    po['/'] = 1;
-    return po;
-}
 
 /* extracts a substring that represents an integer */
 fn int_substring(string s, int index) -> string {
@@ -91,54 +66,6 @@ fn int_substring(string s, int index) -> string {
         index = index + 1;
     }
     return result;
-}
-
-
-/* converts the infix expression to a postfix expression (easier to turn into an expression tree from there) */
-fn infix_to_postfix(string infix) -> string {
-    string postfix = "";
-    map precedence_order = get_precedence_order();
-    char[] stack = [' '; 0];
-    int index = 0;
-    while index < len(infix) {
-        char curr = infix[index];
-        if curr == ' ' {
-            index = index + 1;
-        }
-        else {
-            if (curr == '-' & infix[index+1] != ' ') | (is_operator(curr) != 0) {
-                /* Operand */
-                string num = int_substring(infix, index);
-                postfix = postfix + ' ' + num;
-                index = index + len(num);
-            }
-            /* is operator */
-            else if len(stack) == 0 {
-                stack = prepend_char(stack, curr);
-                index = index + 1;
-            } else {
-                char top_element = stack[0];
-                if precedence_order[curr] == precedence_order[top_element] {
-                    postfix = postfix + ' ' + stack[0];
-                    stack = pop_left(stack);
-                } else if precedence_order[curr] > precedence_order[top_element] {
-                    stack = prepend_char(stack, curr);
-                    index = index + 1;
-                } else {
-                    char popped = stack[0];
-                    stack = pop_left(stack);
-                    postfix = postfix + ' ' + popped;
-                }
-            }
-        }
-    }
-    /* add everything that is left */
-    while len(stack) > 0 {
-        char popped = stack[0];
-        stack = pop_left(stack);
-        postfix = postfix + ' ' + popped;
-    }
-    return postfix;
 }
 
 /* Convert the postfix notation to a tree */
@@ -210,4 +137,12 @@ fn main() -> int {
 
 
 ## Conclusion
-Building worm is not very special or relevant to modern research in programming langugaes. But I have found a lot of value in how I understand program semantics and design throught this process. I wrote this project in Rust, and I gained a much deeper sense of appreciation for the rust language design decisions as well as the complexities of the compiler as I learned more about it. This project isn't done either, I have a couple of goals that I would like to accomplish this summer, I plan on making my static analysis work as internal methods for state, so that I can edit the ast before running. This would help add some sugaring into the language that wouldn't be neeeded in the executable. I also would like to work more on th rust llvm bindings, its difficult to get llvm running on my machine and the projects on it are currently small, but I want to spend some time this summer 
+I have found value and a new perspective in how I view language design while programming. While building a small interpreted language isn’t a new concept, nor is it relevant to modern research in programming languages, I wanted to explore the process of designing a simple language while implementing features that I believe to be valuable for a beginner’s introduction to computer science. Through this process, I’ve gained a deeper appreciation for compilers, error handling, and implicit type systems. In the upcoming months, I hope to add some of these features to Worm. I’ve particularly enjoyed learning about LLVM and how to convert a language into LLVM intermediate representation. Due to the complexity of LLVM and the lack of Rust support, I didn’t attempt to convert Worm this quarter, but with more time, I would like to work on the Worm compiler.
+
+
+### Sources
+I tried referring to research and articles on programming languages and type systems, but nothing was very useful for what I was working on. My only references are the language and library references I used.
+
+- **Parsing**: https://pest.rs/book/ 
+- **Programming**: https://doc.rust-lang.org/book/
+

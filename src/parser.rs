@@ -34,7 +34,10 @@ pub fn parse_program(pairs: Pairs<Rule>, state: &mut State) -> Result<(), ParseE
                 parse_ast(pair, state)?;
                 continue;
             }
-            _ => parse_function(pair, state)?,
+            _ => match parse_ast(pair, state)? {
+                AstNode::Skip() => (),
+                _ => return Err(ParseError::UnencampslatedStatement),
+            },
         }
     }
     Ok(())
@@ -211,21 +214,14 @@ fn parse_type_from_rule(return_rule: Pair<Rule>) -> Result<VarType, ParseError> 
 /*
 * parse the function from the pair provided.
 */
-pub fn parse_function(pair: Pair<Rule>, state: &mut State) -> Result<(), ParseError> {
-    match pair.as_rule() {
-        Rule::func_def => (),
-        _ => {
-            return Err(ParseError::UnencampslatedStatement);
-        }
-    }
-    let mut inner_rules = pair.into_inner();
-    let fn_name = inner_rules.next().unwrap().as_str().to_string();
+pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), ParseError> {
+    let fn_name = pairs.next().unwrap().as_str().to_string();
 
-    let next_rule = inner_rules.next().unwrap();
+    let next_rule = pairs.next().unwrap();
     let (params, return_type) = match next_rule.as_rule() {
         Rule::params => (
             parse_parameters(next_rule.into_inner())?,
-            parse_type_from_rule(inner_rules.next().unwrap().into_inner().next().unwrap())?,
+            parse_type_from_rule(pairs.next().unwrap().into_inner().next().unwrap())?,
         ),
         Rule::var_type => (
             Vec::new(),
@@ -235,7 +231,7 @@ pub fn parse_function(pair: Pair<Rule>, state: &mut State) -> Result<(), ParseEr
     };
 
     let mut stms = std::vec::Vec::new();
-    for stm in inner_rules {
+    for stm in pairs {
         // two in forloop, one in while loop
         let ast = parse_ast(stm, state)?;
         stms.push(Box::new(ast));
@@ -258,6 +254,10 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
     let statement = pair.as_str();
     // matches the rule depending on the type of statments
     match rule {
+        Rule::func_def => {
+            parse_function(&mut pair.into_inner(), state)?;
+            Ok(AstNode::Skip())
+        }
         Rule::assignment => {
             let mut inner_rules = pair.into_inner();
             let first_pos = inner_rules.next().unwrap();
@@ -319,22 +319,6 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             let init_or_call = array_rules.next().unwrap();
             let mut array_def = match init_or_call.as_rule() {
                 Rule::array_initial => init_or_call.into_inner(),
-                Rule::func_call => {
-                    let mut inner = init_or_call.into_inner();
-                    let func_name = inner.next().unwrap().as_str().to_string();
-                    let mut params = Vec::new();
-                    for item in inner.next().unwrap().into_inner() {
-                        params.push(parse_into_expr(item.into_inner()));
-                    }
-                    return Ok(AstNode::ArrayFromExp(
-                        array_type,
-                        array_name,
-                        Expr::ExpVal(Object::FnCall(FnCall {
-                            name: func_name,
-                            params: params,
-                        })),
-                    ));
-                }
                 _ => {
                     return Err(ParseError::GeneralParseError(String::from(
                         "non array type in front of array dec",

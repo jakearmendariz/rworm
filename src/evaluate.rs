@@ -40,9 +40,11 @@ pub fn eval_func(function: Function, state: &mut State) -> Result<Constant, Exec
 */
 fn eval_ast(ast: AstNode, state: &mut State) -> Result<Option<Constant>, ExecutionError> {
     match ast {
+        AstNode::Function(func) => {
+            return Ok(Some(eval_func(func, state)?));
+        }
         AstNode::Assignment(vtype, name, exp) => {
             let value = eval_expr(exp, state)?;
-            //casting
             let actual_val = match (vtype, value) {
                 (Some(VarType::Int), Constant::Char(c)) => Constant::Int(c as i32),
                 (_, val) => val,
@@ -71,14 +73,6 @@ fn eval_ast(ast: AstNode, state: &mut State) -> Result<Option<Constant>, Executi
                 elements.push(eval_expr(value_exp.clone(), state)?);
             }
             state.pop_stack();
-            state.save_variable(name, Constant::Array(var_type, elements));
-        }
-        AstNode::ArrayFromExp(_, name, expr) => {
-            // expecting a function that returns an array
-            let (var_type, elements) = match eval_expr(expr, state)? {
-                Constant::Array(var_type, elements) => (var_type, elements),
-                _ => panic!("type mismatch found during execution"),
-            };
             state.save_variable(name, Constant::Array(var_type, elements));
         }
         AstNode::IndexAssignment(name, index_exp, value_exp) => {

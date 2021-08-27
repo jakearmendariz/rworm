@@ -42,10 +42,11 @@ impl std::fmt::Display for StaticError {
 }
 
 impl State {
-    pub fn check_program(&mut self) -> Result<(), StaticError> {
+    pub fn check_program(self) -> Result<(), StaticError> {
         let mut error = false;
         let mut count = 0;
-        for (name, function) in &self.func_map {
+        let functions = self.func_map;
+        for (name, function) in &functions {
             match self.check_function(
                 name.clone(),
                 function.clone(),
@@ -70,7 +71,7 @@ impl State {
     }
     /* execute turns a ast object into a Result */
     pub fn check_function(
-        &mut self,
+        self,
         name: String,
         function: Function,
         expected_rt_type: VarType,
@@ -135,8 +136,13 @@ impl State {
     /*
     * evaluate an ast, one line or one if/while stm
     */
-    fn eval_ast(&mut self, ast: AstNode) -> Result<Option<VarType>, StaticError> {
+    fn eval_ast(self, ast: AstNode) -> Result<Option<VarType>, StaticError> {
         match ast {
+            AstNode::Function(func) => {
+                let return_type = func.return_type.clone();
+                self.check_function(func.name.clone(), func, return_type.clone())?;
+                return Ok(Some(return_type));
+            }
             AstNode::Assignment(vtype, name, exp) => {
                 let variable_type: VarType = match vtype {
                     Some(var_type) => var_type,
@@ -178,42 +184,6 @@ impl State {
                     self.type_of_expr(value_exp.clone())?;
                 }
                 self.pop_stack();
-                self.save_variable(name, Constant::Array(var_type, Vec::new()));
-            }
-            AstNode::ArrayFromExp(_, name, expr) => {
-                let var_type = match self.type_of_expr(expr)? {
-                    VarType::Array(value) => *value,
-                    VarType::Int => {
-                        return Err(StaticError::TypeViolation(
-                            VarType::Array(Box::new(VarType::Int)),
-                            VarType::Int,
-                        ))
-                    }
-                    VarType::Float => {
-                        return Err(StaticError::TypeViolation(
-                            VarType::Array(Box::new(VarType::Float)),
-                            VarType::Float,
-                        ))
-                    }
-                    VarType::Char => {
-                        return Err(StaticError::TypeViolation(
-                            VarType::Array(Box::new(VarType::Char)),
-                            VarType::Char,
-                        ))
-                    }
-                    VarType::String => {
-                        return Err(StaticError::TypeViolation(
-                            VarType::Array(Box::new(VarType::String)),
-                            VarType::String,
-                        ))
-                    }
-                    VarType::Map => {
-                        return Err(StaticError::TypeViolation(
-                            VarType::Array(Box::new(VarType::Map)),
-                            VarType::Map,
-                        ))
-                    }
-                };
                 self.save_variable(name, Constant::Array(var_type, Vec::new()));
             }
             AstNode::IndexAssignment(name, index_exp, value_exp) => {
@@ -297,7 +267,7 @@ impl State {
     /*
     * evalulates booleans based on their conjunction
     */
-    fn check_bool_ast(&mut self, bool_ast: &BoolAst) -> Result<(), StaticError> {
+    fn check_bool_ast(self, bool_ast: &BoolAst) -> Result<(), StaticError> {
         match &*bool_ast {
             BoolAst::Not(body) => self.check_bool_ast(&*body)?,
             BoolAst::And(a, b) => {
@@ -338,7 +308,7 @@ impl State {
                     Object::Variable(name) => {
                         // get variable as a constant value
                         match self.var_map.get(&name) {
-                            Some(value) => Ok(value.clone().get_type(&mut self)?),
+                            Some(value) => Ok(value.clone().get_type(self)?),
                             None => return Err(StaticError::ValueDne(name)),
                         }
                     }
@@ -467,7 +437,7 @@ impl State {
     /*
     * returns a value or that a value does not exist
     */
-    fn get_value(self, name: String) -> Result<Constant, StaticError> {
+    fn get_value(&mut self, name: String) -> Result<Constant, StaticError> {
         // println!("get_value `{}`", name.clone());
         // println!("var_map `{:?}`", state.var_map);
         match self.var_map.get(&name.clone()) {
@@ -495,7 +465,7 @@ fn type_match(a: VarType, b: VarType) -> bool {
 }
 
 impl Constant {
-    fn get_type(self, state: &mut State) -> Result<VarType, StaticError> {
+    fn get_type(self, state:State) -> Result<VarType, StaticError> {
         Ok(match self {
             Constant::String(_) => VarType::String,
             Constant::Float(_) => VarType::Float,

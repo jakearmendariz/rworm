@@ -25,7 +25,7 @@ array_inst = {(vint | vfloat | vchar | vstring | hmap) ~ "[]"}
 array_dec = {array_inst}
 piped = {"|" ~ var_name ~ "|"}
 array_initial = {"[" ~ piped? ~ expr ~ ";" ~ expr ~ "]"}
-array_definition = {array_inst ~ var_name ~ "=" ~ (array_initial | func_call) }
+array_definition = {array_inst ~ var_name ~ "=" ~ (array_initial) }
 array_val = {"[" ~ list? ~ "]"}
 array_index = {var_name ~"[" ~ expr ~ "]"}
 hash_obj = {"{" ~ (expr ~ ":" ~ expr)? ~ "}"}
@@ -99,6 +99,6 @@ func_call = {var_name ~ "(" ~ list? ~ ")"}
 
 // allvar = _{array_inst | var_type}
 
-assignment = {(array_index | ((var_type)? ~ var_name)) ~ "=" ~ (expr | string)}
+assignment = {(array_index | ((var_type)? ~ var_name)) ~ "=" ~ (expr | string | array_initial)}
 statement = _{((builtin | skip | array_definition |  assignment) ~ ";") | (return_stm | func_def | ifstm | whilestm) }
 program = _{ SOI ~ (import_stm | func_def)* ~ EOI }
