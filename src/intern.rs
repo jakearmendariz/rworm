@@ -42,10 +42,10 @@ impl std::fmt::Display for StaticError {
 }
 
 impl State {
-    pub fn check_program(self) -> Result<(), StaticError> {
+    pub fn check_program(&mut self) -> Result<(), StaticError> {
         let mut error = false;
         let mut count = 0;
-        let functions = self.func_map;
+        let functions = self.func_map.clone();
         for (name, function) in &functions {
             match self.check_function(
                 name.clone(),
@@ -71,7 +71,7 @@ impl State {
     }
     /* execute turns a ast object into a Result */
     pub fn check_function(
-        self,
+        &mut self,
         name: String,
         function: Function,
         expected_rt_type: VarType,
@@ -136,7 +136,7 @@ impl State {
     /*
     * evaluate an ast, one line or one if/while stm
     */
-    fn eval_ast(self, ast: AstNode) -> Result<Option<VarType>, StaticError> {
+    fn eval_ast(&mut self, ast: AstNode) -> Result<Option<VarType>, StaticError> {
         match ast {
             AstNode::Function(func) => {
                 let return_type = func.return_type.clone();
@@ -267,7 +267,7 @@ impl State {
     /*
     * evalulates booleans based on their conjunction
     */
-    fn check_bool_ast(self, bool_ast: &BoolAst) -> Result<(), StaticError> {
+    fn check_bool_ast(&mut self, bool_ast: &BoolAst) -> Result<(), StaticError> {
         match &*bool_ast {
             BoolAst::Not(body) => self.check_bool_ast(&*body)?,
             BoolAst::And(a, b) => {
@@ -288,7 +288,7 @@ impl State {
     /*
     * evaluates expressions and constants to true false values
     */
-    fn check_bool(self, bool_exp: &BoolExp) -> Result<(), StaticError> {
+    fn check_bool(&mut self, bool_exp: &BoolExp) -> Result<(), StaticError> {
         let BoolExp(lhs, _, rhs) = &*bool_exp;
         // if
         let right = self.type_of_expr(rhs.clone())?;
@@ -301,7 +301,7 @@ impl State {
     /*
     * type_of_expr returns the type provided by an inline expression
     */
-    fn type_of_expr(self, exp: Expr) -> Result<VarType, StaticError> {
+    fn type_of_expr(&mut self, exp: Expr) -> Result<VarType, StaticError> {
         match exp {
             Expr::ExpVal(num) => {
                 match num {
@@ -465,7 +465,7 @@ fn type_match(a: VarType, b: VarType) -> bool {
 }
 
 impl Constant {
-    fn get_type(self, state:State) -> Result<VarType, StaticError> {
+    fn get_type(self, state: &mut State) -> Result<VarType, StaticError> {
         Ok(match self {
             Constant::String(_) => VarType::String,
             Constant::Float(_) => VarType::Float,
