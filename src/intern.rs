@@ -46,12 +46,9 @@ impl State {
         let mut error = false;
         let mut count = 0;
         let functions = self.func_map.clone();
-        for (name, function) in &functions {
+        for (name, function) in functions {
             match self.check_function(
-                name.clone(),
-                function.clone(),
-                function.return_type.clone(),
-            ) {
+                name.to_string(), function) {
                 Ok(()) => (),
                 Err(StaticError::Count(i)) => {
                     count += i;
@@ -73,9 +70,7 @@ impl State {
     pub fn check_function(
         &mut self,
         name: String,
-        function: Function,
-        expected_rt_type: VarType,
-    ) -> Result<(), StaticError> {
+        function: Function) -> Result<(), StaticError> {
         self.increment_stack_level();
         // save parameters of the function into state
         for (param_type, param_name) in function.params {
@@ -84,6 +79,7 @@ impl State {
         let mut i = 1;
         let mut errors = 0;
         let mut return_stm = false;
+        let expected_rt_type = function.return_type.clone();
         let mut return_type = VarType::Int;
         for ast in function.statements {
             // execute ast will run a single statement or loop, if there is a return value, exit out of function
@@ -140,7 +136,7 @@ impl State {
         match ast {
             AstNode::Function(func) => {
                 let return_type = func.return_type.clone();
-                self.check_function(func.name.clone(), func, return_type.clone())?;
+                self.check_function(func.name.clone(), func)?;
                 return Ok(Some(return_type));
             }
             AstNode::Assignment(vtype, name, exp) => {
