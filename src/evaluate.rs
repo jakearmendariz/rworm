@@ -306,6 +306,7 @@ fn eval_expr(exp: Expr, state: &mut State) -> Result<Constant, ExecutionError> {
                         } = function.clone();
                         let func_clone = function.clone();
                         let func_map = state.func_map.clone();
+                        let fn_list = state.fn_list.clone();
                         // iterate through the parameters provided and the function def,
                         for (expr, (_, param_name)) in func_call.params.iter().zip(params.iter()) {
                             let param_const = eval_expr(expr.clone(), &mut state.clone())?;
@@ -317,6 +318,8 @@ fn eval_expr(exp: Expr, state: &mut State) -> Result<Constant, ExecutionError> {
                             func_map,
                             var_stack,
                             stack_lvl: 0,
+                            fn_list
+
                         };
                         Ok(eval_func(func_clone, &mut func_state)?)
                     }

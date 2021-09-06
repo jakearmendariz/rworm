@@ -242,7 +242,8 @@ pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), 
         params: params,
         statements: stms,
     };
-    state.func_map.insert(fn_name, function);
+    state.func_map.insert(fn_name.clone(), function);
+    state.fn_list.push(fn_name);
     Ok(())
 }
 

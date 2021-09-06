@@ -14,15 +14,17 @@ mod ast;
 mod evaluate;
 mod parser;
 // mod static_analysis;
-mod intern;
+// mod intern;
+mod seperate;
 mod display;
 mod state;
 mod ordering;
-use crate::state::State;
+use crate::state::{State, ExecutionState};
 use crate::evaluate::*;
 use crate::parser::*;
 // use crate::static_analysis::*;
-use crate::intern::*;
+// use crate::intern::*;
+use crate::seperate::*;
 use colored::*;
 use pest::Parser;
 use std::collections::HashMap;
@@ -34,6 +36,16 @@ fn build_default_state() -> State {
     State {
         var_map: HashMap::new(),
         func_map: HashMap::new(),
+        var_stack: Vec::new(),
+        fn_list: Vec::new(),
+        stack_lvl: 0,
+    }
+}
+
+
+fn build_default_execution_state() -> ExecutionState {
+    ExecutionState {
+        var_map: HashMap::new(),
         var_stack: Vec::new(),
         stack_lvl: 0,
     }
@@ -59,7 +71,8 @@ fn main() {
         }
     }
 
-    match state.check_program() {
+    let mut exec = build_default_execution_state();
+    match exec.check_program(&state) {
         Ok(()) => (),
         Err(e) => {
             println!("{} {}", "STATIC ERROR:".red().bold(), e);

@@ -41,13 +41,13 @@ impl std::fmt::Display for StaticError {
     }
 }
 
-impl State {
-    pub fn check_program(&mut self) -> Result<(), StaticError> {
+impl ExecutionState {
+    pub fn check_program(&mut self, state:&State) -> Result<(), StaticError> {
         let mut error = false;
         let mut count = 0;
         // let functions = self.func_map.clone();
-        for i  in 0..self.fn_list.len() {
-            match self.inspect_function(i) {
+        for i  in 0..state.fn_list.len() {
+            match self.inspect_function(i, state) {
                 Ok(()) => (),
                 Err(StaticError::Count(i)) => {
                     count += i;
@@ -70,12 +70,12 @@ impl State {
     // same as check_function, except with a index instead of passing function
     pub fn inspect_function(
         &mut self,
-        index:usize) -> Result<(), StaticError> {
+        index:usize,
+        state:&State) -> Result<(), StaticError> {
         self.increment_stack_level();
-        unsafe {
         // save parameters of the function into state
-        let fn_name = self.fn_list.get(index).unwrap();
-        let function = self.func_map.get(&fn_name.to_string()).unwrap();
+        let fn_name = state.fn_list.get(index).unwrap();
+        let function = state.func_map.get(&fn_name.to_string()).unwrap();
         let params = &function.params;
         for (param_type, param_name) in params {
             self.save_variable(param_name.to_string(), default_const(param_type.clone()));
@@ -85,9 +85,9 @@ impl State {
         let mut return_stm = false;
         let expected_rt_type = function.return_type.clone();
         let mut return_type = VarType::Int;
-        for ast in function.statements {
+        for ast in &function.statements {
             // execute ast will run a single statement or loop, if there is a return value, exit out of function
-            match self.eval_ast(*ast) {
+            match self.eval_ast(state, (**ast).clone()) {
                 Ok(res) => match res {
                     Some(val) => {
                         return_type = val;
@@ -132,90 +132,25 @@ impl State {
             Ok(())
         }
     }
-    }
-    /* execute turns a ast object into a Result */
-    pub fn check_function(
-        &mut self,
-        name: String,
-        function: Function) -> Result<(), StaticError> {
-        self.increment_stack_level();
-        // save parameters of the function into state
-        for (param_type, param_name) in function.params {
-            self.save_variable(param_name, default_const(param_type));
-        }
-        let mut i = 1;
-        let mut errors = 0;
-        let mut return_stm = false;
-        let expected_rt_type = function.return_type.clone();
-        let mut return_type = VarType::Int;
-        for ast in function.statements {
-            // execute ast will run a single statement or loop, if there is a return value, exit out of function
-            match self.eval_ast(*ast) {
-                Ok(res) => match res {
-                    Some(val) => {
-                        return_type = val;
-                        return_stm = true;
-                    }
-                    None => (),
-                },
-                Err(e) => {
-                    println!(
-                        "{} in function \'{}\' on line {}, error: {}",
-                        "STATIC ERROR:".red().bold(),
-                        name.clone(),
-                        i,
-                        e
-                    );
-                    errors += 1;
-                }
-            }
-            i += 1;
-        }
-        self.pop_stack();
-        if !return_stm {
-            println!(
-                "{} {}",
-                "STATIC ERROR:".red().bold(),
-                StaticError::NeedReturnStm(name)
-            );
-            errors += 1;
-        } else {
-            if !type_match(return_type.clone(), expected_rt_type.clone()) {
-                println!(
-                    "{} {}",
-                    "STATIC ERROR:".red().bold(),
-                    StaticError::TypeViolation(return_type, expected_rt_type)
-                );
-                errors += 1;
-            }
-        }
-        if errors > 0 {
-            Err(StaticError::Count(errors))
-        } else {
-            Ok(())
-        }
-    }
-
-    /*
-    * evaluate an ast, one line or one if/while stm
-    */
-    fn eval_ast(&mut self, ast: AstNode) -> Result<Option<VarType>, StaticError> {
+    
+    fn eval_ast(&mut self, state:&State, ast: AstNode) -> Result<Option<VarType>, StaticError> {
         match ast {
-            AstNode::Function(func) => {
-                let return_type = func.return_type.clone();
-                self.check_function(func.name.clone(), func)?;
-                return Ok(Some(return_type));
+            AstNode::Function(_) => {
+                // let return_type = func.return_type.clone();
+                // self.inspect_function(func.name.clone(), func)?;
+                // return Ok(Some(return_type));
+                panic!("I didn't know functions were here, is this an inner function maybe");
             }
             AstNode::Assignment(vtype, name, exp) => {
                 let variable_type: VarType = match vtype {
                     Some(var_type) => var_type,
                     None => {
                         // if no variable type, turn it into an expression and parse value (error if dne)
-                        self.type_of_expr(Expr::ExpVal(Object::Variable(name.clone())))?
+                        self.type_of_expr(state, Expr::ExpVal(Object::Variable(name.clone())))?
                     }
                 };
                 // type check, variable type must match the result of expression
-                let value_type = self.type_of_expr(exp)?;
+                let value_type = self.type_of_expr(state, exp)?;
                 if type_match(variable_type.clone(), value_type.clone()) {
                     // println!("saving variable:{}", name.clone());
                     self.save_variable(name, default_const(variable_type));
@@ -224,7 +159,7 @@ impl State {
                 }
             }
             AstNode::ArrayDef(var_type, name, piped, value_exp, length_exp) => {
-                match self.type_of_expr(length_exp)? {
+                match self.type_of_expr(state, length_exp)? {
                     VarType::Int => (),
                     _ => {
                         return Err(StaticError::General(format!(
@@ -244,7 +179,7 @@ impl State {
                     if pipe {
                         self.save_variable(variable.clone(), Constant::Int(i as i32));
                     }
-                    self.type_of_expr(value_exp.clone())?;
+                    self.type_of_expr(state, value_exp.clone())?;
                 }
                 self.pop_stack();
                 self.save_variable(name, Constant::Array(var_type, Vec::new()));
@@ -263,7 +198,7 @@ impl State {
                         )))
                     }
                 };
-                match self.type_of_expr(index_exp)? {
+                match self.type_of_expr(state, index_exp)? {
                     VarType::Int => (),
                     _ => {
                         return Err(StaticError::General(format!(
@@ -272,7 +207,7 @@ impl State {
                         )))
                     }
                 };
-                let value_type = self.type_of_expr(value_exp)?;
+                let value_type = self.type_of_expr(state, value_exp)?;
                 if !type_match(var_type, value_type) {
                     return Err(StaticError::General(format!(
                         "length of array:\'{}\' must be int",
@@ -283,9 +218,9 @@ impl State {
             AstNode::If(if_pairs) => {
                 self.increment_stack_level();
                 for (conditional, mut stms) in if_pairs {
-                    self.check_bool_ast(&conditional)?;
+                    self.check_bool_ast(state, &conditional)?;
                     while stms.len() > 0 {
-                        match self.eval_ast(*stms.remove(0))? {
+                        match self.eval_ast(state, *stms.remove(0))? {
                             Some(eval) => return Ok(Some(eval)), // TODO change this to type check every statement
                             None => (),
                         }
@@ -294,10 +229,10 @@ impl State {
                 self.pop_stack();
             }
             AstNode::While(conditional, stms) => {
-                self.check_bool_ast(&conditional)?;
+                self.check_bool_ast(state, &conditional)?;
                 self.increment_stack_level();
                 for stm in stms.iter() {
-                    match self.eval_ast(*stm.clone())? {
+                    match self.eval_ast(state, *stm.clone())? {
                         Some(eval) => return Ok(Some(eval)), //if there was a return statement, return the value
                         None => (),
                     }
@@ -307,20 +242,20 @@ impl State {
             AstNode::BuiltIn(builtin) => {
                 match builtin {
                     BuiltIn::Print(exp) => {
-                        self.type_of_expr(exp)?;
+                        self.type_of_expr(state, exp)?;
                     }
                     BuiltIn::StaticPrint(exp) => {
                         println!("static_print: {}", exp.clone());
-                        self.type_of_expr(exp)?;
+                        self.type_of_expr(state, exp)?;
                     }
                     BuiltIn::Assert(boolast) => {
-                        self.check_bool_ast(&boolast)?;
+                        self.check_bool_ast(state, &boolast)?;
                     }
                 }
                 ()
             }
             AstNode::ReturnStm(expr) => {
-                return Ok(Some(self.type_of_expr(expr)?));
+                return Ok(Some(self.type_of_expr(state, expr)?));
             }
             AstNode::Skip() => (),
         }
@@ -330,18 +265,18 @@ impl State {
     /*
     * evalulates booleans based on their conjunction
     */
-    fn check_bool_ast(&mut self, bool_ast: &BoolAst) -> Result<(), StaticError> {
+    fn check_bool_ast(&mut self, state:&State ,bool_ast: &BoolAst) -> Result<(), StaticError> {
         match &*bool_ast {
-            BoolAst::Not(body) => self.check_bool_ast(&*body)?,
+            BoolAst::Not(body) => self.check_bool_ast(state, &*body)?,
             BoolAst::And(a, b) => {
-                self.check_bool_ast(&*a)?;
-                self.check_bool_ast(&*b)?;
+                self.check_bool_ast(state, &*a)?;
+                self.check_bool_ast(state, &*b)?;
             }
             BoolAst::Or(a, b) => {
-                self.check_bool_ast(&*a)?;
-                self.check_bool_ast(&*b)?
+                self.check_bool_ast(state, &*a)?;
+                self.check_bool_ast(state, &*b)?
             }
-            BoolAst::Exp(exp) => self.check_bool(&*exp)?,
+            BoolAst::Exp(exp) => self.check_bool(state, &*exp)?,
             BoolAst::Const(_) => (),
         };
         Ok(())
@@ -351,11 +286,11 @@ impl State {
     /*
     * evaluates expressions and constants to true false values
     */
-    fn check_bool(&mut self, bool_exp: &BoolExp) -> Result<(), StaticError> {
+    fn check_bool(&mut self, state:&State, bool_exp: &BoolExp) -> Result<(), StaticError> {
         let BoolExp(lhs, _, rhs) = &*bool_exp;
         // if
-        let right = self.type_of_expr(rhs.clone())?;
-        let left = self.type_of_expr(lhs.clone())?;
+        let right = self.type_of_expr(state, rhs.clone())?;
+        let left = self.type_of_expr(state, lhs.clone())?;
         if !type_match(left.clone(), right.clone()) {
             return Err(StaticError::TypeViolation(left, right));
         };
@@ -364,7 +299,7 @@ impl State {
     /*
     * type_of_expr returns the type provided by an inline expression
     */
-    fn type_of_expr(&mut self, exp: Expr) -> Result<VarType, StaticError> {
+    fn type_of_expr(&mut self, state:&State, exp: Expr) -> Result<VarType, StaticError> {
         match exp {
             Expr::ExpVal(num) => {
                 match num {
@@ -383,7 +318,7 @@ impl State {
                         match self.var_map.get(&name.clone()) {
                             Some(value) => match value.clone() {
                                 Constant::Array(var_type, _) => {
-                                    match self.type_of_expr(*index_exp)? {
+                                    match self.type_of_expr(state, *index_exp)? {
                                         VarType::Int => (),
                                         _ => {
                                             return Err(StaticError::Index(
@@ -396,7 +331,7 @@ impl State {
                                 }
                                 Constant::Int(_) => Ok(VarType::Int), // I think this should error out
                                 Constant::String(_) => {
-                                    match self.type_of_expr(*index_exp)? {
+                                    match self.type_of_expr(state, *index_exp)? {
                                         VarType::Int => (),
                                         _ => {
                                             return Err(StaticError::Index(
@@ -453,7 +388,7 @@ impl State {
                                 Ok(VarType::String)
                             }
                         } else {
-                            let function = match self.func_map.get(&func_call.name.clone()) {
+                            let function = match state.func_map.get(&func_call.name.clone()) {
                                 Some(func) => func,
                                 None => return Err(StaticError::CannotFindFunction(func_call.name)),
                             };
@@ -465,7 +400,7 @@ impl State {
                             } = function.clone();
                             // iterate through the parameters provided and the function def,
                             for (expr, (var_type, _)) in func_call.params.iter().zip(params.iter()) {
-                                let param_const = self.type_of_expr(expr.clone())?;
+                                let param_const = self.type_of_expr(state, expr.clone())?;
                                 if !type_match(var_type.clone(), param_const.clone()) {
                                     return {
                                         Err(StaticError::TypeViolation(var_type.clone(), param_const))
@@ -479,8 +414,8 @@ impl State {
                 }
             }
             Expr::ExpOp(lhs, _, rhs) => {
-                let left = self.type_of_expr(*lhs)?;
-                let right = self.type_of_expr(*rhs)?;
+                let left = self.type_of_expr(state, *lhs)?;
+                let right = self.type_of_expr(state, *rhs)?;
                 use VarType::*;
                 match (left.clone(), right.clone()) {
                     (Char, Char) => Ok(VarType::String),
@@ -528,7 +463,7 @@ fn type_match(a: VarType, b: VarType) -> bool {
 }
 
 impl Constant {
-    fn get_type(self, state: &mut State) -> Result<VarType, StaticError> {
+    fn get_type(self, exestate: &mut ExecutionState) -> Result<VarType, StaticError> {
         Ok(match self {
             Constant::String(_) => VarType::String,
             Constant::Float(_) => VarType::Float,
@@ -538,7 +473,7 @@ impl Constant {
             Constant::Map(_) => VarType::Map,
             Constant::Index(name, _) => {
                 // if it is an array, then retrieve the array from memory, then get its type
-                match state.get_value(name.clone())? {
+                match exestate.get_value(name.clone())? {
                     Constant::Array(var_type, _) => var_type.clone(),
                     Constant::String(_) => VarType::Char,
                     _ => {
