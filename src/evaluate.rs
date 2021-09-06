@@ -13,18 +13,20 @@ pub enum ExecutionError {
     IndexOutOfBounds(String, usize),
 }
 
+static MAIN: &str = "main";
+
 /* run program calls the main function to run the program */
 pub fn run_program(execution_state: &mut ExecutionState, state: &State) -> Result<Constant, ExecutionError> {
-    let main_function = state.func_map.get("main").unwrap();
-    Ok(eval_func(main_function.clone(), execution_state, state)?)
+    Ok(eval_func(MAIN.to_string(), execution_state, state)?)
 }
 
 /* execute turns a ast object into a Result */
-pub fn eval_func(function: Function, execution_state: &mut ExecutionState, state: &State) -> Result<Constant, ExecutionError> {
+pub fn eval_func(name: String, execution_state: &mut ExecutionState, state: &State) -> Result<Constant, ExecutionError> {
+    let function = state.func_map.get(&name).unwrap();
     execution_state.increment_stack_level();
-    for ast in function.statements {
+    for ast in &function.statements {
         // execute ast will run a single statement or loop, if there is a return value, exit out of function
-        match eval_ast(*ast, execution_state, state)? {
+        match eval_ast((**ast).clone(), execution_state, state)? {
             Some(val) => {
                 execution_state.pop_stack();
                 return Ok(val);
@@ -41,7 +43,8 @@ pub fn eval_func(function: Function, execution_state: &mut ExecutionState, state
 fn eval_ast(ast: AstNode, execution_state: &mut ExecutionState, state: &State) -> Result<Option<Constant>, ExecutionError> {
     match ast {
         AstNode::Function(func) => {
-            return Ok(Some(eval_func(func, execution_state, state)?));
+            panic!("Why are we here");
+            // return Ok(Some(eval_func(func, execution_state, state)?));
         }
         AstNode::Assignment(vtype, name, exp) => {
             let value = eval_expr(exp, execution_state, state)?;
@@ -298,13 +301,14 @@ fn eval_expr(exp: Expr, execution_state: &mut ExecutionState, state: &State) -> 
                         let function = state.func_map.get(&func_call.name).unwrap();
                         let mut var_stack: Vec<(String, u32)> = Vec::new();
                         // let stack_lvl:u32 = 0;
-                        let Function {
-                            name: _,
-                            params,
-                            return_type: _,
-                            statements: _,
-                        } = function.clone();
-                        let func_clone = function.clone();
+                        let params = function.params.clone();
+                        // let Function {
+                        //     name: _,
+                        //     params,
+                        //     return_type: _,
+                        //     statements: _,
+                        // } = function.clone();
+                        // let func_clone = function.clone();
                         // iterate through the parameters provided and the function def,
                         for (expr, (_, param_name)) in func_call.params.iter().zip(params.iter()) {
                             let param_const = eval_expr(expr.clone(), execution_state, state)?;
@@ -316,7 +320,7 @@ fn eval_expr(exp: Expr, execution_state: &mut ExecutionState, state: &State) -> 
                             var_stack,
                             stack_lvl: 0,
                         };
-                        Ok(eval_func(func_clone, &mut func_state, state)?)
+                        Ok(eval_func(func_call.name, &mut func_state, state)?)
                     }
                 }
             }
