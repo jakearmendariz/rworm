@@ -34,11 +34,11 @@ use std::io::prelude::*;
 // builds default for state
 fn build_default_state() -> State {
     State {
-        var_map: HashMap::new(),
+        // var_map: HashMap::new(),
         func_map: HashMap::new(),
-        var_stack: Vec::new(),
+        // var_stack: Vec::new(),
         fn_list: Vec::new(),
-        stack_lvl: 0,
+        // stack_lvl: 0,
     }
 }
 
@@ -71,15 +71,16 @@ fn main() {
         }
     }
 
-    let mut exec = build_default_execution_state();
-    match exec.check_program(&state) {
+    let mut static_anal = build_default_execution_state();
+    match static_anal.check_program(&state) {
         Ok(()) => (),
         Err(e) => {
             println!("{} {}", "STATIC ERROR:".red().bold(), e);
             return;
         }
     }
-    match run_program(&mut state) {
+    let mut execution_state = build_default_execution_state();
+    match run_program(&mut execution_state, &state) {
         Ok(result) => {
             println!("{}", result);
         }
