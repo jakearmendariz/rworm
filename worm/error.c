@@ -37,7 +37,7 @@ fn sum_up(int limit) -> int {
 }
 
 fn main() -> string {
-    
+    string a = fuck();
     /* assert(6 == scope_test(4)); is broken*/
     int x = 10;
     int y = 20;

@@ -300,15 +300,7 @@ fn eval_expr(exp: Expr, execution_state: &mut ExecutionState, state: &State) -> 
                         let mut var_map: HashMap<String, Constant> = HashMap::new();
                         let function = state.func_map.get(&func_call.name).unwrap();
                         let mut var_stack: Vec<(String, u32)> = Vec::new();
-                        // let stack_lvl:u32 = 0;
                         let params = function.params.clone();
-                        // let Function {
-                        //     name: _,
-                        //     params,
-                        //     return_type: _,
-                        //     statements: _,
-                        // } = function.clone();
-                        // let func_clone = function.clone();
                         // iterate through the parameters provided and the function def,
                         for (expr, (_, param_name)) in func_call.params.iter().zip(params.iter()) {
                             let param_const = eval_expr(expr.clone(), execution_state, state)?;

@@ -105,7 +105,7 @@ pub enum OpType {
 
 // vartype and constants are the core of the language
 // all expressions evaluate to a specific type, which is represented as a constant
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, Eq)]
 pub enum VarType {
     Int,
     Float,

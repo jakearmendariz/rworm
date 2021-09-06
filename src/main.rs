@@ -13,18 +13,17 @@ extern crate lazy_static;
 mod ast;
 mod evaluate;
 mod parser;
-// mod static_analysis;
+mod static_analysis;
 // mod intern;
-mod seperate;
+// mod seperate;
 mod display;
 mod state;
 mod ordering;
 use crate::state::{State, ExecutionState};
 use crate::evaluate::*;
 use crate::parser::*;
-// use crate::static_analysis::*;
+use crate::static_analysis::*;
 // use crate::intern::*;
-use crate::seperate::*;
 use colored::*;
 use pest::Parser;
 use std::collections::HashMap;
@@ -51,6 +50,13 @@ fn build_default_execution_state() -> ExecutionState {
     }
 }
 
+fn build_static_anal() -> StaticAnalyzer {
+    StaticAnalyzer {
+        execution_state: build_default_execution_state(),
+        errors: Vec::new()
+    }
+}
+
 /*
 * Main function for worm interpretter
 */
@@ -71,11 +77,11 @@ fn main() {
         }
     }
 
-    let mut static_anal = build_default_execution_state();
+    let mut static_anal = build_static_anal();
     match static_anal.check_program(&state) {
         Ok(()) => (),
         Err(e) => {
-            println!("{} {}", "STATIC ERROR:".red().bold(), e);
+            log_errors(e);
             return;
         }
     }
