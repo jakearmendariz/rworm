@@ -17,7 +17,6 @@ pub enum StaticError {
     CannotFindFunction(String),
     General(String),
     Index(String, String), // array name, type of error
-    Count(u16),
 }
 
 impl std::fmt::Display for StaticError {
@@ -37,7 +36,6 @@ impl std::fmt::Display for StaticError {
             StaticError::Index(name, reason) => {
                 write!(f, "array index error in array \'{}\' for {}", name, reason)
             }
-            StaticError::Count(x) => write!(f, "static analysis caught {} errors", x),
             StaticError::TypeMismatchInReturn(recieved, expected) => 
                 write!(f, "Type mistmatch on return, expected {}, recieved {}", expected, recieved)
         }
@@ -45,7 +43,7 @@ impl std::fmt::Display for StaticError {
 }
 #[derive(Debug, Clone)]
 pub struct StaticAnalyzer {
-    pub execution_state:ExecutionState,
+    pub execution_state:FakeExecutionState,
     pub errors:Vec<(String, StaticError)>
 }
 
@@ -84,7 +82,7 @@ impl StaticAnalyzer {
         let function = state.func_map.get(&fn_name.to_string()).unwrap();
         let params = &function.params;
         for (param_type, param_name) in params {
-            self.execution_state.save_variable(param_name.to_string(), default_const(param_type.clone()));
+            self.execution_state.save_variable(param_name.to_string(), param_type.clone());
         }
         let mut errors = Vec::new();
         self.eval_statements(function, state, &mut errors);
@@ -135,7 +133,7 @@ impl StaticAnalyzer {
                 // type check, variable type must match the result of expression
                 let value_type = self.type_of_expr(state, exp)?;
                 if type_match(variable_type.clone(), value_type.clone()) {
-                    self.execution_state.save_variable(name, default_const(variable_type));
+                    self.execution_state.save_variable(name, variable_type);
                 } else {
                     return Err(StaticError::TypeViolation(variable_type, value_type));
                 }
@@ -159,17 +157,17 @@ impl StaticAnalyzer {
                 for i in 0..2 {
                     // not currently type checking need to add that later on
                     if pipe {
-                        self.execution_state.save_variable(variable.clone(), Constant::Int(i as i32));
+                        self.execution_state.save_variable(variable.clone(), VarType::Int);
                     }
                     self.type_of_expr(state, value_exp.clone())?;
                 }
                 self.execution_state.pop_stack();
-                self.execution_state.save_variable(name, Constant::Array(var_type, Vec::new()));
+                self.execution_state.save_variable(name, VarType::Array(Box::new(var_type)));
             }
             AstNode::IndexAssignment(name, index_exp, value_exp) => {
-                let (var_type, _) = match self.get_value(name.clone())? {
-                    Constant::Array(var_type, elements) => (var_type, elements),
-                    Constant::Map(_) => {
+                let var_type = match self.get_value(name.clone())? {
+                    VarType::Array(var_type) => (var_type),
+                    VarType::Map => {
                         return Ok(None); // allow all types inside of the hashmap
                     }
                     _ => {
@@ -189,7 +187,7 @@ impl StaticAnalyzer {
                     }
                 };
                 let value_type = self.type_of_expr(state, value_exp)?;
-                if !type_match(var_type, value_type) {
+                if !type_match(*var_type, value_type) {
                     return Err(StaticError::General(format!(
                         "length of array:\'{}\' must be int",
                         name
@@ -197,17 +195,20 @@ impl StaticAnalyzer {
                 };
             }
             AstNode::If(if_pairs) => {
+                // TOOO: need to check every single branch
                 self.execution_state.increment_stack_level();
+                let mut return_val = None;
                 for (conditional, mut stms) in if_pairs {
                     self.check_bool_ast(state, &conditional)?;
                     while stms.len() > 0 {
                         match self.eval_ast(state, *stms.remove(0))? {
-                            Some(eval) => return Ok(Some(eval)), // TODO change this to type check every statement
+                            Some(eval) => { return_val = Some(eval) }, 
                             None => (),
                         }
                     }
                 }
                 self.execution_state.pop_stack();
+                return Ok(return_val);
             }
             AstNode::While(conditional, stms) => {
                 self.check_bool_ast(state, &conditional)?;
@@ -268,7 +269,6 @@ impl StaticAnalyzer {
     */
     fn check_bool(&mut self, state:&State, bool_exp: &BoolExp) -> Result<(), StaticError> {
         let BoolExp(lhs, _, rhs) = &*bool_exp;
-        // if
         let right = self.type_of_expr(state, rhs.clone())?;
         let left = self.type_of_expr(state, lhs.clone())?;
         if !type_match(left.clone(), right.clone()) {
@@ -286,7 +286,7 @@ impl StaticAnalyzer {
                     Object::Variable(name) => {
                         // get variable as a constant value
                         match self.execution_state.var_map.get(&name) {
-                            Some(value) => Ok(value.clone().get_type(self)?),
+                            Some(var_type) => Ok(var_type.clone()),
                             None => return Err(StaticError::ValueDne(name)),
                         }
                     }
@@ -297,20 +297,19 @@ impl StaticAnalyzer {
                         // get array from state map
                         match self.execution_state.var_map.get(&name.clone()) {
                             Some(value) => match value.clone() {
-                                Constant::Array(var_type, _) => {
-                                    match self.type_of_expr(state, *index_exp)? {
-                                        VarType::Int => (),
-                                        _ => {
-                                            return Err(StaticError::Index(
-                                                name,
-                                                String::from("non int accessing array"),
-                                            ))
-                                        }
-                                    };
-                                    Ok(var_type)
+                                VarType::Array(var_type) => {
+                                    // TODO support X-Dimensional arrays
+                                    Ok(*var_type)
+                                },
+                                VarType::Map => {
+                                    // match hashmap.get(index_exp) {
+                                    //     Some(val) => Ok(val.get_type())
+                                    //     None => StaticError::ValueDne(key)
+                                    // }
+                                    Ok(VarType::Map) // TODO need to add an any type so our analysis accepts these values
                                 }
-                                Constant::Int(_) => Ok(VarType::Int), // I think this should error out
-                                Constant::String(_) => {
+                                VarType::Int => Ok(VarType::Int), // I think this should error out
+                                VarType::String => {
                                     match self.type_of_expr(state, *index_exp)? {
                                         VarType::Int => (),
                                         _ => {
@@ -321,9 +320,6 @@ impl StaticAnalyzer {
                                         }
                                     };
                                     Ok(VarType::Char)
-                                }
-                                Constant::Map(_hashmap) => {
-                                    Ok(VarType::Map) // TODO need to add an any type so our analysis accepts these values
                                 }
                                 _ => Err(StaticError::Index(
                                     name,
@@ -415,7 +411,7 @@ impl StaticAnalyzer {
     /*
     * returns a value or that a value does not exist
     */
-    fn get_value(&mut self, name: String) -> Result<Constant, StaticError> {
+    fn get_value(&mut self, name: String) -> Result<VarType, StaticError> {
         match self.execution_state.var_map.get(&name.clone()) {
             Some(value) => Ok(value.clone()),
             None => {
@@ -451,8 +447,8 @@ impl Constant {
             Constant::Index(name, _) => {
                 // if it is an array, then retrieve the array from memory, then get its type
                 match exestate.get_value(name.clone())? {
-                    Constant::Array(var_type, _) => var_type.clone(),
-                    Constant::String(_) => VarType::Char,
+                    VarType::Array(var_type) => *var_type,
+                    VarType::String => VarType::Char,
                     _ => {
                         return Err(StaticError::Index(
                             name,

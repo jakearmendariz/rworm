@@ -49,3 +49,9 @@ Current abstract syntax trees
 **map type** Integrated into the language is a custom hashmap type that can map from any variable type into any other. Right now there is no type checking involved in this stage, which is clearly a large problem. So to solve this problem, although the map type is from any type to any other, once a key is assigned to a value, the variable type initially assigned to the key is stuck for the lifetime of the hashmap.
 
 Thus, if someone does `map["id"] = 0` then `map["id"] = "0"` there will be a type error, but `map["id"] = 2` causes no such violation
+
+
+# TODO
+In the static analysis I shouldn't be using execution state and fake constant values. Switch that out for a name:VaryType map.
+
+Implement traits (generics) for constant and var type so I can treat them one way in static analysis and another in execution.

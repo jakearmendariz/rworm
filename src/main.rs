@@ -19,7 +19,7 @@ mod static_analysis;
 mod display;
 mod state;
 mod ordering;
-use crate::state::{State, ExecutionState};
+use crate::state::{State, ExecutionState, FakeExecutionState};
 use crate::evaluate::*;
 use crate::parser::*;
 use crate::static_analysis::*;
@@ -50,9 +50,17 @@ fn build_default_execution_state() -> ExecutionState {
     }
 }
 
+fn build_default_fake_execution_state() -> FakeExecutionState {
+    FakeExecutionState {
+        var_map: HashMap::new(),
+        var_stack: Vec::new(),
+        stack_lvl: 0,
+    }
+}
+
 fn build_static_anal() -> StaticAnalyzer {
     StaticAnalyzer {
-        execution_state: build_default_execution_state(),
+        execution_state: build_default_fake_execution_state(),
         errors: Vec::new()
     }
 }

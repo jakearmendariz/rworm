@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 /*
 * ast.rs
 * contains the ast features necessary in this program
@@ -115,6 +117,7 @@ pub enum VarType {
     Map,
 }
 
+
 // TODO convert Float to be represented as two integers
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Constant {
@@ -125,6 +128,7 @@ pub enum Constant {
     Array(VarType, Vec<Constant>), // Arrays are fixed size in worm, but its easiest to implement with vec
     Index(String, Box<Expr>), // string for variable name, expr will the the key or index (array or hashmap)
     Map(WormMap), // custom type for hashmap
+    // Struct(HashMap<String, Constant>)
 }
 
 /*
