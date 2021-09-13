@@ -28,15 +28,15 @@ array_initial = {"[" ~ piped? ~ expr ~ ";" ~ expr ~ "]"}
 array_definition = {array_inst ~ var_name ~ "=" ~ (array_initial) }
 array_val = {"[" ~ list? ~ "]"}
 array_index = {var_name ~"[" ~ expr ~ "]"}
-hash_obj = {"{" ~ (expr ~ ":" ~ expr)? ~ "}"}
 var_type = {array_inst | vint | vfloat | vstring | vbool | vchar | hmap}
     vint = {"int"}
     vfloat = {"float"}
     vstring = {"string"}
     vbool = {"bool"}
     vchar = {"char"}
-    hmap = {"map"}
+    hmap = {"map" ~ "<" ~ var_type ~ "," ~ var_type ~ ">"}
 
+hash_obj = {"{" ~ var_type ~ ":" ~ var_type ~ "}"}
 string = ${ "\"" ~ inner ~ "\"" }
 inner = @{ chars* }
 chars = {

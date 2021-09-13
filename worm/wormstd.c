@@ -66,21 +66,21 @@ fn pop_left(char[] arr) -> char[] {
 }
 
 /* map operations */
-fn map_get_val(map[] arr, int i) -> map {
+fn map_get_val(map<string, int>[] arr, int i) -> map<string, int> {
     if i >= len(arr) | i < 0 {
-        return {};
+        return {string:int};
     }
     return arr[i];
 }
 
-fn push_map(map[] arr, map a) -> map[] {
-    map[] b = [|i| map_get_val(arr, i); len(arr)+1];
+fn push_map(map<string, int>[] arr, map<string, int> a) -> map<string, int>[] {
+    map<string, int>[] b = [|i| map_get_val(arr, i); len(arr)+1];
     b[len(arr)] = a;
     return b;
 }
 
-fn pop_map(map[] arr) -> map[] {
-    map[] b = [|i| arr[i]; len(arr)-1];
+fn pop_map(map<string, int>[] arr) -> map<string, int>[] {
+    map<string, int>[] b = [|i| arr[i]; len(arr)-1];
     return b;
 }
 

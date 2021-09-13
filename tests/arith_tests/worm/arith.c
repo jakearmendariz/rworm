@@ -9,16 +9,16 @@ fn is_operator(char c) -> int {
 }
 
 /* builds a node in the expression tree */
-fn build_node(char data) -> map {
-    map node = {};
+fn build_node(char data) -> map<string, int> {
+    map<string, int> node = {string:int};
     node["data"] = data;
     node["is_op"] = is_operator(data);
     return node;
 }
 
 /* sets the order of precedence */
-fn get_precedence_order() -> map {
-    map po = {};
+fn get_precedence_order() -> map<char, int> {
+    map<char, int> po = {char: int};
     po['+'] = 0;
     po['-'] = 0;
     po['*'] = 1;
@@ -41,7 +41,7 @@ fn int_substring(string s, int index) -> string {
 /* converts the infix expression to a postfix expression (easier to turn into an expression tree from there) */
 fn infix_to_postfix(string infix) -> string {
     string postfix = "";
-    map precedence_order = get_precedence_order();
+    map<char, int> precedence_order = get_precedence_order();
     char[] stack = [' '; 0];
     int index = 0;
     while index < len(infix) {
@@ -86,8 +86,8 @@ fn infix_to_postfix(string infix) -> string {
 }
 
 /* Convert the postfix notation to a tree */
-fn postfix_to_tree(string postfix) -> map {
-    map[] stack = [{}; 0];
+fn postfix_to_tree(string postfix) -> map<string, int> {
+    map<string, int>[] stack = [{string:int}; 0];
     int i = 0;
     while i < len(postfix) {
         char curr = postfix[i];
@@ -95,7 +95,7 @@ fn postfix_to_tree(string postfix) -> map {
             skip;
         } else if is_operator(curr) != 0 | postfix[i+1] != ' ' {
             /* operand */
-            map node = {};
+            map<string, int> node = {string:int};
             node["is_op"] = -1;
             string s = int_substring(postfix, i); /* retrieves the substring containing the integer */
             node["data"] = parse_int(s); /* parses the integer string, gets the interger underneath */
@@ -103,7 +103,7 @@ fn postfix_to_tree(string postfix) -> map {
             stack = push_map(stack, node);
         } else {
             /* is an operator */
-            map node = build_node(curr);
+            map<string, int> node  = build_node(curr);
             node["right"] = stack[len(stack) -1];
             stack = pop_map(stack);
             node["left"] = stack[len(stack) -1];
@@ -116,7 +116,7 @@ fn postfix_to_tree(string postfix) -> map {
 }
 
 /* executes the tree */
-fn evaluate_tree(map root) -> int {
+fn evaluate_tree(map<string, int> root) -> int {
     if root["is_op"] == 0 {
         int left = evaluate_tree(root["left"]);
         int right = evaluate_tree(root["right"]);
@@ -142,7 +142,7 @@ fn evaluate_tree(map root) -> int {
 fn evaluate_expression(string infix) -> int {
     infix = pop_str(infix); /* remove the \n */
     string postfix = infix_to_postfix(infix);
-    map root = postfix_to_tree(postfix + ' ');
+    map<string, int> root = postfix_to_tree(postfix + ' ');
     return evaluate_tree(root);
 }
 

@@ -55,3 +55,6 @@ Thus, if someone does `map["id"] = 0` then `map["id"] = "0"` there will be a typ
 In the static analysis I shouldn't be using execution state and fake constant values. Switch that out for a name:VaryType map.
 
 Implement traits (generics) for constant and var type so I can treat them one way in static analysis and another in execution.
+
+The Pair object contains a char number, this could be used in error cases to find the actual line number associatged.
+If we have the pair, then we can rescan during error conditions to find the actual line number of the problem.

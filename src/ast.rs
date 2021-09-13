@@ -107,16 +107,32 @@ pub enum OpType {
 
 // vartype and constants are the core of the language
 // all expressions evaluate to a specific type, which is represented as a constant
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, PartialOrd, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum VarType {
     Int,
     Float,
     Char,
     String,
     Array(Box<VarType>),
-    Map,
+    Map(Box<VarType>, Box<VarType>),
 }
 
+impl PartialEq for VarType {
+    fn eq(&self, other:&VarType) -> bool {
+        use VarType::*;
+        match (self, other) {
+            (Int, Int) | (Float, Float) | (String, String) | (Char, Char) => 
+                true,
+            (Int, Char) => 
+                true, // allow int => char conversion
+            (Map(k1, v1), Map(k2, v2)) => 
+                k1.eq(&k2) && v1.eq(v2),
+            (Array(arr1), Array(arr2)) => 
+                arr1.eq(arr2),
+            _ => false,
+        }
+    }
+}
 
 // TODO convert Float to be represented as two integers
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -127,7 +143,7 @@ pub enum Constant {
     Char(char),
     Array(VarType, Vec<Constant>), // Arrays are fixed size in worm, but its easiest to implement with vec
     Index(String, Box<Expr>), // string for variable name, expr will the the key or index (array or hashmap)
-    Map(WormMap), // custom type for hashmap
+    Map(VarType, VarType, WormMap), // custom type for hashmap
     // Struct(HashMap<String, Constant>)
 }
 
@@ -144,6 +160,7 @@ pub struct WormMap {
 
 impl WormMap {
     pub fn get(self, key: Constant) -> Option<Constant> {
+        // thats right, my language uses a linear lookup in my map
         for (stored_key, stored_val) in &self.pairs {
             if *stored_key == key {
                 return Some(stored_val.clone());

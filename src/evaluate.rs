@@ -81,11 +81,11 @@ fn eval_ast(ast: AstNode, execution_state: &mut ExecutionState, state: &State) -
         AstNode::IndexAssignment(name, index_exp, value_exp) => {
             let (var_type, mut elements) = match execution_state.var_map.get(&name).unwrap().clone() {
                 Constant::Array(var_type, elements) => (var_type, elements),
-                Constant::Map(mut hashmap) => {
+                Constant::Map(key_type, val_type, mut hashmap) => {
                     let index = eval_expr(index_exp, execution_state, state)?;
                     let value = eval_expr(value_exp, execution_state, state)?;
                     hashmap.insert(index, value); // insert into hash Constant:Constant Pair
-                    execution_state.save_variable(name, Constant::Map(hashmap));
+                    execution_state.save_variable(name, Constant::Map(key_type, val_type, hashmap));
                     return Ok(None);
                 }
                 _ => panic!("type mismatch found during execution"),
@@ -185,8 +185,8 @@ fn eval_bool(bool_exp: &BoolExp, execution_state:&mut ExecutionState, state: &St
         (Int(i), Int(j)) => (i as f64, j as f64),
         (Float(i), Float(j)) => (i, j),
         (Char(i), Char(j)) => (i as u32 as f64, j as u32 as f64),
-        (Map(_), _) => panic!("type violation in eval_bool, cannot compare map"),
-        (_, Map(_)) => panic!("type violation in eval_bool, cannot compare map"),
+        (Map(_,_,_), _) => panic!("type violation in eval_bool, cannot compare map"),
+        (_, Map(_,_,_)) => panic!("type violation in eval_bool, cannot compare map"),
         (String(s1), String(s2)) => {
             return Ok(match op {
                 BoolOp::Eq => s1 == s2,
@@ -252,7 +252,7 @@ fn eval_expr(exp: Expr, execution_state: &mut ExecutionState, state: &State) -> 
                                 return Ok(Constant::Char(s.as_bytes()[index as usize] as char));
                             }
                         }
-                        Constant::Map(hashmap) => {
+                        Constant::Map(_,_,hashmap) => {
                             let index = eval_expr(*index_exp, execution_state, state)?;
                             match hashmap.get(index) {
                                 Some(val) => return Ok(val),
@@ -262,11 +262,12 @@ fn eval_expr(exp: Expr, execution_state: &mut ExecutionState, state: &State) -> 
                         _ => panic!("trying to index a variable thats not an array"),
                     };
                 }
-                Object::Constant(Constant::Float(f)) => Ok(Constant::Float(f)),
-                Object::Constant(Constant::Int(i)) => Ok(Constant::Int(i)),
-                Object::Constant(Constant::String(s)) => Ok(Constant::String(s)),
-                Object::Constant(Constant::Char(c)) => Ok(Constant::Char(c)),
-                Object::Constant(Constant::Map(hashmap)) => Ok(Constant::Map(hashmap)), // wack
+                Object::Constant(constant) => Ok(constant),
+                // Object::Constant(Constant::Float(f)) => Ok(Constant::Float(f)),
+                // Object::Constant(Constant::Int(i)) => Ok(Constant::Int(i)),
+                // Object::Constant(Constant::String(s)) => Ok(Constant::String(s)),
+                // Object::Constant(Constant::Char(c)) => Ok(Constant::Char(c)),
+                // Object::Constant(Constant::Map(key,val,hashmap)) => Ok(Constant::Map(key,val,hashmap)), // wack
                 Object::FnCall(func_call) => {
                     // need a new var map for the function, just the parameters
                     if func_call.name == "len".to_string() {

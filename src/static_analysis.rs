@@ -13,6 +13,7 @@ pub enum StaticError {
     ValueDne(String),
     TypeViolation(VarType, VarType),
     NeedReturnStm(String),
+    MapKeyTypeViolation(VarType, VarType),
     TypeMismatchInReturn(VarType, VarType),
     CannotFindFunction(String),
     General(String),
@@ -23,21 +24,19 @@ impl std::fmt::Display for StaticError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &*self {
             StaticError::ValueDne(x) => write!(f, "variable \'{}\' does not exist", x),
-            StaticError::TypeViolation(a, b) => {
-                write!(f, "expected type \'{}\' recieved type \'{}\'", a, b)
-            }
-            StaticError::NeedReturnStm(name) => {
-                write!(f, "need a return statment in function \'{}\'", name)
-            }
-            StaticError::CannotFindFunction(name) => {
-                write!(f, "function \'{}\' does not exist", name)
-            }
+            StaticError::TypeViolation(a, b) =>
+                write!(f, "expected type \'{}\' recieved type \'{}\'", a, b),
+            StaticError::NeedReturnStm(name) =>
+                write!(f, "need a return statment in function \'{}\'", name),
+            StaticError::CannotFindFunction(name) =>
+                write!(f, "function \'{}\' does not exist", name),
             StaticError::General(x) => write!(f, "{}", x),
-            StaticError::Index(name, reason) => {
-                write!(f, "array index error in array \'{}\' for {}", name, reason)
-            }
-            StaticError::TypeMismatchInReturn(recieved, expected) => 
-                write!(f, "Type mistmatch on return, expected {}, recieved {}", expected, recieved)
+            StaticError::Index(name, reason) => 
+                write!(f, "array index error in array \'{}\' for {}", name, reason),
+            StaticError::TypeMismatchInReturn(expected, recieved) => 
+                write!(f, "Type mismatch on return, expected {}, recieved {}", expected, recieved),
+            StaticError::MapKeyTypeViolation(expected, recieved) => 
+                write!(f, "Type for key in map, expected {}, recieved {}", expected, recieved)
         }
     }
 }
@@ -167,8 +166,16 @@ impl StaticAnalyzer {
             AstNode::IndexAssignment(name, index_exp, value_exp) => {
                 let var_type = match self.get_value(name.clone())? {
                     VarType::Array(var_type) => (var_type),
-                    VarType::Map => {
-                        return Ok(None); // allow all types inside of the hashmap
+                    VarType::Map(key_type, expected_value_type) => {
+                        let index_type = self.type_of_expr(state, index_exp)?;
+                        let val_type = self.type_of_expr(state, value_exp)?;
+                        if index_type == *key_type {
+                            if val_type == *expected_value_type {
+                                return Ok(None);
+                            }
+                            return Err(StaticError::TypeViolation(*expected_value_type, val_type))
+                        }
+                        return Err(StaticError::MapKeyTypeViolation(*key_type, index_type))
                     }
                     _ => {
                         return Err(StaticError::General(format!(
@@ -224,6 +231,7 @@ impl StaticAnalyzer {
             AstNode::BuiltIn(builtin) => {
                 match builtin {
                     BuiltIn::Print(exp) => {
+                        println!("compilerPrint: {}", exp);
                         self.type_of_expr(state, exp)?;
                     }
                     BuiltIn::StaticPrint(exp) => {
@@ -301,12 +309,12 @@ impl StaticAnalyzer {
                                     // TODO support X-Dimensional arrays
                                     Ok(*var_type)
                                 },
-                                VarType::Map => {
-                                    // match hashmap.get(index_exp) {
-                                    //     Some(val) => Ok(val.get_type())
-                                    //     None => StaticError::ValueDne(key)
-                                    // }
-                                    Ok(VarType::Map) // TODO need to add an any type so our analysis accepts these values
+                                VarType::Map(key_type, value_type) => {
+                                    let index_type = self.type_of_expr(state, *index_exp)?;
+                                    if &index_type != &*key_type {
+                                        return Err(StaticError::MapKeyTypeViolation(*key_type, index_type))
+                                    }
+                                    Ok(*value_type)
                                 }
                                 VarType::Int => Ok(VarType::Int), // I think this should error out
                                 VarType::String => {
@@ -333,7 +341,12 @@ impl StaticAnalyzer {
                     Object::Constant(Constant::Int(_)) => Ok(VarType::Int),
                     Object::Constant(Constant::Char(_)) => Ok(VarType::Char),
                     Object::Constant(Constant::String(_)) => Ok(VarType::String),
-                    Object::Constant(Constant::Map(_)) => Ok(VarType::Map),
+                    Object::Constant(Constant::Map(key_type, value_type, _)) => Ok(
+                        VarType::Map(
+                            Box::new(key_type),
+                            Box::new(value_type)
+                        )
+                    ),
                     Object::FnCall(func_call) => {
                         // retrive function from memory, make sure its value matches
                         if func_call.name == "len" {
@@ -426,49 +439,63 @@ impl StaticAnalyzer {
 fn type_match(a: VarType, b: VarType) -> bool {
     use VarType::*;
     match (a, b) {
-        (Int, Int) | (Float, Float) | (String, String) | (Char, Char) | (Map, Map) => true,
-        (Int, Char) => true, // allow int => char conversion
-        (Map, _) => true,
-        (_, Map) => true,
-        (Array(arr1), Array(arr2)) => type_match(*arr1, *arr2),
+        (Int, Int) | (Float, Float) | (String, String) | (Char, Char) => 
+            true,
+        (Int, Char) => 
+            true, // allow int => char conversion
+        (Map(k1, v1), Map(k2, v2)) => 
+            type_match(*k1, *k2) && type_match(*v1, *v2),
+        (Array(arr1), Array(arr2)) => 
+            type_match(*arr1, *arr2),
         _ => false,
     }
 }
 
-impl Constant {
-    fn get_type(self, exestate: &mut StaticAnalyzer) -> Result<VarType, StaticError> {
-        Ok(match self {
-            Constant::String(_) => VarType::String,
-            Constant::Float(_) => VarType::Float,
-            Constant::Int(_) => VarType::Int,
-            Constant::Char(_) => VarType::Char,
-            Constant::Array(vtype, _) => VarType::Array(Box::new(vtype)),
-            Constant::Map(_) => VarType::Map,
-            Constant::Index(name, _) => {
-                // if it is an array, then retrieve the array from memory, then get its type
-                match exestate.get_value(name.clone())? {
-                    VarType::Array(var_type) => *var_type,
-                    VarType::String => VarType::Char,
-                    _ => {
-                        return Err(StaticError::Index(
-                            name,
-                            format!("cannot index non array value"),
-                        ))
-                    }
-                }
-            }
-        })
-    }
-}
+
+// fn type_match(a: VarType, b: VarType) -> bool {
+//     use VarType::*;
+//     match (a, b) {
+//         (Int, Int) | (Float, Float) | (String, String) | (Char, Char) => true,
+//         (Int, Char) => true, // allow int => char conversion
+//         (Array(arr1), Array(arr2)) => type_match(*arr1, *arr2),
+//         _ => false,
+//     }
+// }
+
+// impl Constant {
+//     fn get_type(self, exestate: &mut StaticAnalyzer) -> Result<VarType, StaticError> {
+//         Ok(match self {
+//             Constant::String(_) => VarType::String,
+//             Constant::Float(_) => VarType::Float,
+//             Constant::Int(_) => VarType::Int,
+//             Constant::Char(_) => VarType::Char,
+//             Constant::Array(vtype, _) => VarType::Array(Box::new(vtype)),
+//             Constant::Map() => VarType::Map,
+//             Constant::Index(name, _) => {
+//                 // if it is an array, then retrieve the array from memory, then get its type
+//                 match exestate.get_value(name.clone())? {
+//                     VarType::Array(var_type) => *var_type,
+//                     VarType::String => VarType::Char,
+//                     _ => {
+//                         return Err(StaticError::Index(
+//                             name,
+//                             format!("cannot index non array value"),
+//                         ))
+//                     }
+//                 }
+//             }
+//         })
+//     }
+// }
 
 // default constants given a vartype
-fn default_const(var_type: VarType) -> Constant {
-    match var_type {
-        VarType::Int => Constant::Int(0),
-        VarType::Float => Constant::Float(0.0),
-        VarType::Char => Constant::Char(' '),
-        VarType::String => Constant::String(String::from("")),
-        VarType::Array(var_type) => Constant::Array(*var_type, Vec::new()),
-        VarType::Map => Constant::Map(WormMap::default()),
-    }
-}
+// fn default_const(var_type: VarType) -> Constant {
+//     match var_type {
+//         VarType::Int => Constant::Int(0),
+//         VarType::Float => Constant::Float(0.0),
+//         VarType::Char => Constant::Char(' '),
+//         VarType::String => Constant::String(String::from("")),
+//         VarType::Array(var_type) => Constant::Array(*var_type, Vec::new()),
+//         VarType::Map => Constant::Map(WormMap::default()),
+//     }
+// }

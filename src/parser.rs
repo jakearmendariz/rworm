@@ -158,7 +158,28 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                     Box::new(index),
                 )))
             }
-            Rule::hash_obj => Expr::ExpVal(Object::Constant(Constant::Map(WormMap::default()))),
+            Rule::hash_obj => {
+                let mut inner_types = pair.into_inner();
+                let key_type = parse_type_from_rule(match inner_types.next() {
+                    Some(a_rule) => match a_rule.as_rule() {
+                        Rule::var_type => a_rule.into_inner().next().unwrap(),
+                        _ => a_rule,
+                    },
+                    None => panic!("missing key type from Map"),
+                }).unwrap();
+                let value_type = parse_type_from_rule(match inner_types.next() {
+                    Some(a_rule) => match a_rule.as_rule() {
+                        Rule::var_type => a_rule.into_inner().next().unwrap(),
+                        _ => a_rule,
+                    },
+                    None => panic!("missing key type from Map"),
+                }).unwrap();
+                Expr::ExpVal(Object::Constant(Constant::Map(
+                    key_type, 
+                    value_type,
+                    WormMap::default(),
+                )))
+            },
             _ => unreachable!(),
         },
         |lhs: Expr, op: Pair<Rule>, rhs: Expr| match op.as_rule() {
@@ -190,21 +211,41 @@ fn parse_parameters(params_rules: Pairs<Rule>) -> Result<Vec<(VarType, String)>,
     Ok(params)
 }
 
-fn parse_type_from_rule(return_rule: Pair<Rule>) -> Result<VarType, ParseError> {
-    Ok(match return_rule.as_rule() {
+fn parse_type_from_rule(rule: Pair<Rule>) -> Result<VarType, ParseError> {
+    Ok(match rule.as_rule() {
         Rule::vint => VarType::Int,
         Rule::vfloat => VarType::Float,
         Rule::vstring => VarType::String,
         Rule::vchar => VarType::Char,
-        Rule::hmap => VarType::Map,
+        Rule::hmap => {
+            let mut inner_types = rule.into_inner();
+            let key_type = parse_type_from_rule(match inner_types.next() {
+                Some(a_rule) => match a_rule.as_rule() {
+                    Rule::var_type => a_rule.into_inner().next().unwrap(),
+                    _ => a_rule,
+                },
+                None => panic!("missing key type from Map"),
+            }).expect("couldn't parse type from key type of map");
+            let value_type = parse_type_from_rule(match inner_types.next() {
+                Some(a_rule) => match a_rule.as_rule() {
+                    Rule::var_type => a_rule.into_inner().next().unwrap(),
+                    _ => a_rule,
+                },
+                None => panic!("missing key type from Map"),
+            }).unwrap();
+            VarType::Map(
+                Box::new(key_type), 
+                Box::new(value_type)
+            )
+        },
         Rule::array_inst => VarType::Array(Box::new(parse_type_from_rule(
-            return_rule.into_inner().next().unwrap(),
+            rule.into_inner().next().unwrap(),
         )?)),
         _ => {
             return {
                 Err(ParseError::FormatError(format!(
-                    "parse_type_from_rule() error on {}",
-                    return_rule.as_str()
+                    "parse_type_from_rule() error on {:?}",
+                    rule
                 )))
             }
         }
@@ -251,6 +292,7 @@ pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), 
 * parses ast into nodes, only handles one clause at a time.
 */
 pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseError> {
+    println!("pair: {:?}\n\n\n\n",pair.as_span().start());
     let rule = pair.as_rule();
     let statement = pair.as_str();
     // matches the rule depending on the type of statments
@@ -298,23 +340,15 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
         Rule::array_definition => {
             // format of `int[] a = [expression; size];`
             let mut array_rules = pair.into_inner();
-            // to get the type inside of array, we first have to pass the outer loop of array_inst
-            let array_type = match array_rules
-                .next()
-                .unwrap()
-                .into_inner()
-                .next()
-                .unwrap()
-                .as_rule()
-            {
-                Rule::vint => VarType::Int,
-                Rule::vfloat => VarType::Float,
-                Rule::vstring => VarType::String,
-                Rule::vchar => VarType::Char,
-                Rule::hmap => VarType::Map,
-                // Rule::array_inst(_) => VarType::Array(Box::new(VarType::Int)),
-                _ => unreachable!(),
-            };
+            // to get the type inside of array, we first have to pass the outer loop of array_inst]
+            let array_type = parse_type_from_rule(
+                array_rules
+                    .next()
+                    .unwrap()
+                    .into_inner()
+                    .next()
+                    .unwrap()
+            )?;
             let array_name = array_rules.next().unwrap().as_str().to_string();
 
             let init_or_call = array_rules.next().unwrap();

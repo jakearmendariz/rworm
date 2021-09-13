@@ -75,7 +75,8 @@ impl std::fmt::Display for VarType {
             VarType::Float => write!(f, "float"),
             VarType::String => write!(f, "string"),
             VarType::Array(vtype) => write!(f, "{}[]", vtype),
-            VarType::Map => write!(f, "map"),
+            VarType::Map(key_type, val_type) => 
+                write!(f, "map<{},{}>", key_type, val_type),
         }
     }
 }
@@ -89,7 +90,8 @@ impl std::fmt::Display for Constant {
             Constant::String(s) => write!(f, "{}", s),
             Constant::Array(t, n) => write!(f, "{}[{}]", t, n.len()),
             Constant::Index(a, i) => write!(f, "{}[{}]", a, *i),
-            Constant::Map(_) => write!(f, "map{{}}"),
+            Constant::Map(key_type, val_type, _) => 
+                write!(f, "map<{},{}>{{}}", key_type, val_type),
         }
     }
 }
