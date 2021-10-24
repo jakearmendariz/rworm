@@ -42,7 +42,7 @@ pub fn eval_func(name: String, execution_state: &mut ExecutionState, state: &Sta
 */
 fn eval_ast(ast: AstNode, execution_state: &mut ExecutionState, state: &State) -> Result<Option<Constant>, ExecutionError> {
     match ast {
-        AstNode::Function(func) => {
+        AstNode::Function(_) => {
             panic!("Why are we here");
             // return Ok(Some(eval_func(func, execution_state, state)?));
         }

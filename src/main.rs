@@ -27,8 +27,8 @@ use crate::static_analysis::*;
 use colored::*;
 use pest::Parser;
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::prelude::*;
+// use std::fs::File;
+// use std::io::prelude::*;
 
 // builds default for state
 fn build_default_state() -> State {
@@ -40,7 +40,6 @@ fn build_default_state() -> State {
         // stack_lvl: 0,
     }
 }
-
 
 fn build_default_execution_state() -> ExecutionState {
     ExecutionState {

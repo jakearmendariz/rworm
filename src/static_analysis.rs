@@ -153,7 +153,7 @@ impl StaticAnalyzer {
                     None => (String::from(""), false),
                 };
                 self.execution_state.increment_stack_level();
-                for i in 0..2 {
+                for _ in 0..2 {
                     // not currently type checking need to add that later on
                     if pipe {
                         self.execution_state.save_variable(variable.clone(), VarType::Int);

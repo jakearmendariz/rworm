@@ -292,7 +292,7 @@ pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), 
 * parses ast into nodes, only handles one clause at a time.
 */
 pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseError> {
-    println!("pair: {:?}\n\n\n\n",pair.as_span().start());
+    // println!("pair: {:?}\n\n\n\n",pair.as_span().start());
     let rule = pair.as_rule();
     let statement = pair.as_str();
     // matches the rule depending on the type of statments
@@ -466,7 +466,9 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 .next()
                 .unwrap()
                 .as_str();
+            println!("filename {}", filename);
             let expression = std::fs::read_to_string(filename).expect("cannot read file"); //from file
+            // println!("{}", expression);
             let pairs =
                 WormParser::parse(Rule::program, &expression).unwrap_or_else(|e| panic!("{}", e));
             // parses the program into an AST, saves the functions AST in the state to be called upon later

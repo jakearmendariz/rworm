@@ -1,18 +1,34 @@
+/**
+ * OUTDATED
+ * 
+ * I want to change this to be fully statically typed
+ * this means removing the use of dictionaries with mutliple types
+ * Sadly this means for this code to continue I will need to support
+ * structs/classes or else have a collection of spaghetti code
+ * accounting for the poor lang design. I don't want to do that, 
+ * thus I am going to leave this as a TODO
+ */
+
 import "worm/wormstd.c";
 
 /* checks if a character is an operator */
 fn is_operator(char c) -> int {
     if c == '+' | c == '-' | c == '*' | c == '/' {
-        return 0;
+        /* true */
+        return 1;
     }
-    return -1;
+    return 0;
 }
 
 /* builds a node in the expression tree */
 fn build_node(char data) -> map<string, int> {
-    map<string, int> node = {string:int};
+    map<string, char> node = {string:int};
     node["data"] = data;
-    node["is_op"] = is_operator(data);
+    if is_operator(data) {
+        node["is_op"] = 'T';
+    } else {
+        node["is_op"] = 'F';
+    }
     return node;
 }
 
@@ -50,7 +66,7 @@ fn infix_to_postfix(string infix) -> string {
             index = index + 1;
         }
         else {
-            if (curr == '-' & infix[index+1] != ' ') | (is_operator(curr) != 0) {
+            if (curr == '-' & infix[index+1] != ' ') | (is_operator(curr) != 1) {
                 /* Operand */
                 string num = int_substring(infix, index);
                 postfix = postfix + ' ' + num;
@@ -93,7 +109,7 @@ fn postfix_to_tree(string postfix) -> map<string, int> {
         char curr = postfix[i];
         if curr == ' ' {
             skip;
-        } else if is_operator(curr) != 0 | postfix[i+1] != ' ' {
+        } else if is_operator(curr) != 1 | postfix[i+1] != ' ' {
             /* operand */
             map<string, int> node = {string:int};
             node["is_op"] = -1;
@@ -103,7 +119,7 @@ fn postfix_to_tree(string postfix) -> map<string, int> {
             stack = push_map(stack, node);
         } else {
             /* is an operator */
-            map<string, int> node  = build_node(curr);
+            map<string, char> node  = build_node(curr);
             node["right"] = stack[len(stack) -1];
             stack = pop_map(stack);
             node["left"] = stack[len(stack) -1];
@@ -117,7 +133,7 @@ fn postfix_to_tree(string postfix) -> map<string, int> {
 
 /* executes the tree */
 fn evaluate_tree(map<string, int> root) -> int {
-    if root["is_op"] == 0 {
+    if root["is_op"] == 1 {
         int left = evaluate_tree(root["left"]);
         int right = evaluate_tree(root["right"]);
         if root["data"] == '+' {

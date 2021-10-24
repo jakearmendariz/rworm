@@ -33,3 +33,17 @@ fn char_stuff(char a, char b) -> string {
     char c = 'c';
     return a + b + c;
 }
+
+
+fn test_mapping() -> int {
+    map<char, int> dictionary = {char: int};
+    int i = 0;
+    string alpha = "abcdefghijklmnopqrstuvwxyz";
+    while i < len(alpha) {
+        dictionary[alpha[i]] = i;
+        i = i + 1;
+    }
+    assert(dictionary['a'] == 0);
+    assert(dictionary['z'] == 25);
+    return 0;
+}

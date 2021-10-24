@@ -2,7 +2,6 @@
 * Worm Programming language test suite
 
 */ 
-import "worm/medium.c";
 
 fn sum(int a, int b) -> int {
     int c = a + b;
