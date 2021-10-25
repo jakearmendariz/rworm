@@ -115,6 +115,7 @@ pub enum VarType {
     String,
     Array(Box<VarType>),
     Map(Box<VarType>, Box<VarType>),
+    Struct(String),
 }
 
 impl PartialEq for VarType {
@@ -144,7 +145,8 @@ pub enum Constant {
     Array(VarType, Vec<Constant>), // Arrays are fixed size in worm, but its easiest to implement with vec
     Index(String, Box<Expr>), // string for variable name, expr will the the key or index (array or hashmap)
     Map(VarType, VarType, WormMap), // custom type for hashmap
-    // Struct(HashMap<String, Constant>)
+    Struct(WormStruct),
+    StructVal(String, String)
 }
 
 /*
@@ -188,3 +190,37 @@ impl WormMap {
 }
 
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct WormStruct {
+    pub name: String,
+    pub pairs: Vec<(String, Constant)>,
+}
+
+impl WormStruct {
+    pub fn get(self, key: String) -> Option<Constant> {
+        // thats right, my language uses a linear lookup in my map
+        for (stored_key, stored_val) in &self.pairs {
+            if *stored_key == key {
+                return Some(stored_val.clone());
+            }
+        }
+        return None;
+    }
+
+    pub fn insert(&mut self, key: String, value: Constant) {
+        self.remove(key.clone());
+        self.pairs.push((key, value));
+    }
+
+    pub fn remove(&mut self, key: String) {
+        let mut index = 0;
+        for (stored_key, _stored_val) in &self.pairs {
+            if *stored_key == key {
+                self.pairs.remove(index);
+                return;
+            }
+            index += 1;
+        }
+        return;
+    }
+}

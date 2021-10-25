@@ -12,7 +12,7 @@ operation = _{ add | subtract | multiply | divide | power }
     modulus  = { "%" }
 
 expr = { term ~ (operation ~ term)* }
-term = _{float | int | char | func_call | array_index | var_name | string | hash_obj | "(" ~ expr ~ ")" }
+term = _{float | int | char | func_call | array_index | structure_index | var_name | string | hash_obj  | "(" ~ expr ~ ")" }
 
 COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 WHITESPACE = _{ " "+ | "\t" | NEWLINE+}
@@ -28,13 +28,19 @@ array_initial = {"[" ~ piped? ~ expr ~ ";" ~ expr ~ "]"}
 array_definition = {array_inst ~ var_name ~ "=" ~ (array_initial) }
 array_val = {"[" ~ list? ~ "]"}
 array_index = {var_name ~"[" ~ expr ~ "]"}
-var_type = {array_inst | vint | vfloat | vstring | vbool | vchar | hmap}
+
+structure_items = {(var_name ~ ":" ~ var_type) ~ ("," ~ (var_name ~ ":" ~ var_type))*}
+structure_def = {"struct" ~ var_name ~ "{" ~ structure_items ~ ","? ~ "}"}
+structure_index = {var_name ~ "." ~ var_name }
+
+var_type = {array_inst | vint | vfloat | vstring | vbool | vchar | hmap | structure}
     vint = {"int"}
     vfloat = {"float"}
     vstring = {"string"}
     vbool = {"bool"}
     vchar = {"char"}
     hmap = {"map" ~ "<" ~ var_type ~ "," ~ var_type ~ ">"}
+    structure = {"struct" ~ "<" ~ var_name ~ ">"}
 
 hash_obj = {"{" ~ var_type ~ ":" ~ var_type ~ "}"}
 string = ${ "\"" ~ inner ~ "\"" }
@@ -97,8 +103,6 @@ item = _{int | float | var_type}
 list = {expr ~ ("," ~ expr)*}
 func_call = {var_name ~ "(" ~ list? ~ ")"}
 
-// allvar = _{array_inst | var_type}
-
 assignment = {(array_index | ((var_type)? ~ var_name)) ~ "=" ~ (expr | string | array_initial)}
 statement = _{((builtin | skip | array_definition |  assignment) ~ ";") | (return_stm | func_def | ifstm | whilestm) }
-program = _{ SOI ~ (import_stm | func_def)* ~ EOI }
+program = _{ SOI ~ (import_stm | structure_def |  func_def)* ~ EOI }

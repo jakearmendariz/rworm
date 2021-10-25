@@ -10,11 +10,9 @@ use crate::ast::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct State {
-    // pub var_map: HashMap<String, Constant>,
     pub func_map: HashMap<String, Function>,
     pub fn_list: Vec<String>, // list of function names
-    // pub var_stack: Vec<(String, u32)>,
-    // pub stack_lvl: u32,
+    pub struct_map: HashMap<String, HashMap<String, VarType>>,
 }
 
 

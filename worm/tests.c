@@ -22,9 +22,11 @@ fn main() -> string {
     int []arr = [|i| i; 5];
     assert(playing_with_arrays(arr) == 0);
 
-    assert(test_chars('a', 'b') == "abc");
+    /* assert(test_chars('a', 'b') == "abc"); */
 
     assert(test_mapping() == 0);
+
+    assert(test_struct() == 0);
 
     /* success */
     return "SUCESS";

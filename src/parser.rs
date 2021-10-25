@@ -3,10 +3,11 @@
 * parses the program into an ast
 */
 use crate::ast::*;
+use crate::state::State;
 use pest::iterators::{Pair, Pairs};
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use std::vec::Vec;
-use crate::state::State;
+use std::collections::HashMap;
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
@@ -158,6 +159,13 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                     Box::new(index),
                 )))
             }
+            Rule::structure_index => {
+                let mut structure_index_rules = pair.into_inner();
+                Expr::ExpVal(Object::Constant(Constant::StructVal(
+                    structure_index_rules.next().expect("Expected structure index, structure name").as_str().to_string(),
+                    structure_index_rules.next().expect("Expected structure index, value name").as_str().to_string(),
+                )))
+            }
             Rule::hash_obj => {
                 let mut inner_types = pair.into_inner();
                 let key_type = parse_type_from_rule(match inner_types.next() {
@@ -166,20 +174,22 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                         _ => a_rule,
                     },
                     None => panic!("missing key type from Map"),
-                }).unwrap();
+                })
+                .unwrap();
                 let value_type = parse_type_from_rule(match inner_types.next() {
                     Some(a_rule) => match a_rule.as_rule() {
                         Rule::var_type => a_rule.into_inner().next().unwrap(),
                         _ => a_rule,
                     },
                     None => panic!("missing key type from Map"),
-                }).unwrap();
+                })
+                .unwrap();
                 Expr::ExpVal(Object::Constant(Constant::Map(
-                    key_type, 
+                    key_type,
                     value_type,
                     WormMap::default(),
                 )))
-            },
+            }
             _ => unreachable!(),
         },
         |lhs: Expr, op: Pair<Rule>, rhs: Expr| match op.as_rule() {
@@ -211,12 +221,36 @@ fn parse_parameters(params_rules: Pairs<Rule>) -> Result<Vec<(VarType, String)>,
     Ok(params)
 }
 
+/* parse the parameters from a function */
+fn parse_structure(mut attribute_rules: Pairs<Rule>) -> Result<HashMap<String, VarType>, ParseError> {
+    let mut attributes: HashMap<String, VarType> = HashMap::new();
+    loop {
+        //each param is in form { var_type var_name }
+        let attribute_rule = match attribute_rules.next() {
+            Some(a) => a,
+            None => break
+        };
+        match attribute_rule.as_rule() {
+            Rule::var_name => {
+                let attribute_name = attribute_rule.as_str().to_string();
+                let attribute_type = parse_type_from_rule(
+                    attribute_rules.next().expect("Struct values must be followed by a type")
+                )?;
+                attributes.insert(attribute_name, attribute_type);
+            },
+            _ => { return Err(ParseError::GeneralParseError(format!("Struct needs attributes Var_name:type, recieved: {:?}", attribute_rule.as_rule()))); }
+        }
+    }
+    Ok(attributes)
+}
+
 fn parse_type_from_rule(rule: Pair<Rule>) -> Result<VarType, ParseError> {
     Ok(match rule.as_rule() {
         Rule::vint => VarType::Int,
         Rule::vfloat => VarType::Float,
         Rule::vstring => VarType::String,
         Rule::vchar => VarType::Char,
+        Rule::var_type => parse_type_from_rule(rule.into_inner().next().unwrap())?,
         Rule::hmap => {
             let mut inner_types = rule.into_inner();
             let key_type = parse_type_from_rule(match inner_types.next() {
@@ -225,22 +259,26 @@ fn parse_type_from_rule(rule: Pair<Rule>) -> Result<VarType, ParseError> {
                     _ => a_rule,
                 },
                 None => panic!("missing key type from Map"),
-            }).expect("couldn't parse type from key type of map");
+            })
+            .expect("couldn't parse type from key type of map");
             let value_type = parse_type_from_rule(match inner_types.next() {
                 Some(a_rule) => match a_rule.as_rule() {
                     Rule::var_type => a_rule.into_inner().next().unwrap(),
                     _ => a_rule,
                 },
                 None => panic!("missing key type from Map"),
-            }).unwrap();
-            VarType::Map(
-                Box::new(key_type), 
-                Box::new(value_type)
-            )
-        },
+            })
+            .unwrap();
+            VarType::Map(Box::new(key_type), Box::new(value_type))
+        }
         Rule::array_inst => VarType::Array(Box::new(parse_type_from_rule(
             rule.into_inner().next().unwrap(),
         )?)),
+        Rule::structure => {
+            let structure_name = rule.into_inner().next()
+                .expect("Error trying to parse structure name").as_str().to_string();
+            VarType::Struct(structure_name)
+        }
         _ => {
             return {
                 Err(ParseError::FormatError(format!(
@@ -317,9 +355,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                     let var_name = array_index_rule.next().unwrap().as_str().to_string();
                     let index_exp = parse_into_expr(array_index_rule.next().unwrap().into_inner());
                     let value_exp = parse_into_expr(inner_rules.next().unwrap().into_inner());
-                    return Ok(AstNode::IndexAssignment(
-                        var_name, index_exp, value_exp,
-                    ));
+                    return Ok(AstNode::IndexAssignment(var_name, index_exp, value_exp));
                 }
                 _ => {
                     return {
@@ -341,14 +377,8 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             // format of `int[] a = [expression; size];`
             let mut array_rules = pair.into_inner();
             // to get the type inside of array, we first have to pass the outer loop of array_inst]
-            let array_type = parse_type_from_rule(
-                array_rules
-                    .next()
-                    .unwrap()
-                    .into_inner()
-                    .next()
-                    .unwrap()
-            )?;
+            let array_type =
+                parse_type_from_rule(array_rules.next().unwrap().into_inner().next().unwrap())?;
             let array_name = array_rules.next().unwrap().as_str().to_string();
 
             let init_or_call = array_rules.next().unwrap();
@@ -450,6 +480,20 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 return_expr.into_inner(),
             )))
         }
+        Rule::structure_def => {
+            let pairs = &mut pair.into_inner();
+            let struct_name = pairs.next().unwrap().as_str().to_string();
+            let next_rule = pairs.next().unwrap();
+            let params = match next_rule.as_rule() {
+                Rule::structure_items => (
+                    parse_structure(next_rule.into_inner())?
+                ),
+                _ => return Err(ParseError::NoReturnType),
+            };
+            println!("PARAMS: {:?}", params);
+            state.struct_map.insert(struct_name, params);
+            Ok(AstNode::Skip())
+        }
         Rule::parse_error => {
             return Err(ParseError::GeneralParseError(format!(
                 "unmatched rule while parsing ast {:?}",
@@ -466,17 +510,18 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 .next()
                 .unwrap()
                 .as_str();
-            println!("filename {}", filename);
-            let expression = std::fs::read_to_string(filename).expect("cannot read file"); //from file
-            // println!("{}", expression);
-            let pairs =
-                WormParser::parse(Rule::program, &expression).unwrap_or_else(|e| panic!("{}", e));
+            let expression = std::fs::read_to_string(filename)
+                .expect(&format!("Error cannot read file {}", filename)[..]); //from file
+                                                                              // println!("{}", expression);
+            let pairs = WormParser::parse(Rule::program, &expression)
+                .unwrap_or_else(|e| panic!("Error {} while reading file {}", e, filename));
             // parses the program into an AST, saves the functions AST in the state to be called upon later
             parse_program(pairs, state)?;
             Ok(AstNode::Skip())
         }
         Rule::EOI => return Err(ParseError::EndOfInput),
         _ => {
+            println!("UNREACHABLE");
             unreachable!();
         }
     }

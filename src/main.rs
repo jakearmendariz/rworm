@@ -27,8 +27,6 @@ use crate::static_analysis::*;
 use colored::*;
 use pest::Parser;
 use std::collections::HashMap;
-// use std::fs::File;
-// use std::io::prelude::*;
 
 // builds default for state
 fn build_default_state() -> State {
@@ -38,6 +36,7 @@ fn build_default_state() -> State {
         // var_stack: Vec::new(),
         fn_list: Vec::new(),
         // stack_lvl: 0,
+        struct_map: HashMap::new(),
     }
 }
 
@@ -57,7 +56,7 @@ fn build_default_fake_execution_state() -> FakeExecutionState {
     }
 }
 
-fn build_static_anal() -> StaticAnalyzer {
+fn build_static_analyzer() -> StaticAnalyzer {
     StaticAnalyzer {
         execution_state: build_default_fake_execution_state(),
         errors: Vec::new()
@@ -84,8 +83,8 @@ fn main() {
         }
     }
 
-    let mut static_anal = build_static_anal();
-    match static_anal.check_program(&state) {
+    let mut static_analyzer = build_static_analyzer();
+    match static_analyzer.check_program(&state) {
         Ok(()) => (),
         Err(e) => {
             log_errors(e);

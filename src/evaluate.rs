@@ -178,9 +178,10 @@ fn eval_bool_ast(bool_ast: &BoolAst, execution_state: &mut ExecutionState, state
 fn eval_bool(bool_exp: &BoolExp, execution_state:&mut ExecutionState, state: &State) -> Result<bool, ExecutionError> {
     let BoolExp(lhs, op, rhs) = &*bool_exp;
     use Constant::*;
+    let mut left = eval_expr(lhs.clone(), execution_state, state)?;
+    let right = eval_expr(rhs.clone(), execution_state, state)?;
     let (lres, rres) = match (
-        eval_expr(lhs.clone(), execution_state, state)?,
-        eval_expr(rhs.clone(), execution_state, state)?,
+        left, right,
     ) {
         (Int(i), Int(j)) => (i as f64, j as f64),
         (Float(i), Float(j)) => (i, j),
@@ -197,7 +198,7 @@ fn eval_bool(bool_exp: &BoolExp, execution_state:&mut ExecutionState, state: &St
                 BoolOp::Gt => s1 > s2,
             });
         }
-        _ => panic!("type violation in eval_bool"),
+        _ => panic!("type violation in eval_bool\n{} != {}", eval_expr(lhs.clone(), execution_state, state)?, eval_expr(rhs.clone(), execution_state, state)?),
     };
     Ok(match op {
         BoolOp::Eq => lres == rres,
@@ -262,12 +263,19 @@ fn eval_expr(exp: Expr, execution_state: &mut ExecutionState, state: &State) -> 
                         _ => panic!("trying to index a variable thats not an array"),
                     };
                 }
+                Object::Constant(Constant::StructVal(name, attribute)) => {
+                    let constant = execution_state.var_map.get(&name).expect("Value does not exist for function/constructor");
+                    match constant {
+                        Constant::Struct(worm_struct) => {
+                            match worm_struct.clone().get(attribute) {
+                                Some(val) => return Ok(val),
+                                None => panic!("Error undefined attribuite")
+                            }
+                        },
+                        _ => panic!("Non struct attempted to be accessed")
+                    }
+                }
                 Object::Constant(constant) => Ok(constant),
-                // Object::Constant(Constant::Float(f)) => Ok(Constant::Float(f)),
-                // Object::Constant(Constant::Int(i)) => Ok(Constant::Int(i)),
-                // Object::Constant(Constant::String(s)) => Ok(Constant::String(s)),
-                // Object::Constant(Constant::Char(c)) => Ok(Constant::Char(c)),
-                // Object::Constant(Constant::Map(key,val,hashmap)) => Ok(Constant::Map(key,val,hashmap)), // wack
                 Object::FnCall(func_call) => {
                     // need a new var map for the function, just the parameters
                     if func_call.name == "len".to_string() {
@@ -299,7 +307,23 @@ fn eval_expr(exp: Expr, execution_state: &mut ExecutionState, state: &State) -> 
                         }
                     } else {
                         let mut var_map: HashMap<String, Constant> = HashMap::new();
-                        let function = state.func_map.get(&func_call.name).unwrap();
+                        let fn_name = func_call.name;
+                        let function = match state.func_map.get(&fn_name) {
+                            Some(function) => function,
+                            None => {
+                                // STRUCT CONSTRUCTOR
+                                let type_map = state.struct_map.get(&fn_name).expect("Value does not exist for function/constructor");
+                                // iterate through the parameters provided and the function def,
+                                let mut w = WormStruct {name: fn_name.clone(), pairs: Vec::new() };
+                                w.name = fn_name;
+                                for (expr, (param_name, param_type)) in func_call.params.iter().zip(type_map.iter()) {
+                                    let param_const = eval_expr(expr.clone(), execution_state, state)?;
+                                    w.insert(param_name.clone(), param_const);
+                                }
+                                return Ok(Constant::Struct(w))
+
+                            }
+                        };
                         let mut var_stack: Vec<(String, u32)> = Vec::new();
                         let params = function.params.clone();
                         // iterate through the parameters provided and the function def,
@@ -313,7 +337,7 @@ fn eval_expr(exp: Expr, execution_state: &mut ExecutionState, state: &State) -> 
                             var_stack,
                             stack_lvl: 0,
                         };
-                        Ok(eval_func(func_call.name, &mut func_state, state)?)
+                        Ok(eval_func(fn_name, &mut func_state, state)?)
                     }
                 }
             }

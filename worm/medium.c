@@ -1,3 +1,8 @@
+struct Tree {
+    id: int,
+    data: string,
+}
+
 fn floating_lcm(float a, float b) -> float {
     float ans = (a*b)/floating_gcd(a, b);
     return ans;
@@ -29,7 +34,7 @@ fn playing_with_arrays(int[] b) -> int {
     return 0;
 }
 
-fn char_stuff(char a, char b) -> string {
+fn test_chars(char a, char b) -> string {
     char c = 'c';
     return a + b + c;
 }
@@ -45,5 +50,12 @@ fn test_mapping() -> int {
     }
     assert(dictionary['a'] == 0);
     assert(dictionary['z'] == 25);
+    return 0;
+}
+
+fn test_struct() -> int {
+    struct<Tree> tree = Tree(1, "yolo");
+    assert(tree.id == 1);
+    assert(tree.data == "yolo");
     return 0;
 }
