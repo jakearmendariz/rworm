@@ -198,7 +198,7 @@ fn eval_bool(bool_exp: &BoolExp, execution_state:&mut ExecutionState, state: &St
                 BoolOp::Gt => s1 > s2,
             });
         }
-        _ => panic!("type violation in eval_bool\n{} != {}", eval_expr(lhs.clone(), execution_state, state)?, eval_expr(rhs.clone(), execution_state, state)?),
+        _ => panic!("type violation in eval_bool\n{:?} != {:?}", eval_expr(lhs.clone(), execution_state, state)?, eval_expr(rhs.clone(), execution_state, state)?),
     };
     Ok(match op {
         BoolOp::Eq => lres == rres,

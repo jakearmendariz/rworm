@@ -360,9 +360,9 @@ impl StaticAnalyzer {
                                         match state.struct_map.get(s) {
                                             Some(worm_struct) => {
                                                 println!("worm_struct={:?}", worm_struct);
-                                                match worm_struct.get(&attribute) {
-                                                    Some(var_type) => Ok(var_type.clone()),
-                                                    None => Err(StaticError::ValueDne(attribute))
+                                                match get_from_vec(attribute, worm_struct) {//.get(&attribute) {
+                                                    Some(var_type) => Ok(var_type),
+                                                    None => Err(StaticError::ValueDne("fuck".to_string()))
                                                 }
                                         },
                                             None => Err(StaticError::ValueDne(s.to_string()))
@@ -494,4 +494,14 @@ fn type_match(a: VarType, b: VarType) -> bool {
             type_match(*arr1, *arr2),
         _ => false,
     }
+}
+
+
+fn get_from_vec(name: String, list: &Vec<(String, VarType)>) -> Option<VarType> {
+    for (n, vtype) in list.iter() {
+        if name.eq(n) {
+            return Some(vtype.clone());
+        }
+    }
+    None
 }

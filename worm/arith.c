@@ -11,6 +11,13 @@
 
 import "worm/wormstd.c";
 
+struct Node {
+    is_op: bool,
+    data: char,
+    left: struct Node,
+    right: struct Node,
+}
+
 /* checks if a character is an operator */
 fn is_operator(char c) -> int {
     if c == '+' | c == '-' | c == '*' | c == '/' {

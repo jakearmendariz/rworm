@@ -222,8 +222,8 @@ fn parse_parameters(params_rules: Pairs<Rule>) -> Result<Vec<(VarType, String)>,
 }
 
 /* parse the parameters from a function */
-fn parse_structure(mut attribute_rules: Pairs<Rule>) -> Result<HashMap<String, VarType>, ParseError> {
-    let mut attributes: HashMap<String, VarType> = HashMap::new();
+fn parse_structure(mut attribute_rules: Pairs<Rule>) -> Result<Vec<(String, VarType)>, ParseError> {
+    let mut attributes: Vec<(String, VarType)> = Vec::new();
     loop {
         //each param is in form { var_type var_name }
         let attribute_rule = match attribute_rules.next() {
@@ -236,7 +236,7 @@ fn parse_structure(mut attribute_rules: Pairs<Rule>) -> Result<HashMap<String, V
                 let attribute_type = parse_type_from_rule(
                     attribute_rules.next().expect("Struct values must be followed by a type")
                 )?;
-                attributes.insert(attribute_name, attribute_type);
+                attributes.push((attribute_name, attribute_type));
             },
             _ => { return Err(ParseError::GeneralParseError(format!("Struct needs attributes Var_name:type, recieved: {:?}", attribute_rule.as_rule()))); }
         }

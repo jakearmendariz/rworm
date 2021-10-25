@@ -12,7 +12,7 @@ use crate::ast::*;
 pub struct State {
     pub func_map: HashMap<String, Function>,
     pub fn_list: Vec<String>, // list of function names
-    pub struct_map: HashMap<String, HashMap<String, VarType>>,
+    pub struct_map: HashMap<String, Vec<(String, VarType)>>,
 }
 
 
