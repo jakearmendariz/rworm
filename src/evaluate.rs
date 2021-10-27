@@ -43,8 +43,7 @@ pub fn eval_func(name: String, execution_state: &mut ExecutionState, state: &Sta
 fn eval_ast(ast: AstNode, execution_state: &mut ExecutionState, state: &State) -> Result<Option<Constant>, ExecutionError> {
     match ast {
         AstNode::Function(_) => {
-            panic!("Why are we here");
-            // return Ok(Some(eval_func(func, execution_state, state)?));
+            panic!("Err functions not evaluated in this statment. Should never be here");
         }
         AstNode::Assignment(vtype, name, exp) => {
             let value = eval_expr(exp, execution_state, state)?;
@@ -62,12 +61,12 @@ fn eval_ast(ast: AstNode, execution_state: &mut ExecutionState, state: &State) -
                             wstruct.insert(attribute.clone(), eval_expr(value, execution_state, state)?);
                             execution_state.var_map.insert(struct_name, Constant::Struct(wstruct));
                         }
-                        _ => panic!("constant ahh")
+                        _ => panic!("StructIndexAssignment on not a struct")
                     }
                 }
-                None => panic!("MISSING")
+                None => panic!("No value found for StructIndexAssignment")
             }
-        }, // TODO
+        },
         AstNode::ArrayDef(var_type, name, piped, value_exp, length_exp) => {
             let len = match eval_expr(length_exp, execution_state, state)? {
                 Constant::Int(i) => i as usize,
