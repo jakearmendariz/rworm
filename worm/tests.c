@@ -28,6 +28,8 @@ fn main() -> string {
 
     assert(test_struct() == 0);
 
+    assert(test_append() == 0);
+
     /* success */
     return "SUCESS";
 }

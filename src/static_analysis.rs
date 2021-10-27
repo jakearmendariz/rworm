@@ -101,9 +101,9 @@ impl StaticAnalyzer {
             match self.eval_ast(state, (**ast).clone()) {
                 Ok(res) => match res {
                     Some(val) => {
-                        if expected_return != &val {
-                            errors.push(StaticError::TypeMismatchInReturn(expected_return.clone(), val))
-                        }
+                        // if type_match(expected_return.clone(), val.clone()) {//expected_return != &val {
+                        //     errors.push(StaticError::TypeMismatchInReturn(expected_return.clone(), val))
+                        // }
                         return_flag = true;
                     }
                     None => (),
@@ -133,14 +133,12 @@ impl StaticAnalyzer {
                 let value_type = self.type_of_expr(state, exp)?;
                 
                 if type_match(variable_type.clone(), value_type.clone()) {
-                    if name.eq("tree") {
-                        println!("TREEEEEEE {}", variable_type);
-                    }
                     self.execution_state.save_variable(name, variable_type);
                 } else {
                     return Err(StaticError::TypeViolation(variable_type, value_type));
                 }
             }
+            AstNode::StructIndexAssignment(_,_,_) => (), // TODO
             AstNode::ArrayDef(var_type, name, piped, value_exp, length_exp) => {
                 match self.type_of_expr(state, length_exp)? {
                     VarType::Int => (),
@@ -235,7 +233,7 @@ impl StaticAnalyzer {
             AstNode::BuiltIn(builtin) => {
                 match builtin {
                     BuiltIn::Print(exp) => {
-                        println!("compilerPrint: {}", exp);
+                        // println!("compilerPrint: {}", exp);
                         self.type_of_expr(state, exp)?;
                     }
                     BuiltIn::StaticPrint(exp) => {
@@ -337,9 +335,6 @@ impl StaticAnalyzer {
                                     name,
                                     String::from("non array value"),
                                 )),
-                                VarType::Struct(w_struct) => Ok(VarType::Struct(w_struct)),
-                                VarType::Float => todo!(),
-                                VarType::Char => todo!(),
                             },
                             None => Err(StaticError::ValueDne(name)),
                         }
@@ -350,19 +345,15 @@ impl StaticAnalyzer {
                     Object::Constant(Constant::String(_)) => Ok(VarType::String),
                     Object::Constant(Constant::Struct(s)) => Ok(VarType::Struct(s.name)),
                     Object::Constant(Constant::StructVal(struct_name, attribute)) => {
-                        if struct_name.eq("tree") {
-                            println!("type of TREE {:?}\n{:?}", state.struct_map, self.execution_state.var_map);
-                        }
-                        return match self.execution_state.var_map.get(&struct_name) {
+                        match self.execution_state.var_map.get(&struct_name) {
                             Some(var_type) => {
                                 match var_type {
                                     VarType::Struct(s) => {
                                         match state.struct_map.get(s) {
                                             Some(worm_struct) => {
-                                                println!("worm_struct={:?}", worm_struct);
-                                                match get_from_vec(attribute, worm_struct) {//.get(&attribute) {
+                                                match get_from_vec(&attribute, worm_struct) {//.get(&attribute) {
                                                     Some(var_type) => Ok(var_type),
-                                                    None => Err(StaticError::ValueDne("fuck".to_string()))
+                                                    None => Err(StaticError::ValueDne(attribute))
                                                 }
                                         },
                                             None => Err(StaticError::ValueDne(s.to_string()))
@@ -373,7 +364,7 @@ impl StaticAnalyzer {
                                 
                             },
                             None => Err(StaticError::ValueDne(struct_name))
-                        };
+                        }
                 },
                     Object::Constant(Constant::Map(key_type, value_type, _)) => Ok(
                         VarType::Map(
@@ -406,65 +397,83 @@ impl StaticAnalyzer {
         }
     }
 
-    fn type_of_func_call(&mut self, state:&State, func_call: FnCall) -> Result<VarType, StaticError> {
-        // retrive function from memory, make sure its value matches
+    fn arg_count_helper(&mut self, expected_params:usize, fn_call: &FnCall) -> Result<(), StaticError> {
+        if fn_call.params.len() != expected_params {
+            Err(StaticError::General(
+                format!("Error {} requires exactly {} arg", fn_call.name, expected_params),
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn reserved_function(&mut self, state: &State, func_call: &FnCall) -> Result<Option<VarType>, StaticError> {
         if func_call.name == "len" {
-            // builtin
-            if func_call.params.len() != 1 {
-                Err(StaticError::General(
-                    "Error len requires exactly 1 arg".to_string(),
-                ))
-            } else {
-                Ok(VarType::Int)
-            }
+            self.arg_count_helper(1, func_call)?;
+            Ok(Some(VarType::Int))
         } else if func_call.name == "parse_int" {
-            if func_call.params.len() != 1 {
-                Err(StaticError::General(
-                    "Error parse_int requires exactly 1 arg".to_string(),
-                ))
-            } else {
-                Ok(VarType::Int)
-            }
+            self.arg_count_helper(1, func_call)?;
+            Ok(Some(VarType::Int))
         } else if func_call.name == "user_input" {
-            Ok(VarType::String)
+            Ok(Some(VarType::String))
         } else if func_call.name == "to_str" {
-            if func_call.params.len() != 1 {
+            self.arg_count_helper(1, func_call)?;
+            Ok(Some(VarType::String))
+        } else if func_call.name == "append" {
+            self.arg_count_helper(2, func_call)?;
+            // append(List<T>, T)
+            let list = self.type_of_expr(state, func_call.params[0].clone())?;
+            let value = self.type_of_expr(state,func_call.params[1].clone())?;
+            if type_match(VarType::Array(Box::new(value.clone())), list) {
+                Ok(Some(VarType::Array(Box::new(value))))
+            }
+            else {
                 Err(StaticError::General(
-                    "Error to_str requires exactly 1 arg".to_string(),
+                    format!("BROKE ON NEW THING"),
                 ))
-            } else {
-                Ok(VarType::String)
             }
         } else {
-            let function = match state.func_map.get(&func_call.name.clone()) {
-                Some(func) => func,
-                None => {
-                    // No function found. Check if struct constructor
-                    match state.struct_map.get(&func_call.name.clone()) {
-                        Some(_) => {
-                            return Ok(VarType::Struct(func_call.name.clone()));
-                        },
-                        None => return Err(StaticError::CannotFindFunction(func_call.name)),
-                    }
-                },
-            };
-            let Function {
-                name: _,
-                params,
-                return_type,
-                statements: _,
-            } = function.clone();
-            // iterate through the parameters provided and the function def,
-            for (expr, (var_type, _)) in func_call.params.iter().zip(params.iter()) {
-                let param_const = self.type_of_expr(state, expr.clone())?;
-                if !type_match(var_type.clone(), param_const.clone()) {
-                    return {
-                        Err(StaticError::TypeViolation(var_type.clone(), param_const))
-                    };
+            Ok(None)
+        }
+    }
+
+    fn user_created_function(&mut self, state:&State, func_call: FnCall) -> Result<VarType, StaticError> {
+        let function = match state.func_map.get(&func_call.name.clone()) {
+            Some(func) => func,
+            None => {
+                // No function found. Check if struct constructor
+                match state.struct_map.get(&func_call.name.clone()) {
+                    Some(_) => {
+                        return Ok(VarType::Struct(func_call.name.clone()));
+                    },
+                    None => return Err(StaticError::CannotFindFunction(func_call.name)),
                 }
+            },
+        };
+        let Function {
+            name: _,
+            params,
+            return_type,
+            statements: _,
+        } = function.clone();
+        // iterate through the parameters provided and the function def,
+        for (expr, (var_type, _)) in func_call.params.iter().zip(params.iter()) {
+            let param_const = self.type_of_expr(state, expr.clone())?;
+            if !type_match(var_type.clone(), param_const.clone()) {
+                return {
+                    Err(StaticError::TypeViolation(var_type.clone(), param_const))
+                };
             }
-            // function input types match expected values, return a empty constant of matching type
-            Ok(return_type)
+        }
+        // function input types match expected values, return a empty constant of matching type
+        Ok(return_type)
+    }
+
+    fn type_of_func_call(&mut self, state:&State, func_call: FnCall) -> Result<VarType, StaticError> {
+        // retrive function from memory, make sure its value matches
+        match self.reserved_function(state, &func_call)? {
+           Some(var_type) => Ok(var_type),
+           None => self.user_created_function(state, func_call)
         }
     }
     /*
@@ -497,7 +506,7 @@ fn type_match(a: VarType, b: VarType) -> bool {
 }
 
 
-fn get_from_vec(name: String, list: &Vec<(String, VarType)>) -> Option<VarType> {
+fn get_from_vec(name: &String, list: &Vec<(String, VarType)>) -> Option<VarType> {
     for (n, vtype) in list.iter() {
         if name.eq(n) {
             return Some(vtype.clone());

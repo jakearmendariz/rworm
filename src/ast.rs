@@ -10,11 +10,14 @@ use serde::{Deserialize, Serialize};
 pub enum AstNode {
     // option(type) var_name = expression
     Assignment(Option<VarType>, String, Expr),
+    // arr[exp1] = exp2;
+    IndexAssignment(String, Expr, Expr),
+    // struct.val = val
+    StructIndexAssignment(String, String, Expr),
     //type, name, optional piped variable for index, value expression, size expression
     // int[] arr = [|opt| expr1; expr2]
     ArrayDef(VarType, String, Option<String>, Expr, Expr),
-    // arr[exp1] = exp2;
-    IndexAssignment(String, Expr, Expr),
+    
     // if bool then do ast
     If(Vec<(BoolAst, Vec<Box<AstNode>>)>),
     While(BoolAst, Vec<Box<AstNode>>),

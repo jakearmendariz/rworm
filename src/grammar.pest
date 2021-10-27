@@ -21,12 +21,13 @@ reserved = {"print" | "if" | "else" | "while" | "true" | "false" | " " | "}" | "
 var_name = @{!reserved ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*}
 
 any = {"any"}
-array_inst = {(vint | vfloat | vchar | vstring | hmap) ~ "[]"}
+array_inst = {(vint | vfloat | vchar | vstring | hmap | structure) ~ "[]"}
 array_dec = {array_inst}
 piped = {"|" ~ var_name ~ "|"}
 array_initial = {"[" ~ piped? ~ expr ~ ";" ~ expr ~ "]"}
-array_definition = {array_inst ~ var_name ~ "=" ~ (array_initial) }
+array_definition = {array_inst ~ var_name ~ "=" ~ (array_initial | array_empty) }
 array_val = {"[" ~ list? ~ "]"}
+array_empty =  {"[" ~ var_type ~ "]"}
 array_index = {var_name ~"[" ~ expr ~ "]"}
 
 structure_items = {(var_name ~ ":" ~ var_type) ~ ("," ~ (var_name ~ ":" ~ var_type))*}
@@ -103,6 +104,6 @@ item = _{int | float | var_type}
 list = {expr ~ ("," ~ expr)*}
 func_call = {var_name ~ "(" ~ list? ~ ")"}
 
-assignment = {(array_index | ((var_type)? ~ var_name)) ~ "=" ~ (expr | string | array_initial)}
+assignment = {(array_index | structure_index | ((var_type)? ~ var_name)) ~ "=" ~ (expr | string | array_initial)}
 statement = _{((builtin | skip | array_definition |  assignment) ~ ";") | (return_stm | func_def | ifstm | whilestm) }
 program = _{ SOI ~ (import_stm | structure_def |  func_def)* ~ EOI }

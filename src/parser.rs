@@ -7,7 +7,6 @@ use crate::state::State;
 use pest::iterators::{Pair, Pairs};
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use std::vec::Vec;
-use std::collections::HashMap;
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
@@ -357,6 +356,13 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                     let value_exp = parse_into_expr(inner_rules.next().unwrap().into_inner());
                     return Ok(AstNode::IndexAssignment(var_name, index_exp, value_exp));
                 }
+                Rule::structure_index => {
+                    let mut structure_index_rules = first_pos.into_inner();
+                    let var_name = structure_index_rules.next().unwrap().as_str().to_string();
+                    let attribute_name = structure_index_rules.next().unwrap().as_str().to_string();
+                    let value_exp = parse_into_expr(inner_rules.next().unwrap().into_inner());
+                    return Ok(AstNode::StructIndexAssignment(var_name, attribute_name, value_exp));
+                }
                 _ => {
                     return {
                         Err(ParseError::FormatError(format!(
@@ -384,6 +390,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             let init_or_call = array_rules.next().unwrap();
             let mut array_def = match init_or_call.as_rule() {
                 Rule::array_initial => init_or_call.into_inner(),
+                Rule::array_empty => init_or_call.into_inner(),
                 _ => {
                     return Err(ParseError::GeneralParseError(String::from(
                         "non array type in front of array dec",
@@ -398,6 +405,21 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                     Some(first.into_inner().next().unwrap().as_str().to_string()),
                     parse_into_expr(array_def.next().unwrap().into_inner()),
                 ),
+                Rule::var_type => {
+                    let vtype = parse_type_from_rule(first)?;
+                    return Ok(AstNode::Assignment(
+                        Some(VarType::Array(Box::new(vtype.clone()))), 
+                        array_name, 
+                        Expr::ExpVal(
+                            Object::Constant(
+                                Constant::Array(
+                                    vtype, 
+                                    Vec::new()
+                                )
+                            )
+                        )
+                    ));
+                }
                 Rule::expr => (None, parse_into_expr(first.into_inner())),
                 _ => {
                     return Err(ParseError::GeneralParseError(String::from(
@@ -490,7 +512,6 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 ),
                 _ => return Err(ParseError::NoReturnType),
             };
-            println!("PARAMS: {:?}", params);
             state.struct_map.insert(struct_name, params);
             Ok(AstNode::Skip())
         }

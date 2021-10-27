@@ -12,10 +12,23 @@
 import "worm/wormstd.c";
 
 struct Node {
-    is_op: bool,
-    data: char,
-    left: struct Node,
-    right: struct Node,
+    type: int,
+    op: char,
+    val: int,
+    left: struct<Node>[],
+    right: struct<Node>[],
+}
+
+fn build_value(int value) -> struct<Node> {
+    struct<Node>[] left = [struct<Node>];
+    struct<Node>[] right = [struct<Node>];
+    return Node(1, 'a', value, left, right);
+}
+
+fn build_op(char value) -> struct<Node> {
+    struct<Node>[] left = [struct<Node>];
+    struct<Node>[] right = [struct<Node>];
+    return Node(2, value, 0, left, right);
 }
 
 /* checks if a character is an operator */
@@ -27,17 +40,18 @@ fn is_operator(char c) -> int {
     return 0;
 }
 
-/* builds a node in the expression tree */
+/* builds a node in the expression tree 
 fn build_node(char data) -> map<string, int> {
-    map<string, char> node = {string:int};
+    map<string, char> node = {string:char};
     node["data"] = data;
-    if is_operator(data) {
-        node["is_op"] = 'T';
+    if is_operator(data) == 1 {
+        return Node(2, )
     } else {
         node["is_op"] = 'F';
     }
     return node;
 }
+*/
 
 /* sets the order of precedence */
 fn get_precedence_order() -> map<char, int> {
@@ -108,30 +122,33 @@ fn infix_to_postfix(string infix) -> string {
     return postfix;
 }
 
+fn pop_stack(struct<Node>[] arr) -> struct<Node>[] {
+    struct<Node>[] b = [|i| arr[i]; len(arr)-1];
+    return b;
+}
+
 /* Convert the postfix notation to a tree */
-fn postfix_to_tree(string postfix) -> map<string, int> {
-    map<string, int>[] stack = [{string:int}; 0];
+fn postfix_to_tree(string postfix) -> struct<Node> {
+    struct<Node>[] stack = [struct<Node>];
     int i = 0;
     while i < len(postfix) {
         char curr = postfix[i];
         if curr == ' ' {
             skip;
         } else if is_operator(curr) != 1 | postfix[i+1] != ' ' {
-            /* operand */
-            map<string, int> node = {string:int};
-            node["is_op"] = -1;
             string s = int_substring(postfix, i); /* retrieves the substring containing the integer */
-            node["data"] = parse_int(s); /* parses the integer string, gets the interger underneath */
+            /* operand */
+            struct<Node> node = build_value(parse_int(s));/* parses the integer string, gets the interger underneath */
             i = i + len(s) - 1;
-            stack = push_map(stack, node);
+            stack = append(stack, node);
         } else {
             /* is an operator */
-            map<string, char> node  = build_node(curr);
-            node["right"] = stack[len(stack) -1];
-            stack = pop_map(stack);
-            node["left"] = stack[len(stack) -1];
-            stack = pop_map(stack);
-            stack = push_map(stack, node);
+            struct<Node> node = build_op(curr);
+            node.right = append(node.right, stack[len(stack) -1]);
+            stack = pop_stack(stack);
+            node.left = append(node.left, stack[len(stack) -1]);
+            stack = pop_stack(stack);
+            stack = append(stack, node);
         }
         i = i + 1;
     }
@@ -139,24 +156,26 @@ fn postfix_to_tree(string postfix) -> map<string, int> {
 }
 
 /* executes the tree */
-fn evaluate_tree(map<string, int> root) -> int {
-    if root["is_op"] == 1 {
-        int left = evaluate_tree(root["left"]);
-        int right = evaluate_tree(root["right"]);
-        if root["data"] == '+' {
+fn evaluate_tree(struct<Node> root) -> int {
+    if root.type == 2 { /* is operation */
+        struct<Node>[] l = root.left;
+        struct<Node>[] r = root.right;
+        int left = evaluate_tree(l[0]);
+        int right = evaluate_tree(r[0]);
+        if root.op == '+' {
             return left + right;
-        } else if root["data"] == '-' {
+        } else if root.op == '-' {
             return left - right;
-        } else if root["data"] == '*' {
+        } else if root.op == '*' {
             return left * right;
-        } else if root["data"] == '/' {
+        } else if root.op == '/' {
             return left / right;
         } else {
             print("unknown operation");
-            return -1;
+            return -1000;
         }
     } else {
-        return root["data"];
+        return root.val;
     }
     return 0;
 }
@@ -165,7 +184,7 @@ fn evaluate_tree(map<string, int> root) -> int {
 fn evaluate_expression(string infix) -> int {
     infix = pop_str(infix); /* remove the \n */
     string postfix = infix_to_postfix(infix);
-    map<string, int> root = postfix_to_tree(postfix + ' ');
+    struct<Node> root = postfix_to_tree(postfix + ' ');
     return evaluate_tree(root);
 }
 

@@ -59,3 +59,42 @@ fn test_struct() -> int {
     assert(tree.data == "yolo");
     return 0;
 }
+
+
+struct Node {
+    type: int,
+    op: char,
+    val: int,
+    left: struct<Node>[],
+    right: struct<Node>[],
+}
+
+fn build_value(int value) -> struct<Node> {
+    struct<Node>[] left = [struct<Node>];
+    struct<Node>[] right = [struct<Node>];
+    return Node(1, 'a', value, left, right);
+}
+
+fn build_op(char value) -> struct<Node> {
+    struct<Node>[] left = [struct<Node>];
+    struct<Node>[] right = [struct<Node>];
+    return Node(2, value, 0, left, right);
+}
+
+fn test_append_structs() -> int {
+    struct<Node> node = build_value(1);
+    node.left = [build_value(1); 3];
+    print(node.left);
+    return 0;
+}
+
+
+fn test_append() -> int {
+    int[] arr = [0; 10];
+    int[] arr1 = append(arr, 1);
+    int[] arr2 = [1; 11];
+    assert(arr1[10] == arr2[10]);
+    assert(len(arr1) == 11);
+    assert(test_append_structs() == 0);
+    return 0;
+}

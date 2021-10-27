@@ -58,3 +58,13 @@ Implement traits (generics) for constant and var type so I can treat them one wa
 
 The Pair object contains a char number, this could be used in error cases to find the actual line number associatged.
 If we have the pair, then we can rescan during error conditions to find the actual line number of the problem.
+
+
+
+Instead of assignment being
+string = expr
+
+it should be
+
+value_obj
+    var_name ~ ('.' ~ var_name | '[' ~ expr ~ ']')*

@@ -54,6 +54,20 @@ fn eval_ast(ast: AstNode, execution_state: &mut ExecutionState, state: &State) -
             };
             execution_state.save_variable(name, actual_val);
         }
+        AstNode::StructIndexAssignment(struct_name,attribute,value) => {
+            match execution_state.var_map.get(&struct_name) {
+                Some(constant) => {
+                    match constant.clone() {
+                        Constant::Struct(mut wstruct) => {
+                            wstruct.insert(attribute.clone(), eval_expr(value, execution_state, state)?);
+                            execution_state.var_map.insert(struct_name, Constant::Struct(wstruct));
+                        }
+                        _ => panic!("constant ahh")
+                    }
+                }
+                None => panic!("MISSING")
+            }
+        }, // TODO
         AstNode::ArrayDef(var_type, name, piped, value_exp, length_exp) => {
             let len = match eval_expr(length_exp, execution_state, state)? {
                 Constant::Int(i) => i as usize,
@@ -178,10 +192,9 @@ fn eval_bool_ast(bool_ast: &BoolAst, execution_state: &mut ExecutionState, state
 fn eval_bool(bool_exp: &BoolExp, execution_state:&mut ExecutionState, state: &State) -> Result<bool, ExecutionError> {
     let BoolExp(lhs, op, rhs) = &*bool_exp;
     use Constant::*;
-    let mut left = eval_expr(lhs.clone(), execution_state, state)?;
-    let right = eval_expr(rhs.clone(), execution_state, state)?;
     let (lres, rres) = match (
-        left, right,
+        eval_expr(lhs.clone(), execution_state, state)?, 
+        eval_expr(rhs.clone(), execution_state, state)?,
     ) {
         (Int(i), Int(j)) => (i as f64, j as f64),
         (Float(i), Float(j)) => (i, j),
@@ -278,7 +291,7 @@ fn eval_expr(exp: Expr, execution_state: &mut ExecutionState, state: &State) -> 
                 Object::Constant(constant) => Ok(constant),
                 Object::FnCall(func_call) => {
                     // need a new var map for the function, just the parameters
-                    if func_call.name == "len".to_string() {
+                    if func_call.name == "len" {
                         match eval_expr(func_call.params[0].clone(), execution_state, state)? {
                             Constant::Array(_, elements) => {
                                 Ok(Constant::Int(elements.len() as i32))
@@ -286,20 +299,31 @@ fn eval_expr(exp: Expr, execution_state: &mut ExecutionState, state: &State) -> 
                             Constant::String(s) => Ok(Constant::Int(s.len() as i32)),
                             _ => panic!("panicked tried to find the length of a non array string"),
                         }
-                    } else if func_call.name == "parse_int".to_string() {
+                    } else if func_call.name == "parse_int" {
                         match eval_expr(func_call.params[0].clone(), execution_state, state)? {
                             Constant::String(s) => {
-                                // println!("prase int from `{}`", s);
+                                // println!("parse int from `{}`", s);
                                 Ok(Constant::Int(s.parse::<i32>().unwrap()))
                             }
                             Constant::Char(c) => Ok(Constant::Int(c as i32 - 48)),
                             _ => panic!("panicked tried to find the length of a non array string"),
                         }
-                    } else if func_call.name == "user_input".to_string() {
+                    } else if func_call.name == "user_input" {
                         let mut line = String::new();
                         std::io::stdin().read_line(&mut line).unwrap();
                         Ok(Constant::String(line))
-                    } else if func_call.name == "to_string".to_string() {
+                    } else if func_call.name == "append" {
+                        let value = eval_expr(func_call.params[0].clone(), execution_state, state)?;
+                        match value {
+                            Constant::Array(vtype, mut values) => {
+                                values.push(
+                                    eval_expr(func_call.params[1].clone(), execution_state, state)?
+                                );
+                                Ok(Constant::Array(vtype, values))
+                            }
+                            _ => panic!("Tried appending non array")
+                        }
+                    } else if func_call.name == "to_string" {
                         match eval_expr(func_call.params[0].clone(), execution_state, state)? {
                             Constant::Int(i) => Ok(Constant::String(i.to_string())),
                             Constant::Char(c) => Ok(Constant::String(c.to_string())),
@@ -316,7 +340,7 @@ fn eval_expr(exp: Expr, execution_state: &mut ExecutionState, state: &State) -> 
                                 // iterate through the parameters provided and the function def,
                                 let mut w = WormStruct {name: fn_name.clone(), pairs: Vec::new() };
                                 w.name = fn_name;
-                                for (expr, (param_name, param_type)) in func_call.params.iter().zip(type_map.iter()) {
+                                for (expr, (param_name, _)) in func_call.params.iter().zip(type_map.iter()) {
                                     let param_const = eval_expr(expr.clone(), execution_state, state)?;
                                     w.insert(param_name.clone(), param_const);
                                 }
