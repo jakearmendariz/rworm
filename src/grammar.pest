@@ -13,6 +13,7 @@ operation = _{ add | subtract | multiply | divide | power }
 
 expr = { term ~ (operation ~ term)* }
 term = _{float | int | char | func_call | array_index | structure_index | var_name | string | hash_obj  | "(" ~ expr ~ ")" }
+identifier = { var_name ~ (("." ~ var_name) | ("[" ~ expr ~ "]"))* }
 
 COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
 WHITESPACE = _{ " "+ | "\t" | NEWLINE+}
@@ -104,6 +105,6 @@ item = _{int | float | var_type}
 list = {expr ~ ("," ~ expr)*}
 func_call = {var_name ~ "(" ~ list? ~ ")"}
 
-assignment = {(array_index | structure_index | ((var_type)? ~ var_name)) ~ "=" ~ (expr | string | array_initial)}
+assignment = {((var_type ~ var_name) | identifier) ~ "=" ~ (expr | string | array_initial)}
 statement = _{((builtin | skip | array_definition |  assignment) ~ ";") | (return_stm | func_def | ifstm | whilestm) }
 program = _{ SOI ~ (import_stm | structure_def |  func_def)* ~ EOI }

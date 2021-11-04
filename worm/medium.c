@@ -45,6 +45,7 @@ fn test_mapping() -> int {
     int i = 0;
     string alpha = "abcdefghijklmnopqrstuvwxyz";
     while i < len(alpha) {
+        print(alpha[i]);
         dictionary[alpha[i]] = i;
         i = i + 1;
     }
@@ -80,14 +81,16 @@ fn build_op(char value) -> struct<Node> {
     struct<Node>[] right = [struct<Node>];
     return Node(2, value, 0, left, right);
 }
-
+/*
 fn test_append_structs() -> int {
     struct<Node> node = build_value(1);
     node.left = [build_value(1); 3];
     print(node.left);
     return 0;
 }
+    assert(test_append_structs() == 0);
 
+*/
 
 fn test_append() -> int {
     int[] arr = [0; 10];
@@ -95,6 +98,5 @@ fn test_append() -> int {
     int[] arr2 = [1; 11];
     assert(arr1[10] == arr2[10]);
     assert(len(arr1) == 11);
-    assert(test_append_structs() == 0);
     return 0;
 }

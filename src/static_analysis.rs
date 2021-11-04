@@ -115,28 +115,78 @@ impl StaticAnalyzer {
             errors.push(StaticError::NeedReturnStm(function.name.clone()));
         }
     }
+
+    fn get_type_of_identifier(&mut self, state: &State, identifier: Identifier) ->Result<VarType, StaticError> {
+        let mut curr_type = self.type_of_expr(state, Expr::ExpVal(Object::Variable(identifier.var_name)))?;
+        for indentifier_helper in identifier.tail {
+            match indentifier_helper {
+                IdentifierHelper::ArrayIndex(expr) => {
+                    let expr_type = self.type_of_expr(state, expr);
+                    match curr_type {
+                        VarType::Array(var_type) => {
+                            // TODO ensure expr_type matches int
+                            curr_type = *var_type;
+                        },
+                        VarType::Map(key_vtype,value_vtype) => {
+                            // TODO expr_type matches key_type
+                            curr_type = *value_vtype;
+                        }
+                        _ => {
+                            return Err(StaticError::General("Error".to_string()));
+                        }
+                    }
+                },
+                IdentifierHelper::StructIndex(attribute) =>  {
+                    match curr_type {
+                        VarType::Struct(struct_name) => {
+                            let structure_map = match state.struct_map.get(&struct_name) {
+                                Some(structure_map) => structure_map,
+                                None => {
+                                    return Err(StaticError::General("Error".to_string()));
+                                }
+                            };
+                            curr_type = match get_from_vec(&attribute, structure_map) {
+                                Some(vtype) => vtype,
+                                None => {
+                                    return Err(StaticError::General("Error".to_string()));
+                                }
+                            };
+                        }
+                        _ => {
+                            return Err(StaticError::General("Error".to_string()));
+                        }
+                    }
+                },
+            }
+        }
+        Ok(curr_type)
+    }
     
     fn eval_ast(&mut self, state:&State, ast: AstNode) -> Result<Option<VarType>, StaticError> {
         match ast {
             AstNode::Function(_) => {
                 panic!("I didn't know functions were here, is this an inner function maybe");
             }
-            AstNode::Assignment(vtype, name, exp) => {
-                let variable_type: VarType = match vtype {
-                    Some(var_type) => var_type,
-                    None => {
-                        // if no variable type, turn it into an expression and parse value (error if dne)
-                        self.type_of_expr(state, Expr::ExpVal(Object::Variable(name.clone())))?
-                    }
-                };
+            AstNode::Assignment(vtype, identifier, exp) => {
                 // type check, variable type must match the result of expression
                 let value_type = self.type_of_expr(state, exp)?;
-                
-                if type_match(variable_type.clone(), value_type.clone()) {
-                    self.execution_state.save_variable(name, variable_type);
-                } else {
-                    return Err(StaticError::TypeViolation(variable_type, value_type));
-                }
+
+                match vtype {
+                    Some(var_type) => {
+                        if type_match(var_type.clone(), value_type.clone()) {
+                            self.execution_state.save_variable(identifier.var_name, var_type);
+                        } else {
+                            return Err(StaticError::TypeViolation(var_type, value_type));
+                        }
+                    },
+                    None => {
+                        // if no variable type, turn it into an expression and parse value (error if dne)
+                        let var_type = self.get_type_of_identifier(state, identifier)?;
+                        if ! type_match(var_type.clone(), value_type.clone()) {
+                            return Err(StaticError::TypeViolation(var_type, value_type));
+                        }
+                    }
+                };
             }
             AstNode::StructIndexAssignment(_,_,_) => (), // TODO
             AstNode::ArrayDef(var_type, name, piped, value_exp, length_exp) => {

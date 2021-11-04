@@ -6,6 +6,7 @@ use crate::ast::*;
 use crate::state::State;
 use pest::iterators::{Pair, Pairs};
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
+use serde_json::value::Index;
 use std::vec::Vec;
 
 #[derive(Parser)]
@@ -325,6 +326,35 @@ pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), 
     Ok(())
 }
 
+pub fn parse_identifier(pair: Pair<Rule>) -> Identifier {
+    // println!("{}", pair.as_str());
+    let mut structure_index_rules = pair.into_inner();
+    let var_name = structure_index_rules.next().unwrap().as_str().to_string();
+    let mut tail: Vec<IdentifierHelper> = Vec::new();
+    loop {
+        match structure_index_rules.next() {
+            Some(identifier_tail) => {
+                match identifier_tail.as_rule() {
+                    Rule::expr => {
+                        tail.push(IdentifierHelper::ArrayIndex(
+                            parse_into_expr(identifier_tail.into_inner())
+                        ));
+                    }
+                    Rule::var_name => {
+                        tail.push(IdentifierHelper::StructIndex(
+                            identifier_tail.as_str().to_string()
+                        ));
+                    }
+                    _ => panic!(),
+                }
+            }
+            None => {break;},
+        }
+    }
+    // println!("{} {:?}", var_name, tail);
+    return Identifier {var_name, tail};
+}
+
 /*
 * parses ast into nodes, only handles one clause at a time.
 */
@@ -342,32 +372,39 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             let mut inner_rules = pair.into_inner();
             let first_pos = inner_rules.next().unwrap();
             // println!("first_post.as_rule()=>{:?}", first_pos.as_rule());
-            let (var_type, var_name) = match first_pos.as_rule() {
+            let (var_type, identifier) = match first_pos.as_rule() {
                 Rule::var_type => {
                     let vartype = parse_type_from_rule(first_pos.into_inner().next().unwrap())?;
-                    let varname = inner_rules.next().unwrap().as_str();
-                    (Some(vartype), varname)
+                    let identifier = Identifier { 
+                        var_name: inner_rules.next().unwrap().as_str().to_string(),
+                        tail: Vec::new(),
+                    };
+                    (Some(vartype), identifier)
                 }
-                Rule::var_name => (None, first_pos.as_str()),
-                Rule::array_index => {
-                    let mut array_index_rule = first_pos.into_inner();
-                    let var_name = array_index_rule.next().unwrap().as_str().to_string();
-                    let index_exp = parse_into_expr(array_index_rule.next().unwrap().into_inner());
-                    let value_exp = parse_into_expr(inner_rules.next().unwrap().into_inner());
-                    return Ok(AstNode::IndexAssignment(var_name, index_exp, value_exp));
-                }
-                Rule::structure_index => {
-                    let mut structure_index_rules = first_pos.into_inner();
-                    let var_name = structure_index_rules.next().unwrap().as_str().to_string();
-                    let attribute_name = structure_index_rules.next().unwrap().as_str().to_string();
-                    let value_exp = parse_into_expr(inner_rules.next().unwrap().into_inner());
-                    return Ok(AstNode::StructIndexAssignment(var_name, attribute_name, value_exp));
+                // Rule::var_name => (None, first_pos.as_str()),
+                // Rule::array_index => {
+                //     let mut array_index_rule = first_pos.into_inner();
+                //     let var_name = array_index_rule.next().unwrap().as_str().to_string();
+                //     let index_exp = parse_into_expr(array_index_rule.next().unwrap().into_inner());
+                //     let value_exp = parse_into_expr(inner_rules.next().unwrap().into_inner());
+                //     return Ok(AstNode::IndexAssignment(var_name, index_exp, value_exp));
+                // }
+                // Rule::structure_index => {
+                //     let mut structure_index_rules = first_pos.into_inner();
+                //     let var_name = structure_index_rules.next().unwrap().as_str().to_string();
+                //     let attribute_name = structure_index_rules.next().unwrap().as_str().to_string();
+                //     let value_exp = parse_into_expr(inner_rules.next().unwrap().into_inner());
+                //     return Ok(AstNode::StructIndexAssignment(var_name, attribute_name, value_exp));
+                // }
+                Rule::identifier => {
+                    let identifier = parse_identifier(first_pos);
+                    (None, identifier)
                 }
                 _ => {
                     return {
                         Err(ParseError::FormatError(format!(
-                            "error parsing statement {}\n",
-                            statement
+                            "error parsing statement: {} rule: {:?}",
+                            statement, first_pos.as_rule()
                         )))
                     }
                 }
@@ -375,7 +412,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             let expression = parse_into_expr(inner_rules.next().unwrap().into_inner());
             Ok(AstNode::Assignment(
                 var_type,
-                var_name.to_string(),
+                identifier,
                 expression,
             ))
         }
@@ -409,7 +446,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                     let vtype = parse_type_from_rule(first)?;
                     return Ok(AstNode::Assignment(
                         Some(VarType::Array(Box::new(vtype.clone()))), 
-                        array_name, 
+                        Identifier {var_name: array_name, tail: Vec::new()}, 
                         Expr::ExpVal(
                             Object::Constant(
                                 Constant::Array(
