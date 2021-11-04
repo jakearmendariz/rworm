@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AstNode {
     // option(type) var_name = expression
-    Assignment(Option<VarType>, String, Expr),
+    Assignment(Option<VarType>, Identifier, Expr),
     // arr[exp1] = exp2;
     IndexAssignment(String, Expr, Expr),
     // struct.val = val
@@ -29,6 +29,29 @@ pub enum AstNode {
     Skip(),
     // TODO functions should be inner ast structures
     Function(Function),
+}
+
+/**
+* Goal is to have a structure that can symbolize
+* the following variants
+* x 
+* x[0]
+* x[0][0]
+* x.y
+* x.y[0]
+* x.y[0].z
+* ... etc
+*/
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum IdentifierHelper {
+    ArrayIndex(Expr),
+    StructIndex(String)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Identifier {
+    pub var_name: String,
+    pub tail: Vec<IdentifierHelper>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -209,6 +232,24 @@ impl WormStruct {
         }
         return None;
     }
+
+    // pub fn get_mut(self, key: String) -> Option<Constant> {
+    //     // thats right, my language uses a linear lookup in my map
+    //     let mut pos = 0;
+    //     let mut position: i32 = -1;
+    //     for (stored_key, stored_val) in &self.pairs {
+    //         if *stored_key == key {
+    //             position = pos;
+
+    //         }
+    //         pos += 1
+    //     }
+    //     if position == -1 {
+    //         return None;
+    //     }
+    //     let (_, value) = self.pairs.get_mut(position as usize).unwrap();
+    //     Some(value)
+    // }
 
     pub fn insert(&mut self, key: String, value: Constant) {
         self.remove(key.clone());
