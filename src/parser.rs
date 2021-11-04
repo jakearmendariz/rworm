@@ -381,21 +381,6 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                     };
                     (Some(vartype), identifier)
                 }
-                // Rule::var_name => (None, first_pos.as_str()),
-                // Rule::array_index => {
-                //     let mut array_index_rule = first_pos.into_inner();
-                //     let var_name = array_index_rule.next().unwrap().as_str().to_string();
-                //     let index_exp = parse_into_expr(array_index_rule.next().unwrap().into_inner());
-                //     let value_exp = parse_into_expr(inner_rules.next().unwrap().into_inner());
-                //     return Ok(AstNode::IndexAssignment(var_name, index_exp, value_exp));
-                // }
-                // Rule::structure_index => {
-                //     let mut structure_index_rules = first_pos.into_inner();
-                //     let var_name = structure_index_rules.next().unwrap().as_str().to_string();
-                //     let attribute_name = structure_index_rules.next().unwrap().as_str().to_string();
-                //     let value_exp = parse_into_expr(inner_rules.next().unwrap().into_inner());
-                //     return Ok(AstNode::StructIndexAssignment(var_name, attribute_name, value_exp));
-                // }
                 Rule::identifier => {
                     let identifier = parse_identifier(first_pos);
                     (None, identifier)

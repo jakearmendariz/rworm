@@ -44,26 +44,6 @@ pub fn eval_func(
     panic!("no return statement from function")
 }
 
-/**
- * node { left: [Node]}
- *
- * node.left[0].data = 5;
- *
- * node {
- *  left: [
- *    Node {
- *      data = 10
- *    }
- *  ]
- * }
- *
- * Node.data == 10
- * [Node.data == 10]
- *
- *
- *
- **/
-
 fn recurse(
     execution_state: &mut ExecutionState,
     state: &State,
@@ -75,7 +55,7 @@ fn recurse(
         Some(val) => match val {
             IdentifierHelper::ArrayIndex(expr) => match curr_value {
                 Constant::Array(vtype, mut list) => {
-                    match eval_expr(expr.clone(), execution_state, state).unwrap() {
+                    match eval_expr(expr, execution_state, state).unwrap() {
                         Constant::Int(i) => {
                             list[i as usize] = recurse(
                                 execution_state,
@@ -90,7 +70,7 @@ fn recurse(
                     }
                 }
                 Constant::Map(ktype, vtype, mut wmap) => {
-                    let key = eval_expr(expr.clone(), execution_state, state).unwrap();
+                    let key = eval_expr(expr, execution_state, state).unwrap();
                     match wmap.clone().get(key.clone()) {
                         Some(constant) => {
                             wmap.insert(
@@ -101,9 +81,12 @@ fn recurse(
                                     identifier_opt,
                                     constant,
                                     final_value,
-                                ));
+                                ),
+                            );
                         }
-                        None => { wmap.insert(key, final_value); }
+                        None => {
+                            wmap.insert(key, final_value);
+                        }
                     };
                     return Constant::Map(ktype, vtype, wmap);
                 }
@@ -148,44 +131,6 @@ fn save_value(
     execution_state.var_map.insert(identifier.var_name, value);
 }
 
-// fn save_nested_value(execution_state: &mut ExecutionState, state: &State, identifier: Identifier, value: Constant) {
-//     if identifier.tail.len() == 0 {
-//         execution_state.save_variable(identifier.var_name, value);
-//         return
-//     }
-//     let a  = identifier.tail.iter()
-//     let mut curr_value = execution_state.var_map.get_mut(&identifier.var_name).unwrap();
-//     for obj in identifier.tail {
-//         match obj {
-//             IdentifierHelper::ArrayIndex(expr) => {
-//                 match curr_value {
-//                     Constant::Array(_, list) => {
-//                         match eval_expr(expr, execution_state, state).unwrap() {
-//                             Constant::Int(i) => {
-//                                 curr_value = list.get(i as usize).unwrap();
-//                             },
-//                             _ => panic!("ahh")
-//                         }
-//                     },
-//                     Constant::Map(_,_,wmap) => {
-//                         curr_value = &wmap.get(eval_expr(expr, &mut execution_state.clone(), state).unwrap()).unwrap();
-//                     },
-//                     _=> panic!("fuck")
-//                 }
-//             }
-//             IdentifierHelper::StructIndex(attribute) => {
-//                 match curr_value {
-//                     Constant::Struct(wstruct) => {
-//                         curr_value = &wstruct.get(attribute).unwrap();
-//                     }
-//                     _ => panic!("fuck")
-//                 }
-//             }
-//         }
-//     }
-//     return
-// }
-
 /*
 * evaluate an ast, one line or one if/while stm
 */
@@ -199,7 +144,7 @@ fn eval_ast(
             panic!("Err functions not evaluated in this statment. Should never be here");
         }
         AstNode::Assignment(vtype, identifier, exp) => {
-            let value = eval_expr(exp, execution_state, state)?;
+            let value = eval_expr(&exp, execution_state, state)?;
             let actual_val = match (vtype.clone(), value) {
                 (Some(VarType::Int), Constant::Char(c)) => Constant::Int(c as i32),
                 (_, val) => val,
@@ -215,8 +160,10 @@ fn eval_ast(
             match execution_state.var_map.get(&struct_name) {
                 Some(constant) => match constant.clone() {
                     Constant::Struct(mut wstruct) => {
-                        wstruct
-                            .insert(attribute.clone(), eval_expr(value, execution_state, state)?);
+                        wstruct.insert(
+                            attribute.clone(),
+                            eval_expr(&value, execution_state, state)?,
+                        );
                         execution_state
                             .var_map
                             .insert(struct_name, Constant::Struct(wstruct));
@@ -227,7 +174,7 @@ fn eval_ast(
             }
         }
         AstNode::ArrayDef(var_type, name, piped, value_exp, length_exp) => {
-            let len = match eval_expr(length_exp, execution_state, state)? {
+            let len = match eval_expr(&length_exp, execution_state, state)? {
                 Constant::Int(i) => i as usize,
                 _ => panic!("type mismatch found during execution"),
             };
@@ -245,7 +192,7 @@ fn eval_ast(
                         .var_map
                         .insert(variable.clone(), Constant::Int(i as i32));
                 }
-                elements.push(eval_expr(value_exp.clone(), execution_state, state)?);
+                elements.push(eval_expr(&value_exp.clone(), execution_state, state)?);
             }
             execution_state.pop_stack();
             execution_state.save_variable(name, Constant::Array(var_type, elements));
@@ -255,22 +202,22 @@ fn eval_ast(
             {
                 Constant::Array(var_type, elements) => (var_type, elements),
                 Constant::Map(key_type, val_type, mut hashmap) => {
-                    let index = eval_expr(index_exp, execution_state, state)?;
-                    let value = eval_expr(value_exp, execution_state, state)?;
+                    let index = eval_expr(&index_exp, execution_state, state)?;
+                    let value = eval_expr(&value_exp, execution_state, state)?;
                     hashmap.insert(index, value); // insert into hash Constant:Constant Pair
                     execution_state.save_variable(name, Constant::Map(key_type, val_type, hashmap));
                     return Ok(None);
                 }
                 _ => panic!("type mismatch found during execution"),
             };
-            let index = match eval_expr(index_exp, execution_state, state)? {
+            let index = match eval_expr(&index_exp, execution_state, state)? {
                 Constant::Int(i) => i as usize,
                 _ => panic!("type mismatch found during execution"),
             };
             if index > elements.len() {
-                return Err(ExecutionError::IndexOutOfBounds(name.clone(), index));
+                return Err(ExecutionError::IndexOutOfBounds(name, index));
             }
-            let value = eval_expr(value_exp, execution_state, state)?;
+            let value = eval_expr(&value_exp, execution_state, state)?;
             elements[index] = value;
             execution_state.save_variable(name, Constant::Array(var_type, elements));
         }
@@ -307,7 +254,7 @@ fn eval_ast(
                     println!(
                         "\"{}\" => {}",
                         exp,
-                        eval_expr(exp.clone(), execution_state, state)?
+                        eval_expr(&exp, execution_state, state)?
                     );
                 }
                 BuiltIn::StaticPrint(_) => (),
@@ -322,7 +269,7 @@ fn eval_ast(
             ()
         }
         AstNode::ReturnStm(expr) => {
-            return Ok(Some(eval_expr(expr, execution_state, state)?));
+            return Ok(Some(eval_expr(&expr, execution_state, state)?));
         }
         AstNode::Skip() => (),
     }
@@ -367,8 +314,8 @@ fn eval_bool(
     let BoolExp(lhs, op, rhs) = &*bool_exp;
     use Constant::*;
     let (lres, rres) = match (
-        eval_expr(lhs.clone(), execution_state, state)?,
-        eval_expr(rhs.clone(), execution_state, state)?,
+        eval_expr(lhs, execution_state, state)?,
+        eval_expr(rhs, execution_state, state)?,
     ) {
         (Int(i), Int(j)) => (i as f64, j as f64),
         (Float(i), Float(j)) => (i, j),
@@ -387,8 +334,8 @@ fn eval_bool(
         }
         _ => panic!(
             "type violation in eval_bool\n{:?} != {:?}",
-            eval_expr(lhs.clone(), execution_state, state)?,
-            eval_expr(rhs.clone(), execution_state, state)?
+            eval_expr(lhs, execution_state, state)?,
+            eval_expr(rhs, execution_state, state)?
         ),
     };
     Ok(match op {
@@ -405,7 +352,7 @@ fn eval_bool(
 * eval_expr evaluates inline expressions
 */
 fn eval_expr(
-    exp: Expr,
+    exp: &Expr,
     execution_state: &mut ExecutionState,
     state: &State,
 ) -> Result<Constant, ExecutionError> {
@@ -426,7 +373,7 @@ fn eval_expr(
 
                     match execution_state.var_map.get(&name.clone()).unwrap().clone() {
                         Constant::Array(_var_type, mut elements) => {
-                            let index = match eval_expr(*index_exp, execution_state, state)? {
+                            let index = match eval_expr(&*index_exp, execution_state, state)? {
                                 Constant::Int(i) => i as usize,
                                 _ => panic!("array index not a number"),
                             };
@@ -438,7 +385,7 @@ fn eval_expr(
                             }
                         }
                         Constant::String(s) => {
-                            let index = match eval_expr(*index_exp, execution_state, state)? {
+                            let index = match eval_expr(&*index_exp, execution_state, state)? {
                                 Constant::Int(i) => i as usize,
                                 _ => panic!("array index not a number"),
                             };
@@ -449,7 +396,7 @@ fn eval_expr(
                             }
                         }
                         Constant::Map(_, _, hashmap) => {
-                            let index = eval_expr(*index_exp, execution_state, state)?;
+                            let index = eval_expr(&*index_exp, execution_state, state)?;
                             match hashmap.get(index) {
                                 Some(val) => return Ok(val),
                                 None => panic!("Hashmap value does not exist"),
@@ -475,7 +422,7 @@ fn eval_expr(
                 Object::FnCall(func_call) => {
                     // need a new var map for the function, just the parameters
                     if func_call.name == "len" {
-                        match eval_expr(func_call.params[0].clone(), execution_state, state)? {
+                        match eval_expr(&func_call.params[0].clone(), execution_state, state)? {
                             Constant::Array(_, elements) => {
                                 Ok(Constant::Int(elements.len() as i32))
                             }
@@ -483,7 +430,7 @@ fn eval_expr(
                             _ => panic!("panicked tried to find the length of a non array string"),
                         }
                     } else if func_call.name == "parse_int" {
-                        match eval_expr(func_call.params[0].clone(), execution_state, state)? {
+                        match eval_expr(&func_call.params[0].clone(), execution_state, state)? {
                             Constant::String(s) => {
                                 // println!("parse int from `{}`", s);
                                 Ok(Constant::Int(s.parse::<i32>().unwrap()))
@@ -496,11 +443,12 @@ fn eval_expr(
                         std::io::stdin().read_line(&mut line).unwrap();
                         Ok(Constant::String(line))
                     } else if func_call.name == "append" {
-                        let value = eval_expr(func_call.params[0].clone(), execution_state, state)?;
+                        let value =
+                            eval_expr(&func_call.params[0].clone(), execution_state, state)?;
                         match value {
                             Constant::Array(vtype, mut values) => {
                                 values.push(eval_expr(
-                                    func_call.params[1].clone(),
+                                    &func_call.params[1].clone(),
                                     execution_state,
                                     state,
                                 )?);
@@ -509,7 +457,7 @@ fn eval_expr(
                             _ => panic!("Tried appending non array"),
                         }
                     } else if func_call.name == "to_string" {
-                        match eval_expr(func_call.params[0].clone(), execution_state, state)? {
+                        match eval_expr(&func_call.params[0].clone(), execution_state, state)? {
                             Constant::Int(i) => Ok(Constant::String(i.to_string())),
                             Constant::Char(c) => Ok(Constant::String(c.to_string())),
                             _ => panic!("panicked tried to find the length of a non array string"),
@@ -535,7 +483,7 @@ fn eval_expr(
                                     func_call.params.iter().zip(type_map.iter())
                                 {
                                     let param_const =
-                                        eval_expr(expr.clone(), execution_state, state)?;
+                                        eval_expr(&expr.clone(), execution_state, state)?;
                                     w.insert(param_name.clone(), param_const);
                                 }
                                 return Ok(Constant::Struct(w));
@@ -545,7 +493,7 @@ fn eval_expr(
                         let params = function.params.clone();
                         // iterate through the parameters provided and the function def,
                         for (expr, (_, param_name)) in func_call.params.iter().zip(params.iter()) {
-                            let param_const = eval_expr(expr.clone(), execution_state, state)?;
+                            let param_const = eval_expr(&expr.clone(), execution_state, state)?;
                             var_stack.push((param_name.clone(), 0));
                             var_map.insert(param_name.to_string(), param_const);
                         }
@@ -560,8 +508,8 @@ fn eval_expr(
             }
         }
         Expr::ExpOp(lhs, op, rhs) => {
-            let left = eval_expr(*lhs, execution_state, state)?;
-            let right = eval_expr(*rhs, execution_state, state)?;
+            let left = eval_expr(&*lhs, execution_state, state)?;
+            let right = eval_expr(&*rhs, execution_state, state)?;
             use Constant::*;
             let (l, r, var_type) = match (left, right) {
                 (Int(l), Int(r)) => (l as f64, r as f64, VarType::Int),
