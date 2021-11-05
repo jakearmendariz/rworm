@@ -68,3 +68,17 @@ it should be
 
 value_obj
     var_name ~ ('.' ~ var_name | '[' ~ expr ~ ']')*
+
+## Performance
+June 3: Before seperation of execution and function state
+```
+35 tests, 0 failures
+
+sudo bash test.sh  3.49s user 0.71s system 89% cpu 4.685 total
+```
+
+```
+35 tests, 0 failures
+
+sudo bash test.sh  1.55s user 0.69s system 86% cpu 2.585 total
+```

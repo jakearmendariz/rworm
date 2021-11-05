@@ -6,7 +6,6 @@ use crate::ast::*;
 use crate::state::State;
 use pest::iterators::{Pair, Pairs};
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
-use serde_json::value::Index;
 use std::vec::Vec;
 
 #[derive(Parser)]
@@ -351,7 +350,6 @@ pub fn parse_identifier(pair: Pair<Rule>) -> Identifier {
             None => {break;},
         }
     }
-    // println!("{} {:?}", var_name, tail);
     return Identifier {var_name, tail};
 }
 
@@ -359,10 +357,8 @@ pub fn parse_identifier(pair: Pair<Rule>) -> Identifier {
 * parses ast into nodes, only handles one clause at a time.
 */
 pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseError> {
-    // println!("pair: {:?}\n\n\n\n",pair.as_span().start());
     let rule = pair.as_rule();
     let statement = pair.as_str();
-    // matches the rule depending on the type of statments
     match rule {
         Rule::func_def => {
             parse_function(&mut pair.into_inner(), state)?;

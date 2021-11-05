@@ -14,8 +14,7 @@ mod ast;
 mod evaluate;
 mod parser;
 mod static_analysis;
-// mod intern;
-// mod seperate;
+
 mod display;
 mod state;
 mod ordering;
@@ -23,7 +22,6 @@ use crate::state::{State, ExecutionState, FakeExecutionState};
 use crate::evaluate::*;
 use crate::parser::*;
 use crate::static_analysis::*;
-// use crate::intern::*;
 use colored::*;
 use pest::Parser;
 use std::collections::HashMap;
@@ -31,11 +29,8 @@ use std::collections::HashMap;
 // builds default for state
 fn build_default_state() -> State {
     State {
-        // var_map: HashMap::new(),
         func_map: HashMap::new(),
-        // var_stack: Vec::new(),
         fn_list: Vec::new(),
-        // stack_lvl: 0,
         struct_map: HashMap::new(),
     }
 }

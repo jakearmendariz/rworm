@@ -130,9 +130,12 @@ impl StaticAnalyzer {
             match self.eval_ast(state, (**ast).clone()) {
                 Ok(res) => match res {
                     Some(val) => {
-                        // if type_match(expected_return.clone(), val.clone()) {//expected_return != &val {
-                        //     errors.push(StaticError::TypeMismatchInReturn(expected_return.clone(), val))
-                        // }
+                        if !type_match(&expected_return, &val) {
+                            errors.push(StaticError::TypeMismatchInReturn(
+                                expected_return.clone(),
+                                val,
+                            ))
+                        }
                         return_flag = true;
                     }
                     None => (),
@@ -177,18 +180,24 @@ impl StaticAnalyzer {
                         let structure_map = match state.struct_map.get(&struct_name) {
                             Some(structure_map) => structure_map,
                             None => {
-                                return Err(StaticError::General("Error".to_string()));
+                                return Err(StaticError::ValueDne(format!(
+                                    "Struct {}",
+                                    struct_name
+                                )));
                             }
                         };
                         curr_type = match get_from_vec(&attribute, structure_map) {
                             Some(vtype) => vtype,
                             None => {
-                                return Err(StaticError::General("Error".to_string()));
+                                return Err(StaticError::ValueDne(format!(
+                                    "attribute {} from struct {}",
+                                    attribute, struct_name
+                                )));
                             }
                         };
                     }
                     _ => {
-                        return Err(StaticError::General("Error".to_string()));
+                        return Err(StaticError::General("Tried to access attribute on a non-struct".to_string()));
                     }
                 },
             }
@@ -198,9 +207,6 @@ impl StaticAnalyzer {
 
     fn eval_ast(&mut self, state: &State, ast: AstNode) -> Result<Option<VarType>, StaticError> {
         match ast {
-            AstNode::Function(_) => {
-                panic!("I didn't know functions were here, is this an inner function maybe");
-            }
             AstNode::Assignment(vtype, identifier, exp) => {
                 // type check, variable type must match the result of expression
                 let value_type = self.type_of_expr(state, exp)?;
@@ -223,7 +229,6 @@ impl StaticAnalyzer {
                     }
                 };
             }
-            AstNode::StructIndexAssignment(_, _, _) => (), // TODO
             AstNode::ArrayDef(var_type, name, piped, value_exp, length_exp) => {
                 match self.type_of_expr(state, length_exp)? {
                     VarType::Int => (),
@@ -251,44 +256,6 @@ impl StaticAnalyzer {
                 self.execution_state.pop_stack();
                 self.execution_state
                     .save_variable(name, VarType::Array(Box::new(var_type)));
-            }
-            AstNode::IndexAssignment(name, index_exp, value_exp) => {
-                let var_type = match self.get_value(name.clone())? {
-                    VarType::Array(var_type) => (var_type),
-                    VarType::Map(key_type, expected_value_type) => {
-                        let index_type = self.type_of_expr(state, index_exp)?;
-                        let val_type = self.type_of_expr(state, value_exp)?;
-                        if index_type == *key_type {
-                            if val_type == *expected_value_type {
-                                return Ok(None);
-                            }
-                            return Err(StaticError::TypeViolation(*expected_value_type, val_type));
-                        }
-                        return Err(StaticError::MapKeyTypeViolation(*key_type, index_type));
-                    }
-                    _ => {
-                        return Err(StaticError::General(format!(
-                            "length of array:\'{}\' must be int",
-                            name
-                        )))
-                    }
-                };
-                match self.type_of_expr(state, index_exp)? {
-                    VarType::Int => (),
-                    _ => {
-                        return Err(StaticError::General(format!(
-                            "length of array:\'{}\' must be int",
-                            name
-                        )))
-                    }
-                };
-                let value_type = self.type_of_expr(state, value_exp)?;
-                if !type_match(&*var_type, &value_type) {
-                    return Err(StaticError::General(format!(
-                        "length of array:\'{}\' must be int",
-                        name
-                    )));
-                };
             }
             AstNode::If(if_pairs) => {
                 // TOOO: need to check every single branch
@@ -381,47 +348,41 @@ impl StaticAnalyzer {
                 match num {
                     Object::Variable(name) => {
                         // get variable as a constant value
-                        match self.execution_state.var_map.get(&name) {
-                            Some(var_type) => Ok(var_type.clone()),
-                            None => return Err(StaticError::ValueDne(name)),
-                        }
+                        Ok(self.get_value(&name)?.clone())
                     }
                     Object::Constant(Constant::Array(var_type, _elements)) => {
                         Ok(VarType::Array(Box::new(var_type)))
                     }
                     Object::Constant(Constant::Index(name, index_exp)) => {
                         // get array from state map
-                        match self.execution_state.var_map.get(&name.clone()) {
-                            Some(value) => match value.clone() {
-                                VarType::Array(var_type) => {
-                                    // TODO support X-Dimensional arrays
-                                    Ok(*var_type)
+                        match self.get_value(&name)?.clone() {
+                            VarType::Array(var_type) => {
+                                // TODO support X-Dimensional arrays
+                                Ok(*var_type)
+                            }
+                            VarType::Map(key_type, value_type) => {
+                                let index_type = self.type_of_expr(state, *index_exp)?;
+                                if &index_type != &*key_type {
+                                    return Err(StaticError::MapKeyTypeViolation(
+                                        *key_type, index_type,
+                                    ));
                                 }
-                                VarType::Map(key_type, value_type) => {
-                                    let index_type = self.type_of_expr(state, *index_exp)?;
-                                    if &index_type != &*key_type {
-                                        return Err(StaticError::MapKeyTypeViolation(
-                                            *key_type, index_type,
-                                        ));
+                                Ok(*value_type)
+                            }
+                            VarType::Int => Ok(VarType::Int), // I think this should error out
+                            VarType::String => {
+                                match self.type_of_expr(state, *index_exp)? {
+                                    VarType::Int => (),
+                                    _ => {
+                                        return Err(StaticError::Index(
+                                            name,
+                                            String::from("non int accessing array"),
+                                        ))
                                     }
-                                    Ok(*value_type)
-                                }
-                                VarType::Int => Ok(VarType::Int), // I think this should error out
-                                VarType::String => {
-                                    match self.type_of_expr(state, *index_exp)? {
-                                        VarType::Int => (),
-                                        _ => {
-                                            return Err(StaticError::Index(
-                                                name,
-                                                String::from("non int accessing array"),
-                                            ))
-                                        }
-                                    };
-                                    Ok(VarType::Char)
-                                }
-                                _ => Err(StaticError::Index(name, String::from("non array value"))),
-                            },
-                            None => Err(StaticError::ValueDne(name)),
+                                };
+                                Ok(VarType::Char)
+                            }
+                            _ => Err(StaticError::Index(name, String::from("non array value"))),
                         }
                     }
                     Object::Constant(Constant::Float(_)) => Ok(VarType::Float),
@@ -430,25 +391,21 @@ impl StaticAnalyzer {
                     Object::Constant(Constant::String(_)) => Ok(VarType::String),
                     Object::Constant(Constant::Struct(s)) => Ok(VarType::Struct(s.name)),
                     Object::Constant(Constant::StructVal(struct_name, attribute)) => {
-                        match self.execution_state.var_map.get(&struct_name) {
-                            Some(var_type) => {
-                                match var_type {
-                                    VarType::Struct(s) => {
-                                        match state.struct_map.get(s) {
-                                            Some(worm_struct) => {
-                                                match get_from_vec(&attribute, worm_struct) {
-                                                    //.get(&attribute) {
-                                                    Some(var_type) => Ok(var_type),
-                                                    None => Err(StaticError::ValueDne(attribute)),
-                                                }
-                                            }
-                                            None => Err(StaticError::ValueDne(s.to_string())),
+                        let var_type = self.get_value(&struct_name)?;
+                        match var_type {
+                            VarType::Struct(s) => {
+                                match state.struct_map.get(s) {
+                                    Some(worm_struct) => {
+                                        match get_from_vec(&attribute, worm_struct) {
+                                            //.get(&attribute) {
+                                            Some(var_type) => Ok(var_type),
+                                            None => Err(StaticError::ValueDne(attribute)),
                                         }
                                     }
-                                    _ => Err(StaticError::ValueDne(struct_name)),
+                                    None => Err(StaticError::ValueDne(s.to_string())),
                                 }
                             }
-                            None => Err(StaticError::ValueDne(struct_name)),
+                            _ => Err(StaticError::ValueDne(struct_name)),
                         }
                     }
                     Object::Constant(Constant::Map(key_type, value_type, _)) => {
@@ -496,30 +453,35 @@ impl StaticAnalyzer {
         &mut self,
         state: &State,
         func_call: &FnCall,
-    ) -> Result<Option<VarType>, StaticError> {
-        if func_call.name == "len" {
-            self.arg_count_helper(1, func_call)?;
-            Ok(Some(VarType::Int))
-        } else if func_call.name == "parse_int" {
-            self.arg_count_helper(1, func_call)?;
-            Ok(Some(VarType::Int))
-        } else if func_call.name == "user_input" {
-            Ok(Some(VarType::String))
-        } else if func_call.name == "to_str" {
-            self.arg_count_helper(1, func_call)?;
-            Ok(Some(VarType::String))
-        } else if func_call.name == "append" {
-            self.arg_count_helper(2, func_call)?;
-            // append(List<T>, T)
-            let list = self.type_of_expr(state, func_call.params[0].clone())?;
-            let value = self.type_of_expr(state, func_call.params[1].clone())?;
-            if type_match(&VarType::Array(Box::new(value.clone())), &list) {
-                Ok(Some(VarType::Array(Box::new(value))))
-            } else {
-                Err(StaticError::General(format!("BROKE ON NEW THING")))
+    ) -> Result<VarType, StaticError> {
+        match &func_call.name[..] {
+            LEN => {
+                self.arg_count_helper(1, func_call)?;
+                Ok(VarType::Int)
             }
-        } else {
-            Ok(None)
+            PARSE_INT => {
+                self.arg_count_helper(1, func_call)?;
+                Ok(VarType::Int)
+            }
+            USER_INPUT => Ok(VarType::String),
+            TO_STR => {
+                self.arg_count_helper(1, func_call)?;
+                Ok(VarType::String)
+            }
+            APPEND => {
+                self.arg_count_helper(2, func_call)?;
+                // append(List<T>, T)
+                let list = self.type_of_expr(state, func_call.params[0].clone())?;
+                let value = VarType::Array(Box::new(
+                    self.type_of_expr(state, func_call.params[1].clone())?,
+                ));
+                if type_match(&value, &list) {
+                    Ok(value)
+                } else {
+                    Err(StaticError::General(format!("BROKE ON NEW THING")))
+                }
+            }
+            _ => panic!("ERROR CANNOT FIND RESERVED FUNCTION"),
         }
     }
 
@@ -561,24 +523,25 @@ impl StaticAnalyzer {
         func_call: FnCall,
     ) -> Result<VarType, StaticError> {
         // retrive function from memory, make sure its value matches
-        match self.reserved_function(state, &func_call)? {
-            Some(var_type) => Ok(var_type),
-            None => self.user_created_function(state, func_call),
+        if RESERVED_FUNCTIONS.contains(&func_call.name[..]) {
+            self.reserved_function(state, &func_call)
+        } else {
+            self.user_created_function(state, func_call)
         }
     }
     /*
      * returns a value or that a value does not exist
      */
-    fn get_value(&mut self, name: String) -> Result<VarType, StaticError> {
-        match self.execution_state.var_map.get(&name.clone()) {
-            Some(value) => Ok(value.clone()),
-            None => Err(StaticError::ValueDne(name)),
+    fn get_value(&mut self, name: &String) -> Result<&VarType, StaticError> {
+        match self.execution_state.var_map.get(name) {
+            Some(value) => Ok(value),
+            None => Err(StaticError::ValueDne(name.to_string())),
         }
     }
 }
 
 fn expect_type(expected: &VarType, actual: &VarType) -> Result<(), StaticError> {
-    if ! type_match(expected, actual) {
+    if !type_match(expected, actual) {
         Err(StaticError::TypeViolation(expected.clone(), actual.clone()))
     } else {
         Ok(())

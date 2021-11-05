@@ -10,14 +10,9 @@ use serde::{Deserialize, Serialize};
 pub enum AstNode {
     // option(type) var_name = expression
     Assignment(Option<VarType>, Identifier, Expr),
-    // arr[exp1] = exp2;
-    IndexAssignment(String, Expr, Expr),
-    // struct.val = val
-    StructIndexAssignment(String, String, Expr),
     //type, name, optional piped variable for index, value expression, size expression
     // int[] arr = [|opt| expr1; expr2]
     ArrayDef(VarType, String, Option<String>, Expr, Expr),
-    
     // if bool then do ast
     If(Vec<(BoolAst, Vec<Box<AstNode>>)>),
     While(BoolAst, Vec<Box<AstNode>>),
@@ -27,8 +22,6 @@ pub enum AstNode {
     ReturnStm(Expr),
     // Makes life easy when designing ast to have a skip value
     Skip(),
-    // TODO functions should be inner ast structures
-    Function(Function),
 }
 
 /**
@@ -53,6 +46,26 @@ pub struct Identifier {
     pub var_name: String,
     pub tail: Vec<IdentifierHelper>,
 }
+
+pub const APPEND: &str = "append";
+pub const TO_STR: &str = "to_str";
+pub const USER_INPUT: &str = "user_input";
+pub const PARSE_INT: &str = "parse_int";
+pub const LEN: &str = "len";
+
+use std::collections::HashSet;
+lazy_static::lazy_static! {
+    pub static ref RESERVED_FUNCTIONS: HashSet<&'static str> = {
+        let mut reserved: HashSet<&'static str> = HashSet::with_capacity(10);
+        reserved.insert(APPEND);
+        reserved.insert(TO_STR);
+        reserved.insert(USER_INPUT);
+        reserved.insert(PARSE_INT);
+        reserved.insert(LEN);
+        reserved
+    };
+}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Function {
@@ -232,24 +245,6 @@ impl WormStruct {
         }
         return None;
     }
-
-    // pub fn get_mut(self, key: String) -> Option<Constant> {
-    //     // thats right, my language uses a linear lookup in my map
-    //     let mut pos = 0;
-    //     let mut position: i32 = -1;
-    //     for (stored_key, stored_val) in &self.pairs {
-    //         if *stored_key == key {
-    //             position = pos;
-
-    //         }
-    //         pos += 1
-    //     }
-    //     if position == -1 {
-    //         return None;
-    //     }
-    //     let (_, value) = self.pairs.get_mut(position as usize).unwrap();
-    //     Some(value)
-    // }
 
     pub fn insert(&mut self, key: String, value: Constant) {
         self.remove(key.clone());
