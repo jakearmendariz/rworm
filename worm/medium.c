@@ -26,8 +26,11 @@ fn test_mapping() -> int {
     map<char, int> dictionary = {char: int};
     int i = 0;
     string alpha = "abcdefghijklmnopqrstuvwxyz";
+    print("Pre-loop");
     while i < len(alpha) {
+        print("loop");
         dictionary[alpha[i]] = i;
+        print("dictionary[alpha[i]]");
         i = i + 1;
     }
     assert(dictionary['a'] == 0);

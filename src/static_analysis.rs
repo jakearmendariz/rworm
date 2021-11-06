@@ -153,7 +153,12 @@ impl StaticAnalyzer {
         state: &State,
         identifier: Identifier,
     ) -> Result<VarType, StaticError> {
-        let mut curr_type = self.execution_state.var_map.get(&identifier.var_name).unwrap().clone();
+        let mut curr_type = self
+            .execution_state
+            .var_map
+            .get(&identifier.var_name)
+            .unwrap()
+            .clone();
         for indentifier_helper in identifier.tail {
             match indentifier_helper {
                 IdentifierHelper::ArrayIndex(expr) => {
@@ -169,8 +174,15 @@ impl StaticAnalyzer {
                             expect_type(&*key_vtype, &expr_type)?;
                             curr_type = *value_vtype;
                         }
+                        VarType::String => {
+                            expect_type(&VarType::Int, &expr_type)?;
+                            curr_type = VarType::Char;
+                        }
                         _ => {
-                            return Err(StaticError::General("Error".to_string()));
+                            return Err(StaticError::General(format!(
+                                "Expected Array or Map, got \"{:?}\"",
+                                curr_type
+                            )));
                         }
                     }
                 }

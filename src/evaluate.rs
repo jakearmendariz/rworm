@@ -90,6 +90,13 @@ fn recurse(
                     };
                     return Constant::Map(ktype, vtype, wmap);
                 }
+                Constant::String(s) => {
+                    let index = eval_expr(expr, execution_state, state).unwrap();
+                    match index {
+                        Constant::Int(i) => return Constant::Char(s.chars().nth(i as usize).unwrap()),
+                        _ => panic!("Only ints can index strings")
+                    }
+                }
                 _ => panic!("fuck"),
             },
             IdentifierHelper::StructIndex(attribute) => match curr_value {
@@ -447,6 +454,13 @@ fn eval_identifier(
                     }
                     Constant::Map(_,_,wmap) => {
                         curr_value = wmap.get(eval_expr(&exp, execution_state, state)?).unwrap();
+                    }
+                    Constant::String(s) => {
+                        let index = eval_expr(&exp, execution_state, state).unwrap();
+                        match index {
+                            Constant::Int(i) => return Ok(Constant::Char(s.chars().nth(i as usize).unwrap())),
+                            _ => panic!("Only ints can index strings")
+                        }
                     }
                     _ => panic!("aah2")
                 }
