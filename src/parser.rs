@@ -6,6 +6,7 @@ use crate::ast::*;
 use crate::state::State;
 use pest::iterators::{Pair, Pairs};
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
+use std::collections::BTreeMap;
 use std::vec::Vec;
 
 #[derive(Parser)]
@@ -149,22 +150,6 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                 pair.into_inner().next().unwrap().as_str().to_string(),
             ))),
             Rule::expr => parse_into_expr(pair.into_inner()),
-            Rule::array_index => {
-                let mut arrary_index_rules = pair.into_inner();
-                let array_name = arrary_index_rules.next().unwrap().as_str().to_string();
-                let index = parse_into_expr(arrary_index_rules.next().unwrap().into_inner());
-                Expr::ExpVal(Object::Constant(Constant::Index(
-                    array_name,
-                    Box::new(index),
-                )))
-            }
-            Rule::structure_index => {
-                let mut structure_index_rules = pair.into_inner();
-                Expr::ExpVal(Object::Constant(Constant::StructVal(
-                    structure_index_rules.next().expect("Expected structure index, structure name").as_str().to_string(),
-                    structure_index_rules.next().expect("Expected structure index, value name").as_str().to_string(),
-                )))
-            }
             Rule::hash_obj => {
                 let mut inner_types = pair.into_inner();
                 let key_type = parse_type_from_rule(match inner_types.next() {
@@ -186,7 +171,7 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                 Expr::ExpVal(Object::Constant(Constant::Map(
                     key_type,
                     value_type,
-                    WormMap::default(),
+                    BTreeMap::default(),
                 )))
             }
             _ => unreachable!(),

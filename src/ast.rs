@@ -28,7 +28,7 @@ pub enum AstNode {
 /**
 * Goal is to have a structure that can symbolize
 * the following variants
-* x 
+* x
 * x[0]
 * x[0][0]
 * x.y
@@ -39,7 +39,7 @@ pub enum AstNode {
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub enum IdentifierHelper {
     ArrayIndex(Expr),
-    StructIndex(String)
+    StructIndex(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]
@@ -66,7 +66,6 @@ lazy_static::lazy_static! {
         reserved
     };
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq)]
 pub struct Function {
@@ -112,7 +111,7 @@ pub enum BoolOp {
     Gt,
 }
 
-// expression represents 
+// expression represents
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Expr {
     ExpVal(Object),
@@ -158,17 +157,13 @@ pub enum VarType {
 }
 
 impl PartialEq for VarType {
-    fn eq(&self, other:&VarType) -> bool {
+    fn eq(&self, other: &VarType) -> bool {
         use VarType::*;
         match (self, other) {
-            (Int, Int) | (String, String) | (Char, Char) => 
-                true,
-            (Int, Char) => 
-                true, // allow int => char conversion
-            (Map(k1, v1), Map(k2, v2)) => 
-                k1.eq(&k2) && v1.eq(v2),
-            (Array(arr1), Array(arr2)) => 
-                arr1.eq(arr2),
+            (Int, Int) | (String, String) | (Char, Char) => true,
+            (Int, Char) => true, // allow int => char conversion
+            (Map(k1, v1), Map(k2, v2)) => k1.eq(&k2) && v1.eq(v2),
+            (Array(arr1), Array(arr2)) => arr1.eq(arr2),
             _ => false,
         }
     }
@@ -181,10 +176,8 @@ pub enum Constant {
     String(String),
     Char(char),
     Array(VarType, Vec<Constant>), // Arrays are fixed size in worm, but its easiest to implement with vec
-    Index(String, Box<Expr>), // string for variable name, expr will the the key or index (array or Hash, PartialEq, PartialOrd, Eqmap)
-    Map(VarType, VarType, WormMap), // custom type for Hash, PartialEq, PartialOrd, Eqmap
+    Map(VarType, VarType, BTreeMap<Constant, Constant>), // custom type for Hash, PartialEq, PartialOrd, Eqmap
     Struct(WormStruct),
-    StructVal(String, String)
 }
 
 use std::cmp::Ordering;
@@ -215,30 +208,9 @@ impl PartialOrd for Constant {
     }
 }
 
-/*
-* Hash, PartialEq, PartialOrd, Eqmap implementation is literally linear
-* I wanted to be able to nest Hash, PartialEq, PartialOrd, Eqmaps in this version I can
-* Its trash and would need to be replaced (if I had more time)
-* NOTE if I convert float to two integers instead, default Hash, PartialEq, PartialOrd, Eqmap implementation works
-*/
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialOrd, Eq, Ord, PartialEq, Hash)]
-pub struct WormMap {
-    pairs: BTreeMap<Constant, Constant>,
-}
-
-impl WormMap {
-    pub fn get(self, key: Constant) -> Option<Constant> {
-        Some(self.pairs.get(&key)?.clone())
-    }
-
-    pub fn insert(&mut self, key: Constant, value: Constant) {
-        self.pairs.insert(key, value);
-    }
-}
-
-
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub struct WormStruct {
+    // structs need names because they need to map to a defined type structure
     pub name: String,
     pub pairs: BTreeMap<String, Constant>,
 }

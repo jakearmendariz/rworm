@@ -147,11 +147,9 @@ fn postfix_to_tree(string postfix) -> struct<Node> {
 
 /* executes the tree */
 fn evaluate_tree(struct<Node> root) -> int {
-    if root.type == 2 { /* is operation 
-        struct<Node>[] l = root.left; */
-        struct<Node>[] r = root.right;
+    if root.type == 2 { /* is operation */
         int left = evaluate_tree(root.left[0]);
-        int right = evaluate_tree(r[0]);
+        int right = evaluate_tree(root.right[0]);
         if root.op == '+' {
             return left + right;
         } else if root.op == '-' {
