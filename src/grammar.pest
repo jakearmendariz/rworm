@@ -29,11 +29,9 @@ array_initial = {"[" ~ piped? ~ expr ~ ";" ~ expr ~ "]"}
 array_definition = {array_inst ~ var_name ~ "=" ~ (array_initial | array_empty) }
 array_val = {"[" ~ list? ~ "]"}
 array_empty =  {"[" ~ var_type ~ "]"}
-array_index = {var_name ~"[" ~ expr ~ "]"}
 
 structure_items = {(var_name ~ ":" ~ var_type) ~ ("," ~ (var_name ~ ":" ~ var_type))*}
 structure_def = {"struct" ~ var_name ~ "{" ~ structure_items ~ ","? ~ "}"}
-structure_index = {var_name ~ "." ~ var_name }
 
 var_type = {array_inst | vint | vfloat | vstring | vbool | vchar | hmap | structure}
     vint = {"int"}

@@ -13,11 +13,9 @@ pub enum StaticError {
     ValueDne(String),
     TypeViolation(VarType, VarType),
     NeedReturnStm(String),
-    MapKeyTypeViolation(VarType, VarType),
     TypeMismatchInReturn(VarType, VarType),
     CannotFindFunction(String),
     General(String),
-    Index(String, String), // array name, type of error
 }
 
 impl std::fmt::Display for StaticError {
@@ -34,17 +32,9 @@ impl std::fmt::Display for StaticError {
                 write!(f, "function \'{}\' does not exist", name)
             }
             StaticError::General(x) => write!(f, "{}", x),
-            StaticError::Index(name, reason) => {
-                write!(f, "array index error in array \'{}\' for {}", name, reason)
-            }
             StaticError::TypeMismatchInReturn(expected, recieved) => write!(
                 f,
                 "Type mismatch on return, expected {}, recieved {}",
-                expected, recieved
-            ),
-            StaticError::MapKeyTypeViolation(expected, recieved) => write!(
-                f,
-                "Type for key in map, expected {}, recieved {}",
                 expected, recieved
             ),
         }
@@ -365,60 +355,10 @@ impl StaticAnalyzer {
                     Object::Constant(Constant::Array(var_type, _elements)) => {
                         Ok(VarType::Array(Box::new(var_type)))
                     }
-                    Object::Constant(Constant::Index(name, index_exp)) => {
-                        // get array from state map
-                        match self.get_value(&name)?.clone() {
-                            VarType::Array(var_type) => {
-                                // TODO support X-Dimensional arrays
-                                Ok(*var_type)
-                            }
-                            VarType::Map(key_type, value_type) => {
-                                let index_type = self.type_of_expr(state, *index_exp)?;
-                                if &index_type != &*key_type {
-                                    return Err(StaticError::MapKeyTypeViolation(
-                                        *key_type, index_type,
-                                    ));
-                                }
-                                Ok(*value_type)
-                            }
-                            VarType::Int => Ok(VarType::Int), // I think this should error out
-                            VarType::String => {
-                                match self.type_of_expr(state, *index_exp)? {
-                                    VarType::Int => (),
-                                    _ => {
-                                        return Err(StaticError::Index(
-                                            name,
-                                            String::from("non int accessing array"),
-                                        ))
-                                    }
-                                };
-                                Ok(VarType::Char)
-                            }
-                            _ => Err(StaticError::Index(name, String::from("non array value"))),
-                        }
-                    }
                     Object::Constant(Constant::Int(_)) => Ok(VarType::Int),
                     Object::Constant(Constant::Char(_)) => Ok(VarType::Char),
                     Object::Constant(Constant::String(_)) => Ok(VarType::String),
                     Object::Constant(Constant::Struct(s)) => Ok(VarType::Struct(s.name)),
-                    Object::Constant(Constant::StructVal(struct_name, attribute)) => {
-                        let var_type = self.get_value(&struct_name)?;
-                        match var_type {
-                            VarType::Struct(s) => {
-                                match state.struct_map.get(s) {
-                                    Some(worm_struct) => {
-                                        match get_from_vec(&attribute, worm_struct) {
-                                            //.get(&attribute) {
-                                            Some(var_type) => Ok(var_type),
-                                            None => Err(StaticError::ValueDne(attribute)),
-                                        }
-                                    }
-                                    None => Err(StaticError::ValueDne(s.to_string())),
-                                }
-                            }
-                            _ => Err(StaticError::ValueDne(struct_name)),
-                        }
-                    }
                     Object::Constant(Constant::Map(key_type, value_type, _)) => {
                         Ok(VarType::Map(Box::new(key_type), Box::new(value_type)))
                     }

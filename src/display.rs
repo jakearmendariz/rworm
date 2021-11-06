@@ -35,7 +35,6 @@ impl std::fmt::Display for BoolExp {
     }
 }
 
-
 impl Expr {
     pub fn expr_to_str(self) -> String {
         match &*&self {
@@ -66,7 +65,6 @@ impl std::fmt::Display for Expr {
     }
 }
 
-
 impl std::fmt::Display for VarType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &*self {
@@ -74,9 +72,8 @@ impl std::fmt::Display for VarType {
             VarType::Char => write!(f, "char"),
             VarType::String => write!(f, "string"),
             VarType::Array(vtype) => write!(f, "{}[]", vtype),
-            VarType::Map(key_type, val_type) => 
-                write!(f, "map<{},{}>", key_type, val_type),
-            VarType::Struct(_)  => write!(f, "worm struct"),
+            VarType::Map(key_type, val_type) => write!(f, "map<{},{}>", key_type, val_type),
+            VarType::Struct(_) => write!(f, "worm struct"),
         }
     }
 }
@@ -88,10 +85,7 @@ impl std::fmt::Display for Constant {
             Constant::Char(c) => write!(f, "{}", c),
             Constant::String(s) => write!(f, "{}", s),
             Constant::Array(t, n) => write!(f, "{}[{}]", t, n.len()),
-            Constant::Index(a, i) => write!(f, "{}[{}]", a, *i),
-            Constant::Map(key_type, val_type, _) => 
-                write!(f, "map<{},{}>{{}}", key_type, val_type),
-            Constant::StructVal(s_name, a_name) => write!(f, "{}.{}", s_name, a_name),
+            Constant::Map(key_type, val_type, _) => write!(f, "map<{},{}>{{}}", key_type, val_type),
             Constant::Struct(s) => write!(f, "struct {}", s.name),
         }
     }
@@ -104,10 +98,10 @@ impl std::fmt::Display for Identifier {
             match sub {
                 IdentifierHelper::ArrayIndex(expr) => {
                     string = format!("{}[{}]", string, expr);
-                },
+                }
                 IdentifierHelper::StructIndex(expr) => {
                     string = format!("{}.{}", string, expr);
-                },
+                }
             }
         }
         write!(f, "{}", string)
@@ -128,9 +122,9 @@ impl std::fmt::Display for Object {
                     }
                     first = false;
                     result.push_str(&format!("{}", expr)[..]);
-                }   
+                }
                 write!(f, "{})", result)
-            },
+            }
         }
     }
 }

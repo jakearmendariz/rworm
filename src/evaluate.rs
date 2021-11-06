@@ -4,13 +4,12 @@
 use crate::ast::*;
 use crate::state::{ExecutionState, State};
 use colored::*;
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Clone)]
 pub enum ExecutionError {
     DivideByZero,
     AssertionError(BoolAst),
-    IndexOutOfBounds(String, usize),
 }
 
 static MAIN: &str = "main";
@@ -57,6 +56,9 @@ fn recurse(
                 Constant::Array(vtype, mut list) => {
                     match eval_expr(expr, execution_state, state).unwrap() {
                         Constant::Int(i) => {
+                            if (i as usize) >= list.len() {
+                                panic!("Index out of bounds for on array")
+                            }
                             list[i as usize] = recurse(
                                 execution_state,
                                 state,
@@ -71,7 +73,7 @@ fn recurse(
                 }
                 Constant::Map(ktype, vtype, mut wmap) => {
                     let key = eval_expr(expr, execution_state, state).unwrap();
-                    match wmap.clone().get(key.clone()) {
+                    match wmap.clone().get(&key) {
                         Some(constant) => {
                             wmap.insert(
                                 key,
@@ -79,7 +81,7 @@ fn recurse(
                                     execution_state,
                                     state,
                                     identifier_opt,
-                                    constant,
+                                    constant.clone(),
                                     final_value,
                                 ),
                             );
@@ -93,8 +95,15 @@ fn recurse(
                 Constant::String(s) => {
                     let index = eval_expr(expr, execution_state, state).unwrap();
                     match index {
-                        Constant::Int(i) => return Constant::Char(s.chars().nth(i as usize).unwrap()),
-                        _ => panic!("Only ints can index strings")
+                        Constant::Int(i) => {
+                            return {
+                                if (i as usize) >= s.len() {
+                                    panic!("Index out of bounds for {}", s)
+                                }
+                                Constant::Char(s.chars().nth(i as usize).unwrap())
+                            }
+                        }
+                        _ => panic!("Only ints can index strings"),
                     }
                 }
                 _ => panic!("fuck"),
@@ -332,57 +341,6 @@ fn eval_expr(
                 Object::Constant(Constant::Array(var_type, elements)) => {
                     Ok(Constant::Array(var_type, elements))
                 }
-                Object::Constant(Constant::Index(name, index_exp)) => {
-                    // get array from state map
-                    // get the index, if its not number return error
-
-                    match execution_state.var_map.get(&name.clone()).unwrap().clone() {
-                        Constant::Array(_var_type, mut elements) => {
-                            let index = match eval_expr(&*index_exp, execution_state, state)? {
-                                Constant::Int(i) => i as usize,
-                                _ => panic!("array index not a number"),
-                            };
-                            if elements.len() <= index {
-                                println!("exp: {}", exp);
-                                return Err(ExecutionError::IndexOutOfBounds(name, index));
-                            } else {
-                                return Ok(elements.remove(index));
-                            }
-                        }
-                        Constant::String(s) => {
-                            let index = match eval_expr(&*index_exp, execution_state, state)? {
-                                Constant::Int(i) => i as usize,
-                                _ => panic!("array index not a number"),
-                            };
-                            if s.len() <= index {
-                                return Err(ExecutionError::IndexOutOfBounds(name, index));
-                            } else {
-                                return Ok(Constant::Char(s.as_bytes()[index as usize] as char));
-                            }
-                        }
-                        Constant::Map(_, _, hashmap) => {
-                            let index = eval_expr(&*index_exp, execution_state, state)?;
-                            match hashmap.get(index) {
-                                Some(val) => return Ok(val),
-                                None => panic!("Hashmap value does not exist"),
-                            }
-                        }
-                        _ => panic!("trying to index a variable thats not an array"),
-                    };
-                }
-                Object::Constant(Constant::StructVal(name, attribute)) => {
-                    let constant = execution_state
-                        .var_map
-                        .get(&name)
-                        .expect("Value does not exist for function/constructor");
-                    match constant {
-                        Constant::Struct(worm_struct) => match worm_struct.clone().get(attribute) {
-                            Some(val) => return Ok(val),
-                            None => panic!("Error undefined attribuite"),
-                        },
-                        _ => panic!("Non struct attempted to be accessed"),
-                    }
-                }
                 Object::Constant(constant) => Ok(constant),
                 Object::FnCall(func_call) => eval_fn_call(func_call, execution_state, state),
             }
@@ -439,41 +397,41 @@ fn eval_identifier(
     execution_state: &mut ExecutionState,
     state: &State,
 ) -> Result<Constant, ExecutionError> {
-    let mut curr_value = execution_state.var_map.get(&identifier.var_name).unwrap().clone();
+    let mut curr_value = execution_state
+        .var_map
+        .get(&identifier.var_name)
+        .unwrap()
+        .clone();
     for ih in identifier.tail {
         match ih {
-            IdentifierHelper::ArrayIndex(exp) => {
-                match curr_value {
-                    Constant::Array(_,list) => {
-                        match eval_expr(&exp, execution_state, state)? {
-                            Constant::Int(i) => {
-                                curr_value = list[i as usize].clone();
-                            }
-                            _ => panic!("Fuck")
-                        }
+            IdentifierHelper::ArrayIndex(exp) => match curr_value {
+                Constant::Array(_, list) => match eval_expr(&exp, execution_state, state)? {
+                    Constant::Int(i) => {
+                        curr_value = list[i as usize].clone();
                     }
-                    Constant::Map(_,_,wmap) => {
-                        curr_value = wmap.get(eval_expr(&exp, execution_state, state)?).unwrap();
-                    }
-                    Constant::String(s) => {
-                        let index = eval_expr(&exp, execution_state, state).unwrap();
-                        match index {
-                            Constant::Int(i) => return Ok(Constant::Char(s.chars().nth(i as usize).unwrap())),
-                            _ => panic!("Only ints can index strings")
-                        }
-                    }
-                    _ => panic!("aah2")
+                    _ => panic!("Fuck"),
+                },
+                Constant::Map(_, _, wmap) => {
+                    curr_value = wmap
+                        .get(&eval_expr(&exp, execution_state, state)?)
+                        .unwrap()
+                        .clone();
                 }
-            }
-            IdentifierHelper::StructIndex(attribute) => {
-                match curr_value {
-                    
-                    Constant::Struct(wstruct) => {
-                        curr_value = wstruct.get(attribute).unwrap()
+                Constant::String(s) => {
+                    let index = eval_expr(&exp, execution_state, state).unwrap();
+                    match index {
+                        Constant::Int(i) => {
+                            return Ok(Constant::Char(s.chars().nth(i as usize).unwrap()))
+                        }
+                        _ => panic!("Only ints can index strings"),
                     }
-                    _ => panic!("Ahh")
                 }
-            }
+                _ => panic!("[] index to neither map, array or string"),
+            },
+            IdentifierHelper::StructIndex(attribute) => match curr_value {
+                Constant::Struct(wstruct) => curr_value = wstruct.get(attribute).unwrap(),
+                _ => panic!("struct index to a non struct"),
+            },
         }
     }
     Ok(curr_value)
@@ -485,13 +443,12 @@ fn eval_reserved_functions(
     state: &State,
 ) -> Result<Constant, ExecutionError> {
     match &func_call.name[..] {
-        LEN => {
-            match eval_expr(&func_call.params[0].clone(), execution_state, state)? {
-                Constant::Array(_, elements) => Ok(Constant::Int(elements.len() as i32)),
-                Constant::String(s) => Ok(Constant::Int(s.len() as i32)),
-                _ => panic!("panicked tried to find the length of a non array string"),
-            }
-        } PARSE_INT => {
+        LEN => match eval_expr(&func_call.params[0].clone(), execution_state, state)? {
+            Constant::Array(_, elements) => Ok(Constant::Int(elements.len() as i32)),
+            Constant::String(s) => Ok(Constant::Int(s.len() as i32)),
+            _ => panic!("panicked tried to find the length of a non array string"),
+        },
+        PARSE_INT => {
             match eval_expr(&func_call.params[0].clone(), execution_state, state)? {
                 Constant::String(s) => {
                     // println!("parse int from `{}`", s);
@@ -500,11 +457,13 @@ fn eval_reserved_functions(
                 Constant::Char(c) => Ok(Constant::Int(c as i32 - 48)),
                 _ => panic!("panicked tried to find the length of a non array string"),
             }
-        } USER_INPUT => {
+        }
+        USER_INPUT => {
             let mut line = String::new();
             std::io::stdin().read_line(&mut line).unwrap();
             Ok(Constant::String(line))
-        } APPEND => {
+        }
+        APPEND => {
             let value = eval_expr(&func_call.params[0].clone(), execution_state, state)?;
             match value {
                 Constant::Array(vtype, mut values) => {
@@ -517,13 +476,13 @@ fn eval_reserved_functions(
                 }
                 _ => panic!("Tried appending non array"),
             }
-        } TO_STR => {
-            match eval_expr(&func_call.params[0].clone(), execution_state, state)? {
-                Constant::Int(i) => Ok(Constant::String(i.to_string())),
-                Constant::Char(c) => Ok(Constant::String(c.to_string())),
-                _ => panic!("panicked tried to find the length of a non array string"),
-            }
-        } _ => {
+        }
+        TO_STR => match eval_expr(&func_call.params[0].clone(), execution_state, state)? {
+            Constant::Int(i) => Ok(Constant::String(i.to_string())),
+            Constant::Char(c) => Ok(Constant::String(c.to_string())),
+            _ => panic!("panicked tried to find the length of a non array string"),
+        },
+        _ => {
             panic!("ahh")
         }
     }
