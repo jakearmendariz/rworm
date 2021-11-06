@@ -4,7 +4,7 @@
 use crate::ast::*;
 use crate::state::{ExecutionState, State};
 use colored::*;
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 
 #[derive(Debug, Clone)]
 pub enum ExecutionError {
@@ -278,7 +278,6 @@ fn eval_bool(
         eval_expr(rhs, execution_state, state)?,
     ) {
         (Int(i), Int(j)) => (i as f64, j as f64),
-        (Float(i), Float(j)) => (i, j),
         (Char(i), Char(j)) => (i as u32 as f64, j as u32 as f64),
         (Map(_, _, _), _) => panic!("type violation in eval_bool, cannot compare map"),
         (_, Map(_, _, _)) => panic!("type violation in eval_bool, cannot compare map"),
@@ -387,7 +386,6 @@ fn eval_expr(
             use Constant::*;
             let (l, r, var_type) = match (left, right) {
                 (Int(l), Int(r)) => (l as f64, r as f64, VarType::Int),
-                (Float(l), Float(r)) => (l, r, VarType::Float),
                 (String(l), String(r)) => match op {
                     OpType::Add => return Ok(Constant::String(format!("{}{}", l, r))),
                     _ => panic!("expr operation on strings only allow +"),
@@ -421,7 +419,6 @@ fn eval_expr(
             };
             match var_type {
                 VarType::Int => Ok(Constant::Int(res as i32)),
-                VarType::Float => Ok(Constant::Float(res)),
                 _ => {
                     panic!("type violation caught in execution while trying to evaluate expression")
                 }
@@ -541,7 +538,7 @@ fn eval_fn_call(
             // iterate through the parameters provided and the function def,
             let mut w = WormStruct {
                 name: fn_name.clone(),
-                pairs: Vec::new(),
+                pairs: BTreeMap::new(),
             };
             w.name = fn_name;
             for (expr, (param_name, _)) in func_call.params.iter().zip(type_map.iter()) {

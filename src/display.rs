@@ -72,7 +72,6 @@ impl std::fmt::Display for VarType {
         match &*self {
             VarType::Int => write!(f, "int"),
             VarType::Char => write!(f, "char"),
-            VarType::Float => write!(f, "float"),
             VarType::String => write!(f, "string"),
             VarType::Array(vtype) => write!(f, "{}[]", vtype),
             VarType::Map(key_type, val_type) => 
@@ -86,7 +85,6 @@ impl std::fmt::Display for Constant {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &*self {
             Constant::Int(i) => write!(f, "{}", i),
-            Constant::Float(fl) => write!(f, "{}", fl),
             Constant::Char(c) => write!(f, "{}", c),
             Constant::String(s) => write!(f, "{}", s),
             Constant::Array(t, n) => write!(f, "{}[{}]", t, n.len()),

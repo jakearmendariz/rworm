@@ -385,7 +385,6 @@ impl StaticAnalyzer {
                             _ => Err(StaticError::Index(name, String::from("non array value"))),
                         }
                     }
-                    Object::Constant(Constant::Float(_)) => Ok(VarType::Float),
                     Object::Constant(Constant::Int(_)) => Ok(VarType::Int),
                     Object::Constant(Constant::Char(_)) => Ok(VarType::Char),
                     Object::Constant(Constant::String(_)) => Ok(VarType::String),
@@ -551,7 +550,7 @@ fn expect_type(expected: &VarType, actual: &VarType) -> Result<(), StaticError> 
 fn type_match(a: &VarType, b: &VarType) -> bool {
     use VarType::*;
     match (a, b) {
-        (Int, Int) | (Float, Float) | (String, String) | (Char, Char) => true,
+        (Int, Int) | (String, String) | (Char, Char) => true,
         (Struct(s1), Struct(s2)) => s1.eq(s2),
         (Int, Char) => true, // allow int => char conversion
         (Map(k1, v1), Map(k2, v2)) => type_match(&*k1, &*k2) && type_match(&*v1, &*v2),

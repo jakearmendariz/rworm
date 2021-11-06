@@ -112,9 +112,6 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
     PREC_CLIMBER.climb(
         expression,
         |pair: Pair<Rule>| match pair.as_rule() {
-            Rule::float => Expr::ExpVal(Object::Constant(Constant::Float(
-                pair.as_str().parse::<f64>().unwrap(),
-            ))),
             Rule::int => {
                 let mut no_whitespace = pair.as_str().to_string();
                 remove_whitespace(&mut no_whitespace);
@@ -249,7 +246,6 @@ fn parse_structure(mut attribute_rules: Pairs<Rule>) -> Result<Vec<(String, VarT
 fn parse_type_from_rule(rule: Pair<Rule>) -> Result<VarType, ParseError> {
     Ok(match rule.as_rule() {
         Rule::vint => VarType::Int,
-        Rule::vfloat => VarType::Float,
         Rule::vstring => VarType::String,
         Rule::vchar => VarType::Char,
         Rule::var_type => parse_type_from_rule(rule.into_inner().next().unwrap())?,

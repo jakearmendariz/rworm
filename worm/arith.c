@@ -14,12 +14,25 @@ struct Node {
 }
 
 fn build_value(int value) -> struct<Node> {
+    struct<Node>[] left = [struct<Node>];
+    struct<Node>[] right = [struct<Node>];
+    return Node(1, 'a', value, left, right);
+}
+
+fn build_op(char value) -> struct<Node> {
+    struct<Node>[] left = [struct<Node>];
+    struct<Node>[] right = [struct<Node>];
+    return Node(2, value, 0, left, right);
+}
+/*
+fn build_value(int value) -> struct<Node> {
     return Node(1, 'a', value, [struct<Node>], [struct<Node>]);
 }
 
 fn build_op(char value) -> struct<Node> {
     return Node(2, value, 0, [struct<Node>], [struct<Node>]);
 }
+*/
 
 /* checks if a character is an operator */
 fn is_operator(char c) -> int {
@@ -135,8 +148,10 @@ fn postfix_to_tree(string postfix) -> struct<Node> {
 /* executes the tree */
 fn evaluate_tree(struct<Node> root) -> int {
     if root.type == 2 { /* is operation */
-        int left = evaluate_tree(root.left[0]);
-        int right = evaluate_tree(root.right[0]);
+        struct<Node>[] l = root.left;
+        struct<Node>[] r = root.right;
+        int left = evaluate_tree(l[0]);
+        int right = evaluate_tree(r[0]);
         if root.op == '+' {
             return left + right;
         } else if root.op == '-' {

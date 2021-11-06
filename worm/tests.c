@@ -15,9 +15,6 @@ fn main() -> string {
      /* checking string stuff */
     assert(hello("hello", ", world") == "hello, world");
 
-    /* floating point test */
-    assert(floating_lcm(10.0, 12.0) == 60.0);
-
     /* array creation tests */
     int []arr = [|i| i; 5];
     assert(playing_with_arrays(arr) == 0);
