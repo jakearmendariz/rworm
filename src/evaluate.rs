@@ -319,10 +319,9 @@ fn eval_expr(
     match exp.clone() {
         Expr::ExpVal(num) => {
             match num {
-                Object::Variable(name) => {
+                Object::Identifier(identifier) => {
                     // get variable as a constant value
-                    // println!("execute name lookup: {}", name.clone());
-                    Ok(execution_state.var_map.get(&name).unwrap().clone())
+                    eval_identifier(identifier, execution_state, state)
                 }
                 Object::Constant(Constant::Array(var_type, elements)) => {
                     Ok(Constant::Array(var_type, elements))
@@ -429,6 +428,44 @@ fn eval_expr(
             }
         }
     }
+}
+
+fn eval_identifier(
+    identifier: Identifier,
+    execution_state: &mut ExecutionState,
+    state: &State,
+) -> Result<Constant, ExecutionError> {
+    let mut curr_value = execution_state.var_map.get(&identifier.var_name).unwrap().clone();
+    for ih in identifier.tail {
+        match ih {
+            IdentifierHelper::ArrayIndex(exp) => {
+                match curr_value {
+                    Constant::Array(_,list) => {
+                        match eval_expr(&exp, execution_state, state)? {
+                            Constant::Int(i) => {
+                                curr_value = list[i as usize].clone();
+                            }
+                            _ => panic!("Fuck")
+                        }
+                    }
+                    Constant::Map(_,_,wmap) => {
+                        curr_value = wmap.get(eval_expr(&exp, execution_state, state)?).unwrap();
+                    }
+                    _ => panic!("aah2")
+                }
+            }
+            IdentifierHelper::StructIndex(attribute) => {
+                match curr_value {
+                    
+                    Constant::Struct(wstruct) => {
+                        curr_value = wstruct.get(attribute).unwrap()
+                    }
+                    _ => panic!("Ahh")
+                }
+            }
+        }
+    }
+    Ok(curr_value)
 }
 
 fn eval_reserved_functions(

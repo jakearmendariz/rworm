@@ -122,7 +122,7 @@ pub enum Expr {
 // helpful in expressions
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Object {
-    Variable(String),
+    Identifier(Identifier),
     Constant(Constant),
     FnCall(FnCall),
 }

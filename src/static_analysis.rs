@@ -153,8 +153,7 @@ impl StaticAnalyzer {
         state: &State,
         identifier: Identifier,
     ) -> Result<VarType, StaticError> {
-        let mut curr_type =
-            self.type_of_expr(state, Expr::ExpVal(Object::Variable(identifier.var_name)))?;
+        let mut curr_type = self.execution_state.var_map.get(&identifier.var_name).unwrap().clone();
         for indentifier_helper in identifier.tail {
             match indentifier_helper {
                 IdentifierHelper::ArrayIndex(expr) => {
@@ -197,7 +196,9 @@ impl StaticAnalyzer {
                         };
                     }
                     _ => {
-                        return Err(StaticError::General("Tried to access attribute on a non-struct".to_string()));
+                        return Err(StaticError::General(
+                            "Tried to access attribute on a non-struct".to_string(),
+                        ));
                     }
                 },
             }
@@ -210,7 +211,6 @@ impl StaticAnalyzer {
             AstNode::Assignment(vtype, identifier, exp) => {
                 // type check, variable type must match the result of expression
                 let value_type = self.type_of_expr(state, exp)?;
-
                 match vtype {
                     Some(var_type) => {
                         if type_match(&var_type, &value_type) {
@@ -346,9 +346,9 @@ impl StaticAnalyzer {
         match exp {
             Expr::ExpVal(num) => {
                 match num {
-                    Object::Variable(name) => {
+                    Object::Identifier(identifier) => {
                         // get variable as a constant value
-                        Ok(self.get_value(&name)?.clone())
+                        self.get_type_of_identifier(state, identifier)
                     }
                     Object::Constant(Constant::Array(var_type, _elements)) => {
                         Ok(VarType::Array(Box::new(var_type)))

@@ -77,7 +77,7 @@ fn main() {
             return;
         }
     }
-
+    
     let mut static_analyzer = build_static_analyzer();
     match static_analyzer.check_program(&state) {
         Ok(()) => (),

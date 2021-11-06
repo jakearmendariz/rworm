@@ -126,7 +126,10 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                 let character = pair.into_inner().next().unwrap().as_str();
                 character.chars().next().unwrap()
             }))),
-            Rule::var_name => Expr::ExpVal(Object::Variable(pair.as_str().to_string())),
+            // Rule::var_name => Expr::ExpVal(Object::Variable(pair.as_str().to_string())),
+            Rule::identifier => {
+                Expr::ExpVal(Object::Identifier(parse_identifier(pair)))
+            }
             Rule::func_call => {
                 let mut inner = pair.into_inner();
                 let func_name = inner.next().unwrap().as_str().to_string();

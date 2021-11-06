@@ -45,7 +45,6 @@ fn test_mapping() -> int {
     int i = 0;
     string alpha = "abcdefghijklmnopqrstuvwxyz";
     while i < len(alpha) {
-        print(alpha[i]);
         dictionary[alpha[i]] = i;
         i = i + 1;
     }

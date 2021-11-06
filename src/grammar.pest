@@ -12,7 +12,7 @@ operation = _{ add | subtract | multiply | divide | power }
     modulus  = { "%" }
 
 expr = { term ~ (operation ~ term)* }
-term = _{float | int | char | func_call | array_index | structure_index | var_name | string | hash_obj  | "(" ~ expr ~ ")" }
+term = _{float | int | char | func_call | array_index | structure_index | identifier | string | hash_obj  | "(" ~ expr ~ ")" }
 identifier = { var_name ~ (("." ~ var_name) | ("[" ~ expr ~ "]"))* }
 
 COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }

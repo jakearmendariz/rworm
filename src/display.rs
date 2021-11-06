@@ -99,10 +99,27 @@ impl std::fmt::Display for Constant {
     }
 }
 
+impl std::fmt::Display for Identifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut string = self.var_name.to_string();
+        for sub in &self.tail {
+            match sub {
+                IdentifierHelper::ArrayIndex(expr) => {
+                    string = format!("{}[{}]", string, expr);
+                },
+                IdentifierHelper::StructIndex(expr) => {
+                    string = format!("{}.{}", string, expr);
+                },
+            }
+        }
+        write!(f, "{}", string)
+    }
+}
+
 impl std::fmt::Display for Object {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &*self {
-            Object::Variable(x) => write!(f, "{}", x),
+            Object::Identifier(x) => write!(f, "{}", x),
             Object::Constant(c) => write!(f, "{}", c),
             Object::FnCall(func_call) => {
                 let mut result = format!("{}(", func_call.name);

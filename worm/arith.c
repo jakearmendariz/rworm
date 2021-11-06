@@ -1,12 +1,6 @@
 /**
- * OUTDATED
- * 
- * I want to change this to be fully statically typed
- * this means removing the use of dictionaries with mutliple types
- * Sadly this means for this code to continue I will need to support
- * structs/classes or else have a collection of spaghetti code
- * accounting for the poor lang design. I don't want to do that, 
- * thus I am going to leave this as a TODO
+ * Creates and parses a expression tree.
+ * Best demonstration of worm
  */
 
 import "worm/wormstd.c";
@@ -20,15 +14,11 @@ struct Node {
 }
 
 fn build_value(int value) -> struct<Node> {
-    struct<Node>[] left = [struct<Node>];
-    struct<Node>[] right = [struct<Node>];
-    return Node(1, 'a', value, left, right);
+    return Node(1, 'a', value, [struct<Node>], [struct<Node>]);
 }
 
 fn build_op(char value) -> struct<Node> {
-    struct<Node>[] left = [struct<Node>];
-    struct<Node>[] right = [struct<Node>];
-    return Node(2, value, 0, left, right);
+    return Node(2, value, 0, [struct<Node>], [struct<Node>]);
 }
 
 /* checks if a character is an operator */
@@ -39,19 +29,6 @@ fn is_operator(char c) -> int {
     }
     return 0;
 }
-
-/* builds a node in the expression tree 
-fn build_node(char data) -> map<string, int> {
-    map<string, char> node = {string:char};
-    node["data"] = data;
-    if is_operator(data) == 1 {
-        return Node(2, )
-    } else {
-        node["is_op"] = 'F';
-    }
-    return node;
-}
-*/
 
 /* sets the order of precedence */
 fn get_precedence_order() -> map<char, int> {
@@ -158,10 +135,8 @@ fn postfix_to_tree(string postfix) -> struct<Node> {
 /* executes the tree */
 fn evaluate_tree(struct<Node> root) -> int {
     if root.type == 2 { /* is operation */
-        struct<Node>[] l = root.left;
-        struct<Node>[] r = root.right;
-        int left = evaluate_tree(l[0]);
-        int right = evaluate_tree(r[0]);
+        int left = evaluate_tree(root.left[0]);
+        int right = evaluate_tree(root.right[0]);
         if root.op == '+' {
             return left + right;
         } else if root.op == '-' {
