@@ -8,7 +8,7 @@ use crate::HashMap;
 use serde::{Deserialize, Serialize};
 use crate::ast::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct State {
     pub func_map: HashMap<String, Function>,
     pub fn_list: Vec<String>, // list of function names
@@ -16,14 +16,14 @@ pub struct State {
 }
 
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ExecutionState {
     pub var_map: HashMap<String, Constant>,
     pub var_stack: Vec<(String, u32)>,
     pub stack_lvl: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FakeExecutionState {
     pub var_map: HashMap<String, VarType>,
     pub var_stack: Vec<(String, u32)>,

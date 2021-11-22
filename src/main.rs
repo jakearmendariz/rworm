@@ -17,58 +17,23 @@ mod static_analysis;
 
 mod display;
 mod state;
-mod ordering;
-use crate::state::{State, ExecutionState, FakeExecutionState};
-use crate::evaluate::*;
+use crate::state::{State, ExecutionState};
+use crate::evaluate::run_program;
 use crate::parser::*;
-use crate::static_analysis::*;
+use crate::static_analysis::{log_errors, StaticAnalyzer};
 use colored::*;
 use pest::Parser;
 use std::collections::HashMap;
-
-// builds default for state
-fn build_default_state() -> State {
-    State {
-        func_map: HashMap::new(),
-        fn_list: Vec::new(),
-        struct_map: HashMap::new(),
-    }
-}
-
-fn build_default_execution_state() -> ExecutionState {
-    ExecutionState {
-        var_map: HashMap::new(),
-        var_stack: Vec::new(),
-        stack_lvl: 0,
-    }
-}
-
-fn build_default_fake_execution_state() -> FakeExecutionState {
-    FakeExecutionState {
-        var_map: HashMap::new(),
-        var_stack: Vec::new(),
-        stack_lvl: 0,
-    }
-}
-
-fn build_static_analyzer() -> StaticAnalyzer {
-    StaticAnalyzer {
-        execution_state: build_default_fake_execution_state(),
-        errors: Vec::new()
-    }
-}
 
 /*
 * Main function for worm interpretter
 */
 fn main() {
-    let first_arg = std::env::args().nth(1).expect("expected a filename");
-    // compile and execute
-    let filename = &format!("{}", first_arg)[..];
-    let expression = std::fs::read_to_string(filename).expect("cannot read file"); //from file
+    let filename = std::env::args().nth(1).expect("expected a filename");
+    let expression = std::fs::read_to_string(filename).expect("cannot read file");
     let pairs =
         WormParser::parse(Rule::program, &expression).unwrap_or_else(|e| panic!("{}", e));
-    let mut state = build_default_state();
+    let mut state = State::default();
     // parses the program into an AST, saves the functions AST in the state to be called upon later
     match parse_program(pairs, &mut state) {
         Ok(()) => (),
@@ -78,7 +43,7 @@ fn main() {
         }
     }
     
-    let mut static_analyzer = build_static_analyzer();
+    let mut static_analyzer = StaticAnalyzer::default();
     match static_analyzer.check_program(&state) {
         Ok(()) => (),
         Err(e) => {
@@ -86,7 +51,7 @@ fn main() {
             return;
         }
     }
-    let mut execution_state = build_default_execution_state();
+    let mut execution_state = ExecutionState::default();
     match run_program(&mut execution_state, &state) {
         Ok(result) => {
             println!("{}", result);

@@ -68,7 +68,7 @@ fn recurse(
                             );
                             return Constant::Array(vtype, list);
                         }
-                        _ => panic!("ahh"),
+                        _ => panic!("Tried to index an array with a non int"),
                     }
                 }
                 Constant::Map(ktype, vtype, mut wmap) => {
@@ -106,7 +106,7 @@ fn recurse(
                         _ => panic!("Only ints can index strings"),
                     }
                 }
-                _ => panic!("fuck"),
+                _ => panic!("Tried to index a non string or non array"),
             },
             IdentifierHelper::StructIndex(attribute) => match curr_value {
                 Constant::Struct(mut wstruct) => {
@@ -123,7 +123,7 @@ fn recurse(
                     );
                     return Constant::Struct(wstruct);
                 }
-                _ => panic!("fuck"),
+                _ => panic!("struct index on a non struct"),
             },
         },
         None => final_value,
@@ -295,8 +295,7 @@ fn eval_bool(
     ) {
         (Int(i), Int(j)) => (i as f64, j as f64),
         (Char(i), Char(j)) => (i as u32 as f64, j as u32 as f64),
-        (Map(_, _, _), _) => panic!("type violation in eval_bool, cannot compare map"),
-        (_, Map(_, _, _)) => panic!("type violation in eval_bool, cannot compare map"),
+        (Map(_, _, _), _) | (_, Map(_, _, _)) => panic!("type violation in eval_bool, cannot compare map"),
         (String(s1), String(s2)) => {
             return Ok(match op {
                 BoolOp::Eq => s1 == s2,
@@ -409,7 +408,7 @@ fn eval_identifier(
                     Constant::Int(i) => {
                         curr_value = list[i as usize].clone();
                     }
-                    _ => panic!("Fuck"),
+                    _ => panic!("Tried an array with an non int value"),
                 },
                 Constant::Map(_, _, wmap) => {
                     curr_value = wmap
@@ -483,7 +482,7 @@ fn eval_reserved_functions(
             _ => panic!("panicked tried to find the length of a non array string"),
         },
         _ => {
-            panic!("ahh")
+            panic!("reserved function not found in eval")
         }
     }
 }

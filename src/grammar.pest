@@ -65,7 +65,7 @@ bool_joiners = _{and | or}
     and = {"&"}
     or = {"|"}
 
-not = _{"¬"}
+not = _{"!"}
 exprp = _{"("? ~ expr ~ ")"?}
 boolexp = {exprp ~ boolops ~ exprp}
 boolconst = _{tru | fal}

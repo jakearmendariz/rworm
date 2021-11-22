@@ -40,7 +40,7 @@ impl std::fmt::Display for StaticError {
         }
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct StaticAnalyzer {
     pub execution_state: FakeExecutionState,
     pub errors: Vec<(String, StaticError)>,
@@ -155,12 +155,10 @@ impl StaticAnalyzer {
                     let expr_type = self.type_of_expr(state, expr)?;
                     match curr_type {
                         VarType::Array(var_type) => {
-                            // TODO ensure expr_type matches int
                             expect_type(&VarType::Int, &expr_type)?;
                             curr_type = *var_type;
                         }
                         VarType::Map(key_vtype, value_vtype) => {
-                            // TODO expr_type matches key_type
                             expect_type(&*key_vtype, &expr_type)?;
                             curr_type = *value_vtype;
                         }
@@ -208,6 +206,38 @@ impl StaticAnalyzer {
         Ok(curr_type)
     }
 
+    fn check_array_def(
+        &mut self, state: &State, var_type: VarType, name: String, piped: Option<String>, value_exp: Expr, length_exp: Expr
+    ) -> Result<(), StaticError> {
+        match self.type_of_expr(state, length_exp)? {
+            VarType::Int => (),
+            _ => {
+                return Err(StaticError::General(format!(
+                    "length of array:\'{}\' must be int",
+                    name
+                )));
+            }
+        };
+        // elements of the array
+        let (variable, pipe) = match piped {
+            Some(piped) => (piped, true),
+            None => (String::from(""), false),
+        };
+        self.execution_state.increment_stack_level();
+        for _ in 0..2 {
+            // not currently type checking need to add that later on
+            if pipe {
+                self.execution_state
+                    .save_variable(variable.clone(), VarType::Int);
+            }
+            self.type_of_expr(state, value_exp.clone())?;
+        }
+        self.execution_state.pop_stack();
+        self.execution_state
+            .save_variable(name, VarType::Array(Box::new(var_type)));
+        Ok(())
+    }
+
     fn eval_ast(&mut self, state: &State, ast: AstNode) -> Result<Option<VarType>, StaticError> {
         match ast {
             AstNode::Assignment(vtype, identifier, exp) => {
@@ -232,32 +262,7 @@ impl StaticAnalyzer {
                 };
             }
             AstNode::ArrayDef(var_type, name, piped, value_exp, length_exp) => {
-                match self.type_of_expr(state, length_exp)? {
-                    VarType::Int => (),
-                    _ => {
-                        return Err(StaticError::General(format!(
-                            "length of array:\'{}\' must be int",
-                            name
-                        )));
-                    }
-                };
-                // elements of the array
-                let (variable, pipe) = match piped {
-                    Some(piped) => (piped, true),
-                    None => (String::from(""), false),
-                };
-                self.execution_state.increment_stack_level();
-                for _ in 0..2 {
-                    // not currently type checking need to add that later on
-                    if pipe {
-                        self.execution_state
-                            .save_variable(variable.clone(), VarType::Int);
-                    }
-                    self.type_of_expr(state, value_exp.clone())?;
-                }
-                self.execution_state.pop_stack();
-                self.execution_state
-                    .save_variable(name, VarType::Array(Box::new(var_type)));
+                self.check_array_def(state, var_type, name, piped, value_exp, length_exp)?;
             }
             AstNode::If(if_pairs) => {
                 // TOOO: need to check every single branch
@@ -478,15 +483,6 @@ impl StaticAnalyzer {
             self.reserved_function(state, &func_call)
         } else {
             self.user_created_function(state, func_call)
-        }
-    }
-    /*
-     * returns a value or that a value does not exist
-     */
-    fn get_value(&mut self, name: &String) -> Result<&VarType, StaticError> {
-        match self.execution_state.var_map.get(name) {
-            Some(value) => Ok(value),
-            None => Err(StaticError::ValueDne(name.to_string())),
         }
     }
 }
