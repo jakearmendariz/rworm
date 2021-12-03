@@ -396,6 +396,7 @@ impl StaticAnalyzer {
         expected_params: usize,
         fn_call: &FnCall,
     ) -> Result<(), StaticError> {
+        // TODO check all params match
         if fn_call.params.len() != expected_params {
             Err(StaticError::General(format!(
                 "Error {} requires exactly {} arg",
@@ -432,11 +433,8 @@ impl StaticAnalyzer {
                 let value = VarType::Array(Box::new(
                     self.type_of_expr(state, func_call.params[1].clone())?,
                 ));
-                if type_match(&value, &list) {
-                    Ok(value)
-                } else {
-                    Err(StaticError::General(format!("BROKE ON NEW THING")))
-                }
+                expect_type(&value, &list)?;
+                Ok(value)
             }
             _ => panic!("ERROR CANNOT FIND RESERVED FUNCTION"),
         }
@@ -459,19 +457,13 @@ impl StaticAnalyzer {
                 }
             }
         };
-        let Function {
-            name: _,
-            params,
-            return_type,
-            statements: _,
-        } = function.clone();
         // iterate through the parameters provided and the function def,
-        for (expr, (var_type, _)) in func_call.params.iter().zip(params.iter()) {
+        for (expr, (var_type, _)) in func_call.params.iter().zip(function.params.iter()) {
             let param_const = self.type_of_expr(state, expr.clone())?;
             expect_type(&var_type, &param_const)?;
         }
         // function input types match expected values, return a empty constant of matching type
-        Ok(return_type)
+        Ok(function.return_type.clone())
     }
 
     fn type_of_func_call(

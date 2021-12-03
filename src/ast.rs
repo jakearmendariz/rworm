@@ -146,19 +146,6 @@ pub enum VarType {
     Struct(String),
 }
 
-impl PartialEq for VarType {
-    fn eq(&self, other: &VarType) -> bool {
-        use VarType::*;
-        match (self, other) {
-            (Int, Int) | (String, String) | (Char, Char) => true,
-            (Int, Char) => true, // allow int => char conversion
-            (Map(k1, v1), Map(k2, v2)) => k1.eq(&k2) && v1.eq(v2),
-            (Array(arr1), Array(arr2)) => arr1.eq(arr2),
-            _ => false,
-        }
-    }
-}
-
 // TODO convert Float to be represented as two integers
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, Eq, Ord)]
 pub enum Constant {
@@ -171,6 +158,19 @@ pub enum Constant {
 }
 
 use std::cmp::Ordering;
+
+impl PartialEq for VarType {
+    fn eq(&self, other: &VarType) -> bool {
+        use VarType::*;
+        match (self, other) {
+            (Int, Int) | (String, String) | (Char, Char) => true,
+            (Int, Char) => true, // allow int => char conversion
+            (Map(k1, v1), Map(k2, v2)) => k1.eq(&k2) && v1.eq(v2),
+            (Array(arr1), Array(arr2)) => arr1.eq(arr2),
+            _ => false,
+        }
+    }
+}
 
 // Checks equality amon the constants
 impl PartialEq for Constant {
