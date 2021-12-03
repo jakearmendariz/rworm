@@ -90,7 +90,7 @@ pub enum BoolAst {
     Not(Box<BoolAst>),
     And(Box<BoolAst>, Box<BoolAst>),
     Or(Box<BoolAst>, Box<BoolAst>),
-    Exp(BoolExp),
+    Exp(Expr, BoolOp, Expr),
     Const(bool),
 }
 
@@ -101,9 +101,6 @@ pub enum BuiltIn {
     StaticPrint(Expr),
 }
 
-// boolean expressions for conditional statements
-#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq)]
-pub struct BoolExp(pub Expr, pub BoolOp, pub Expr);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq)]
 pub enum BoolOp {
@@ -125,13 +122,6 @@ pub enum Expr {
         params: Vec<Expr>,
     },
     BinaryExpr(Box<Expr>, OpType, Box<Expr>),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]
-pub struct Operation {
-    op: OpType,
-    left: Box<Expr>,
-    right: Box<Expr>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]

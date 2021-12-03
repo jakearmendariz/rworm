@@ -328,7 +328,7 @@ impl StaticAnalyzer {
                 self.check_bool_ast(state, &*a)?;
                 self.check_bool_ast(state, &*b)?
             }
-            BoolAst::Exp(exp) => self.check_bool(state, &*exp)?,
+            BoolAst::Exp(left, _, right) => self.check_bool(state, left, right)?,
             BoolAst::Const(_) => (),
         };
         Ok(())
@@ -337,8 +337,7 @@ impl StaticAnalyzer {
     /*
      * evaluates expressions and constants to true false values
      */
-    fn check_bool(&mut self, state: &State, bool_exp: &BoolExp) -> Result<(), StaticError> {
-        let BoolExp(lhs, _, rhs) = &*bool_exp;
+    fn check_bool(&mut self, state: &State, lhs: &Expr, rhs: &Expr) -> Result<(), StaticError> {
         let right = self.type_of_expr(state, rhs.clone())?;
         let left = self.type_of_expr(state, lhs.clone())?;
         if !type_match(&left, &right) {
