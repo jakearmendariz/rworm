@@ -109,19 +109,19 @@ fn recurse(
                 _ => panic!("Tried to index a non string or non array"),
             },
             IdentifierHelper::StructIndex(attribute) => match curr_value {
-                Constant::Struct(mut wstruct) => {
-                    let updated_val = wstruct.clone().get(attribute.clone()).unwrap();
-                    wstruct.insert(
+                Constant::Struct{name, mut pairs} => {
+                    let updated_val = pairs.clone().get(&attribute.clone()).unwrap().clone();
+                    pairs.insert(
                         attribute.clone(),
                         recurse(
                             execution_state,
                             state,
                             identifier_opt,
-                            updated_val,
+                            updated_val.clone(),
                             final_value,
                         ),
                     );
-                    return Constant::Struct(wstruct);
+                    return Constant::Struct{name, pairs};
                 }
                 _ => panic!("struct index on a non struct"),
             },
@@ -429,7 +429,7 @@ fn eval_identifier(
                 _ => panic!("[] index to neither map, array or string"),
             },
             IdentifierHelper::StructIndex(attribute) => match curr_value {
-                Constant::Struct(wstruct) => curr_value = wstruct.get(attribute).unwrap(),
+                Constant::Struct{name:_, pairs} => curr_value = pairs.get(&attribute).unwrap().clone(),
                 _ => panic!("struct index to a non struct"),
             },
         }
@@ -509,16 +509,12 @@ fn eval_fn_call(
                 .get(&fn_name)
                 .expect("Value does not exist for function/constructor");
             // iterate through the parameters provided and the function def,
-            let mut w = WormStruct {
-                name: fn_name.clone(),
-                pairs: BTreeMap::new(),
-            };
-            w.name = fn_name;
+            let mut pairs = BTreeMap::new();
             for (expr, (param_name, _)) in func_call.params.iter().zip(type_map.iter()) {
                 let param_const = eval_expr(&expr.clone(), execution_state, state)?;
-                w.insert(param_name.clone(), param_const);
+                pairs.insert(param_name.clone(), param_const);
             }
-            return Ok(Constant::Struct(w));
+            return Ok(Constant::Struct{name:fn_name, pairs});
         }
     };
     let mut var_stack: Vec<(String, u32)> = Vec::new();

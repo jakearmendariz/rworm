@@ -10,21 +10,21 @@ impl std::fmt::Display for BoolAst {
             Not(a) => write!(f, "{}", a),
             And(a, b) => write!(f, "{} & {} ", a, b),
             Or(a, b) => write!(f, "{} | {}", a, b),
-            Exp(lhs, op, rhs) => write!(f, "{} {:?} {}", lhs, op, rhs),
+            Exp(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
             Const(a) => write!(f, "{}", a),
         }
     }
 }
 
-impl BoolOp {
-    pub fn as_str(self) -> &'static str {
+impl std::fmt::Display for BoolOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &self {
-            BoolOp::Eq => "==",
-            BoolOp::Neq => "!=",
-            BoolOp::Leq => "<=",
-            BoolOp::Geq => ">=",
-            BoolOp::Lt => "<",
-            BoolOp::Gt => ">",
+            BoolOp::Eq => write!(f, "=="),
+            BoolOp::Neq => write!(f, "!="),
+            BoolOp::Leq => write!(f, "<="),
+            BoolOp::Geq => write!(f, ">="),
+            BoolOp::Lt => write!(f, "<"),
+            BoolOp::Gt =>write!(f, ">"),
         }
     }
 }
@@ -95,7 +95,7 @@ impl std::fmt::Display for Constant {
             Constant::String(s) => write!(f, "{}", s),
             Constant::Array(t, n) => write!(f, "{}[{}]", t, n.len()),
             Constant::Map(key_type, val_type, _) => write!(f, "map<{},{}>{{}}", key_type, val_type),
-            Constant::Struct(s) => write!(f, "struct {}", s.name),
+            Constant::Struct { name, pairs:_ } => write!(f, "struct {}", name),
         }
     }
 }

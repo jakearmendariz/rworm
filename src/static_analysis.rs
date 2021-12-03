@@ -362,7 +362,7 @@ impl StaticAnalyzer {
                     Constant::Int(_) => Ok(VarType::Int),
                     Constant::Char(_) => Ok(VarType::Char),
                     Constant::String(_) => Ok(VarType::String),
-                    Constant::Struct(s) => Ok(VarType::Struct(s.name)),
+                    Constant::Struct {name, pairs:_} => Ok(VarType::Struct(name)),
                     Constant::Map(key_type, value_type, _) => {
                         Ok(VarType::Map(Box::new(key_type), Box::new(value_type)))
                     }

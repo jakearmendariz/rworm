@@ -167,7 +167,7 @@ pub enum Constant {
     Char(char),
     Array(VarType, Vec<Constant>), // Arrays are fixed size in worm, but its easiest to implement with vec
     Map(VarType, VarType, BTreeMap<Constant, Constant>), // custom type for Hash, PartialEq, PartialOrd, Eqmap
-    Struct(WormStruct),
+    Struct {name: String, pairs: BTreeMap<String, Constant>},
 }
 
 use std::cmp::Ordering;
@@ -195,22 +195,5 @@ impl PartialOrd for Constant {
             (String(i), String(j)) => i.cmp(j),
             _ => return None,
         })
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default, Hash, PartialEq, PartialOrd, Eq, Ord)]
-pub struct WormStruct {
-    // structs need names because they need to map to a defined type structure
-    pub name: String,
-    pub pairs: BTreeMap<String, Constant>,
-}
-
-impl WormStruct {
-    pub fn get(self, key: String) -> Option<Constant> {
-        Some(self.pairs.get(&key)?.clone())
-    }
-
-    pub fn insert(&mut self, key: String, value: Constant) {
-        self.pairs.insert(key, value);
     }
 }
