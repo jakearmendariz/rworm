@@ -240,16 +240,16 @@ impl StaticAnalyzer {
 
     fn eval_ast(&mut self, state: &State, ast: AstNode) -> Result<Option<VarType>, StaticError> {
         match ast {
-            AstNode::Assignment(vtype, identifier, exp) => {
+            AstNode::Assignment{var_type, identifier, expr} => {
                 // type check, variable type must match the result of expression
-                let value_type = self.type_of_expr(state, exp)?;
-                match vtype {
-                    Some(var_type) => {
-                        if type_match(&var_type, &value_type) {
+                let value_type = self.type_of_expr(state, expr)?;
+                match var_type {
+                    Some(vtype) => {
+                        if type_match(&vtype, &value_type) {
                             self.execution_state
-                                .save_variable(identifier.var_name, var_type);
+                                .save_variable(identifier.var_name, vtype);
                         } else {
-                            return Err(StaticError::TypeViolation(var_type, value_type));
+                            return Err(StaticError::TypeViolation(vtype, value_type));
                         }
                     }
                     None => {

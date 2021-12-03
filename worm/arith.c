@@ -118,6 +118,7 @@ fn pop_stack(struct<Node>[] arr) -> struct<Node>[] {
 
 /* Convert the postfix notation to a tree */
 fn postfix_to_tree(string postfix) -> struct<Node> {
+    /* print(postfix); */
     struct<Node>[] stack = [struct<Node>];
     int i = 0;
     while i < len(postfix) {

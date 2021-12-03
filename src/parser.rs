@@ -375,11 +375,11 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 }
             };
             let expression = parse_into_expr(inner_rules.next().unwrap().into_inner());
-            Ok(AstNode::Assignment(
-                var_type,
-                identifier,
-                expression,
-            ))
+            Ok(AstNode::Assignment{
+                var_type: var_type,
+                identifier: identifier,
+                expr: expression,
+            })
         }
         Rule::array_definition => {
             // format of `int[] a = [expression; size];`
@@ -409,10 +409,10 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 ),
                 Rule::var_type => {
                     let vtype = parse_type_from_rule(first)?;
-                    return Ok(AstNode::Assignment(
-                        Some(VarType::Array(Box::new(vtype.clone()))), 
-                        Identifier {var_name: array_name, tail: Vec::new()}, 
-                        Expr::ExpVal(
+                    return Ok(AstNode::Assignment {
+                        var_type:Some(VarType::Array(Box::new(vtype.clone()))), 
+                        identifier:Identifier {var_name: array_name, tail: Vec::new()}, 
+                        expr:Expr::ExpVal(
                             Object::Constant(
                                 Constant::Array(
                                     vtype, 
@@ -420,7 +420,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                                 )
                             )
                         )
-                    ));
+                    });
                 }
                 Rule::expr => (None, parse_into_expr(first.into_inner())),
                 _ => {

@@ -82,3 +82,17 @@ sudo bash test.sh  3.49s user 0.71s system 89% cpu 4.685 total
 
 sudo bash test.sh  1.55s user 0.69s system 86% cpu 2.585 total
 ```
+
+
+# Byte Code
+
+### Assignment
+- Var = OP Var Var
+- Var = OP Var Const
+- Var = OP Const Const
+
+### Return
+- return Const
+- return Var
+
+

@@ -10,7 +10,11 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq)]
 pub enum AstNode {
     // option(type) var_name = expression
-    Assignment(Option<VarType>, Identifier, Expr),
+    Assignment {
+        var_type: Option<VarType>, 
+        identifier: Identifier, 
+        expr: Expr
+    },
     //type, name, optional piped variable for index, value expression, size expression
     // int[] arr = [|opt| expr1; expr2]
     ArrayDef(VarType, String, Option<String>, Expr, Expr),
