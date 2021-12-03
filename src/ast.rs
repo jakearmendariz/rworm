@@ -118,17 +118,13 @@ pub enum BoolOp {
 // expression represents
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Expr {
-    ExpVal(Object),
-    ExpOp(Box<Expr>, OpType, Box<Expr>),
-}
-
-// objects abstract away the constant to allow for variables and function calls
-// helpful in expressions
-#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]
-pub enum Object {
     Identifier(Identifier),
     Constant(Constant),
-    FnCall(FnCall),
+    FnCall {
+        name: String,
+        params: Vec<Expr>,
+    },
+    BinaryExpr(Box<Expr>, OpType, Box<Expr>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]

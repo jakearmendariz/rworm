@@ -38,10 +38,25 @@ impl std::fmt::Display for BoolExp {
 impl Expr {
     pub fn expr_to_str(self) -> String {
         match &*&self {
-            Expr::ExpVal(object) => {
-                format!("{}", object)
+            Expr::Identifier(identifier) => {
+                format!("{}", identifier)
             }
-            Expr::ExpOp(exp1, op, exp2) => {
+            Expr::FnCall{name, params} => {
+                let mut result = format!("{}(", name);
+                let mut first = true;
+                for expr in params {
+                    if !first {
+                        result.push_str(", ");
+                    }
+                    first = false;
+                    result.push_str(&format!("{}", expr)[..]);
+                }
+                format!("{})", result)
+            }
+            Expr::Constant(constant) => {
+                format!("{}", constant)
+            }
+            Expr::BinaryExpr(exp1, op, exp2) => {
                 let p1 = exp1.clone().expr_to_str();
                 let p2 = exp2.clone().expr_to_str();
                 use OpType::*;
@@ -105,26 +120,5 @@ impl std::fmt::Display for Identifier {
             }
         }
         write!(f, "{}", string)
-    }
-}
-
-impl std::fmt::Display for Object {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match &*self {
-            Object::Identifier(x) => write!(f, "{}", x),
-            Object::Constant(c) => write!(f, "{}", c),
-            Object::FnCall(func_call) => {
-                let mut result = format!("{}(", func_call.name);
-                let mut first = true;
-                for expr in &func_call.params {
-                    if !first {
-                        result.push_str(", ");
-                    }
-                    first = false;
-                    result.push_str(&format!("{}", expr)[..]);
-                }
-                write!(f, "{})", result)
-            }
-        }
     }
 }

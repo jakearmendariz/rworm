@@ -351,26 +351,28 @@ impl StaticAnalyzer {
      */
     fn type_of_expr(&mut self, state: &State, exp: Expr) -> Result<VarType, StaticError> {
         match exp {
-            Expr::ExpVal(num) => {
-                match num {
-                    Object::Identifier(identifier) => {
-                        // get variable as a constant value
-                        self.get_type_of_identifier(state, identifier)
-                    }
-                    Object::Constant(Constant::Array(var_type, _elements)) => {
+            Expr::Identifier(identifier) => {
+                // get variable as a constant value
+                self.get_type_of_identifier(state, identifier)
+            }
+            Expr::Constant(constant) => {
+                match constant {
+                    Constant::Array(var_type, _elements) => {
                         Ok(VarType::Array(Box::new(var_type)))
                     }
-                    Object::Constant(Constant::Int(_)) => Ok(VarType::Int),
-                    Object::Constant(Constant::Char(_)) => Ok(VarType::Char),
-                    Object::Constant(Constant::String(_)) => Ok(VarType::String),
-                    Object::Constant(Constant::Struct(s)) => Ok(VarType::Struct(s.name)),
-                    Object::Constant(Constant::Map(key_type, value_type, _)) => {
+                    Constant::Int(_) => Ok(VarType::Int),
+                    Constant::Char(_) => Ok(VarType::Char),
+                    Constant::String(_) => Ok(VarType::String),
+                    Constant::Struct(s) => Ok(VarType::Struct(s.name)),
+                    Constant::Map(key_type, value_type, _) => {
                         Ok(VarType::Map(Box::new(key_type), Box::new(value_type)))
                     }
-                    Object::FnCall(func_call) => self.type_of_func_call(state, func_call),
                 }
             }
-            Expr::ExpOp(lhs, _, rhs) => {
+            Expr::FnCall{name, params} => {
+                self.type_of_func_call(state, FnCall {name, params})
+            }
+            Expr::BinaryExpr(lhs, _, rhs) => {
                 let left = self.type_of_expr(state, *lhs)?;
                 let right = self.type_of_expr(state, *rhs)?;
                 use VarType::*;

@@ -331,20 +331,19 @@ fn eval_expr(
     state: &State,
 ) -> Result<Constant, ExecutionError> {
     match exp.clone() {
-        Expr::ExpVal(num) => {
-            match num {
-                Object::Identifier(identifier) => {
-                    // get variable as a constant value
-                    eval_identifier(identifier, execution_state, state)
-                }
-                Object::Constant(Constant::Array(var_type, elements)) => {
+        Expr::Identifier(identifier) => {
+            eval_identifier(identifier, execution_state, state)
+        }
+        Expr::Constant(constant) => {
+            match constant {
+                Constant::Array(var_type, elements) => {
                     Ok(Constant::Array(var_type, elements))
-                }
-                Object::Constant(constant) => Ok(constant),
-                Object::FnCall(func_call) => eval_fn_call(func_call, execution_state, state),
+                },
+                _ => Ok(constant)
             }
         }
-        Expr::ExpOp(lhs, op, rhs) => {
+        Expr::FnCall {name, params} => eval_fn_call(FnCall{name, params}, execution_state, state),
+        Expr::BinaryExpr(lhs, op, rhs) => {
             let left = eval_expr(&*lhs, execution_state, state)?;
             let right = eval_expr(&*rhs, execution_state, state)?;
             use Constant::*;

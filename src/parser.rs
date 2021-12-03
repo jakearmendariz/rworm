@@ -116,17 +116,17 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
             Rule::int => {
                 let mut no_whitespace = pair.as_str().to_string();
                 remove_whitespace(&mut no_whitespace);
-                Expr::ExpVal(Object::Constant(Constant::Int(
+                Expr::Constant(Constant::Int(
                     no_whitespace.parse::<i32>().unwrap(),
-                )))
+                ))
             }
-            Rule::char => Expr::ExpVal(Object::Constant(Constant::Char({
+            Rule::char => Expr::Constant(Constant::Char({
                 let character = pair.into_inner().next().unwrap().as_str();
                 character.chars().next().unwrap()
-            }))),
+            })),
             // Rule::var_name => Expr::ExpVal(Object::Variable(pair.as_str().to_string())),
             Rule::identifier => {
-                Expr::ExpVal(Object::Identifier(parse_identifier(pair)))
+                Expr::Identifier(parse_identifier(pair))
             }
             Rule::func_call => {
                 let mut inner = pair.into_inner();
@@ -141,14 +141,14 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                     }
                     None => (),
                 }
-                Expr::ExpVal(Object::FnCall(FnCall {
+                Expr::FnCall{
                     name: func_name,
                     params: params,
-                }))
+                }
             }
-            Rule::string => Expr::ExpVal(Object::Constant(Constant::String(
+            Rule::string => Expr::Constant(Constant::String(
                 pair.into_inner().next().unwrap().as_str().to_string(),
-            ))),
+            )),
             Rule::expr => parse_into_expr(pair.into_inner()),
             Rule::hash_obj => {
                 let mut inner_types = pair.into_inner();
@@ -168,21 +168,21 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                     None => panic!("missing key type from Map"),
                 })
                 .unwrap();
-                Expr::ExpVal(Object::Constant(Constant::Map(
+                Expr::Constant(Constant::Map(
                     key_type,
                     value_type,
                     BTreeMap::default(),
-                )))
+                ))
             }
             _ => unreachable!(),
         },
         |lhs: Expr, op: Pair<Rule>, rhs: Expr| match op.as_rule() {
-            Rule::add => Expr::ExpOp(Box::new(lhs), OpType::Add, Box::new(rhs)),
-            Rule::subtract => Expr::ExpOp(Box::new(lhs), OpType::Sub, Box::new(rhs)),
-            Rule::multiply => Expr::ExpOp(Box::new(lhs), OpType::Mult, Box::new(rhs)),
-            Rule::divide => Expr::ExpOp(Box::new(lhs), OpType::Div, Box::new(rhs)),
-            Rule::power => Expr::ExpOp(Box::new(lhs), OpType::Pow, Box::new(rhs)),
-            Rule::modulus => Expr::ExpOp(Box::new(lhs), OpType::Modulus, Box::new(rhs)),
+            Rule::add => Expr::BinaryExpr(Box::new(lhs), OpType::Add, Box::new(rhs)),
+            Rule::subtract => Expr::BinaryExpr(Box::new(lhs), OpType::Sub, Box::new(rhs)),
+            Rule::multiply => Expr::BinaryExpr(Box::new(lhs), OpType::Mult, Box::new(rhs)),
+            Rule::divide => Expr::BinaryExpr(Box::new(lhs), OpType::Div, Box::new(rhs)),
+            Rule::power => Expr::BinaryExpr(Box::new(lhs), OpType::Pow, Box::new(rhs)),
+            Rule::modulus => Expr::BinaryExpr(Box::new(lhs), OpType::Modulus, Box::new(rhs)),
             _ => unreachable!(),
         },
     )
@@ -412,12 +412,10 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                     return Ok(AstNode::Assignment {
                         var_type:Some(VarType::Array(Box::new(vtype.clone()))), 
                         identifier:Identifier {var_name: array_name, tail: Vec::new()}, 
-                        expr:Expr::ExpVal(
-                            Object::Constant(
-                                Constant::Array(
-                                    vtype, 
-                                    Vec::new()
-                                )
+                        expr:Expr::Constant(
+                            Constant::Array(
+                                vtype, 
+                                Vec::new()
                             )
                         )
                     });
