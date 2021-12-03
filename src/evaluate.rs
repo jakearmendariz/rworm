@@ -274,7 +274,7 @@ fn eval_bool_ast(
             eval_bool_ast(&*a, execution_state, state)?
                 | eval_bool_ast(&*b, execution_state, state)?
         }
-        BoolAst::Exp(exp) => eval_bool(&*exp, execution_state, state)?,
+        BoolAst::Exp(lhs, op, rhs) => eval_bool(execution_state, state, &*lhs, &*op, &*rhs)?,
         BoolAst::Const(boolean) => *boolean,
     })
 }
@@ -283,11 +283,13 @@ fn eval_bool_ast(
 * evaluates expressions and constants to true false values
 */
 fn eval_bool(
-    bool_exp: &BoolExp,
     execution_state: &mut ExecutionState,
     state: &State,
+    lhs: &Expr,
+    op: &BoolOp,
+    rhs: &Expr,
 ) -> Result<bool, ExecutionError> {
-    let BoolExp(lhs, op, rhs) = &*bool_exp;
+    // let BoolExp(lhs, op, rhs) = &*bool_exp;
     use Constant::*;
     let (lres, rres) = match (
         eval_expr(lhs, execution_state, state)?,

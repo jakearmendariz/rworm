@@ -10,7 +10,7 @@ impl std::fmt::Display for BoolAst {
             Not(a) => write!(f, "{}", a),
             And(a, b) => write!(f, "{} & {} ", a, b),
             Or(a, b) => write!(f, "{} | {}", a, b),
-            Exp(a) => write!(f, "{}", a),
+            Exp(lhs, op, rhs) => write!(f, "{} {:?} {}", lhs, op, rhs),
             Const(a) => write!(f, "{}", a),
         }
     }
@@ -26,12 +26,6 @@ impl BoolOp {
             BoolOp::Lt => "<",
             BoolOp::Gt => ">",
         }
-    }
-}
-
-impl std::fmt::Display for BoolExp {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{} {} {}", self.0, self.1.clone().as_str(), self.2)
     }
 }
 

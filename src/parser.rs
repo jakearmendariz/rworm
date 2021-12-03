@@ -64,8 +64,8 @@ lazy_static::lazy_static! {
 }
 
 /* parse a boolean expression, for a == b, return (a, ==, b) */
-fn parse_bool_exp(bool_exp: &mut Pairs<Rule>) -> BoolExp {
-    BoolExp(
+fn parse_bool_exp(bool_exp: &mut Pairs<Rule>) -> BoolAst {
+    BoolAst::Exp(
         parse_into_expr(bool_exp.next().unwrap().into_inner()),
         match bool_exp.next().unwrap().as_rule() {
             Rule::eq => BoolOp::Eq,
@@ -91,7 +91,7 @@ fn parse_bool_ast(conditional: &mut Pairs<Rule>) -> BoolAst {
             Rule::fal => BoolAst::Const(false),
             Rule::boolnot => BoolAst::Not(Box::new(parse_bool_ast(&mut pair.into_inner()))),
             Rule::boolterm => parse_bool_ast(&mut pair.into_inner()),
-            Rule::boolexp => BoolAst::Exp(parse_bool_exp(&mut pair.into_inner())),
+            Rule::boolexp => parse_bool_exp(&mut pair.into_inner()),
             Rule::boolexpr => parse_bool_ast(&mut pair.into_inner()),
             _ => {
                 unreachable!();
