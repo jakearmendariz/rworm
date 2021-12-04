@@ -7,13 +7,16 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+pub type Position = usize;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq)]
 pub enum AstNode {
     // option(type) var_name = expression
     Assignment {
         var_type: Option<VarType>, 
         identifier: Identifier, 
-        expr: Expr
+        expr: Expr,
+        position: Position,
     },
     //type, name, optional piped variable for index, value expression, size expression
     // int[] arr = [|opt| expr1; expr2]
@@ -24,7 +27,7 @@ pub enum AstNode {
     // these built in functions consume an entire line
     BuiltIn(BuiltIn),
     // return from a function
-    ReturnStm(Expr),
+    ReturnStm(Expr, Position),
     // Makes life easy when designing ast to have a skip value
     Skip(),
 }

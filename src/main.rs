@@ -25,14 +25,27 @@ use colored::*;
 use pest::Parser;
 use std::collections::HashMap;
 
+fn get_position(file_content: String, position: usize) -> (usize, usize) {
+    let mut row_counter = 0;
+    let mut start_of_line = 0;
+    for (idx, character) in file_content[..position].chars().enumerate() {
+        if character == '\n' {
+            row_counter += 1;
+            start_of_line += idx + 1;
+        }
+    }
+    (row_counter, position - start_of_line)
+}
+
 /*
 * Main function for worm interpretter
 */
 fn main() {
     let filename = std::env::args().nth(1).expect("expected a filename");
-    let expression = std::fs::read_to_string(filename).expect("cannot read file");
+    let file_content = std::fs::read_to_string(filename).expect("cannot read file");
     let pairs =
-        WormParser::parse(Rule::program, &expression).unwrap_or_else(|e| panic!("{}", e));
+        WormParser::parse(Rule::program, &file_content).unwrap_or_else(|e| panic!("{}", e));
+    // println!("{:?}", get_position(file_content.clone(), 27));
     let mut state = State::default();
     // parses the program into an AST, saves the functions AST in the state to be called upon later
     match parse_program(pairs, &mut state) {

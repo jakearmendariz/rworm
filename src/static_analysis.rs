@@ -11,7 +11,7 @@ use colored::*;
 #[derive(Debug, Clone)]
 pub enum StaticError {
     ValueDne(String),
-    TypeViolation(VarType, VarType),
+    TypeViolation(VarType, VarType, usize),
     NeedReturnStm(String),
     TypeMismatchInReturn(VarType, VarType),
     CannotFindFunction(String),
@@ -22,7 +22,7 @@ impl std::fmt::Display for StaticError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &*self {
             StaticError::ValueDne(x) => write!(f, "variable \'{}\' does not exist", x),
-            StaticError::TypeViolation(a, b) => {
+            StaticError::TypeViolation(a, b, _) => {
                 write!(f, "expected type \'{}\' recieved type \'{}\'", a, b)
             }
             StaticError::NeedReturnStm(name) => {
@@ -98,7 +98,7 @@ impl StaticAnalyzer {
                 .save_variable(param_name.to_string(), param_type.clone());
         }
         let mut errors = Vec::new();
-        self.eval_statements(function, state, &mut errors);
+        self.check_statements(function, state, &mut errors);
         self.execution_state.pop_stack();
         if errors.len() > 0 {
             Err(errors)
@@ -107,7 +107,7 @@ impl StaticAnalyzer {
         }
     }
 
-    fn eval_statements(
+    fn check_statements(
         &mut self,
         function: &Function,
         state: &State,
@@ -240,7 +240,7 @@ impl StaticAnalyzer {
 
     fn eval_ast(&mut self, state: &State, ast: AstNode) -> Result<Option<VarType>, StaticError> {
         match ast {
-            AstNode::Assignment{var_type, identifier, expr} => {
+            AstNode::Assignment{var_type, identifier, expr, position} => {
                 // type check, variable type must match the result of expression
                 let value_type = self.type_of_expr(state, expr)?;
                 match var_type {
@@ -249,14 +249,15 @@ impl StaticAnalyzer {
                             self.execution_state
                                 .save_variable(identifier.var_name, vtype);
                         } else {
-                            return Err(StaticError::TypeViolation(vtype, value_type));
+                            // println!("Error at {}", position);
+                            return Err(StaticError::TypeViolation(vtype, value_type, position));
                         }
                     }
                     None => {
                         // if no variable type, turn it into an expression and parse value (error if dne)
                         let var_type = self.get_type_of_identifier(state, identifier)?;
                         if !type_match(&var_type, &value_type) {
-                            return Err(StaticError::TypeViolation(var_type, value_type));
+                            return Err(StaticError::TypeViolation(var_type, value_type, 0));
                         }
                     }
                 };
@@ -306,7 +307,7 @@ impl StaticAnalyzer {
                 }
                 ()
             }
-            AstNode::ReturnStm(expr) => {
+            AstNode::ReturnStm(expr, position) => {
                 return Ok(Some(self.type_of_expr(state, expr)?));
             }
             AstNode::Skip() => (),
@@ -341,7 +342,7 @@ impl StaticAnalyzer {
         let right = self.type_of_expr(state, rhs.clone())?;
         let left = self.type_of_expr(state, lhs.clone())?;
         if !type_match(&left, &right) {
-            return Err(StaticError::TypeViolation(left, right));
+            return Err(StaticError::TypeViolation(left, right, 0));
         };
         Ok(())
     }
@@ -383,7 +384,7 @@ impl StaticAnalyzer {
                         if type_match(&left, &right) {
                             Ok(left)
                         } else {
-                            Err(StaticError::TypeViolation(left.clone(), right.clone()))
+                            Err(StaticError::TypeViolation(left.clone(), right.clone(), 0))
                         }
                     }
                 }
@@ -482,7 +483,7 @@ impl StaticAnalyzer {
 
 fn expect_type(expected: &VarType, actual: &VarType) -> Result<(), StaticError> {
     if !type_match(expected, actual) {
-        Err(StaticError::TypeViolation(expected.clone(), actual.clone()))
+        Err(StaticError::TypeViolation(expected.clone(), actual.clone(), 0))
     } else {
         Ok(())
     }

@@ -12,7 +12,7 @@ operation = _{ add | subtract | multiply | divide | power }
     modulus  = { "%" }
 
 expr = { term ~ (operation ~ term)* }
-term = _{float | int | char | func_call | identifier | string | hash_obj  | "(" ~ expr ~ ")" }
+term = _{float | int | char | func_call | identifier | string | hash_obj | array_empty | "(" ~ expr ~ ")" }
 identifier = { var_name ~ (("." ~ var_name) | ("[" ~ expr ~ "]"))* }
 
 COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
@@ -26,7 +26,7 @@ array_inst = {(vint | vfloat | vchar | vstring | hmap | structure) ~ "[]"}
 array_dec = {array_inst}
 piped = {"|" ~ var_name ~ "|"}
 array_initial = {"[" ~ piped? ~ expr ~ ";" ~ expr ~ "]"}
-array_definition = {array_inst ~ var_name ~ "=" ~ (array_initial | array_empty) }
+array_definition = {array_inst ~ var_name ~ "=" ~ (array_initial) }
 array_val = {"[" ~ list? ~ "]"}
 array_empty =  {"[" ~ var_type ~ "]"}
 
@@ -50,7 +50,6 @@ chars = {
     | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
     | "\\" ~ ("u" ~ ASCII_HEX_DIGIT{4})
 }
-
 char = ${"\'" ~ chars ~ "\'"}
 
 boolops = _{eq | geq | leq | neq | lt | gt}

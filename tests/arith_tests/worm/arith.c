@@ -14,24 +14,12 @@ struct Node {
 }
 
 fn build_value(int value) -> struct<Node> {
-    struct<Node>[] left = [struct<Node>];
-    struct<Node>[] right = [struct<Node>];
-    return Node(1, 'a', value, left, right);
+    return Node(1, 'a', value, [struct<Node>], [struct<Node>]);
 }
 
 fn build_op(char value) -> struct<Node> {
-    struct<Node>[] left = [struct<Node>];
-    struct<Node>[] right = [struct<Node>];
-    return Node(2, value, 0, left, right);
-}
-/*
-fn build_value(int value) -> struct<Node> {
-    return Node(1, 'a', value, [struct<Node>], [struct<Node>]);
-}
-fn build_op(char value) -> struct<Node> {
     return Node(2, value, 0, [struct<Node>], [struct<Node>]);
 }
-*/
 
 /* checks if a character is an operator */
 fn is_operator(char c) -> int {

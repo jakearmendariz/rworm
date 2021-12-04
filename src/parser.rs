@@ -116,18 +116,14 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
             Rule::int => {
                 let mut no_whitespace = pair.as_str().to_string();
                 remove_whitespace(&mut no_whitespace);
-                Expr::Constant(Constant::Int(
-                    no_whitespace.parse::<i32>().unwrap(),
-                ))
+                Expr::Constant(Constant::Int(no_whitespace.parse::<i32>().unwrap()))
             }
             Rule::char => Expr::Constant(Constant::Char({
                 let character = pair.into_inner().next().unwrap().as_str();
                 character.chars().next().unwrap()
             })),
             // Rule::var_name => Expr::ExpVal(Object::Variable(pair.as_str().to_string())),
-            Rule::identifier => {
-                Expr::Identifier(parse_identifier(pair))
-            }
+            Rule::identifier => Expr::Identifier(parse_identifier(pair)),
             Rule::func_call => {
                 let mut inner = pair.into_inner();
                 let func_name = inner.next().unwrap().as_str().to_string();
@@ -141,11 +137,15 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                     }
                     None => (),
                 }
-                Expr::FnCall{
+                Expr::FnCall {
                     name: func_name,
                     params: params,
                 }
             }
+            Rule::array_empty => Expr::Constant(Constant::Array(
+                parse_type_from_rule(pair.into_inner().next().unwrap()).unwrap(),
+                Vec::new(),
+            )),
             Rule::string => Expr::Constant(Constant::String(
                 pair.into_inner().next().unwrap().as_str().to_string(),
             )),
@@ -168,11 +168,7 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                     None => panic!("missing key type from Map"),
                 })
                 .unwrap();
-                Expr::Constant(Constant::Map(
-                    key_type,
-                    value_type,
-                    BTreeMap::default(),
-                ))
+                Expr::Constant(Constant::Map(key_type, value_type, BTreeMap::default()))
             }
             _ => unreachable!(),
         },
@@ -212,17 +208,24 @@ fn parse_structure(mut attribute_rules: Pairs<Rule>) -> Result<Vec<(String, VarT
         //each param is in form { var_type var_name }
         let attribute_rule = match attribute_rules.next() {
             Some(a) => a,
-            None => break
+            None => break,
         };
         match attribute_rule.as_rule() {
             Rule::var_name => {
                 let attribute_name = attribute_rule.as_str().to_string();
                 let attribute_type = parse_type_from_rule(
-                    attribute_rules.next().expect("Struct values must be followed by a type")
+                    attribute_rules
+                        .next()
+                        .expect("Struct values must be followed by a type"),
                 )?;
                 attributes.push((attribute_name, attribute_type));
-            },
-            _ => { return Err(ParseError::GeneralParseError(format!("Struct needs attributes Var_name:type, recieved: {:?}", attribute_rule.as_rule()))); }
+            }
+            _ => {
+                return Err(ParseError::GeneralParseError(format!(
+                    "Struct needs attributes Var_name:type, recieved: {:?}",
+                    attribute_rule.as_rule()
+                )));
+            }
         }
     }
     Ok(attributes)
@@ -258,8 +261,12 @@ fn parse_type_from_rule(rule: Pair<Rule>) -> Result<VarType, ParseError> {
             rule.into_inner().next().unwrap(),
         )?)),
         Rule::structure => {
-            let structure_name = rule.into_inner().next()
-                .expect("Error trying to parse structure name").as_str().to_string();
+            let structure_name = rule
+                .into_inner()
+                .next()
+                .expect("Error trying to parse structure name")
+                .as_str()
+                .to_string();
             VarType::Struct(structure_name)
         }
         _ => {
@@ -316,25 +323,25 @@ pub fn parse_identifier(pair: Pair<Rule>) -> Identifier {
     let mut tail: Vec<IdentifierHelper> = Vec::new();
     loop {
         match structure_index_rules.next() {
-            Some(identifier_tail) => {
-                match identifier_tail.as_rule() {
-                    Rule::expr => {
-                        tail.push(IdentifierHelper::ArrayIndex(
-                            parse_into_expr(identifier_tail.into_inner())
-                        ));
-                    }
-                    Rule::var_name => {
-                        tail.push(IdentifierHelper::StructIndex(
-                            identifier_tail.as_str().to_string()
-                        ));
-                    }
-                    _ => panic!(),
+            Some(identifier_tail) => match identifier_tail.as_rule() {
+                Rule::expr => {
+                    tail.push(IdentifierHelper::ArrayIndex(parse_into_expr(
+                        identifier_tail.into_inner(),
+                    )));
                 }
+                Rule::var_name => {
+                    tail.push(IdentifierHelper::StructIndex(
+                        identifier_tail.as_str().to_string(),
+                    ));
+                }
+                _ => panic!(),
+            },
+            None => {
+                break;
             }
-            None => {break;},
         }
     }
-    return Identifier {var_name, tail};
+    return Identifier { var_name, tail };
 }
 
 /*
@@ -349,13 +356,18 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             Ok(AstNode::Skip())
         }
         Rule::assignment => {
+            let position = pair.as_span().start();
             let mut inner_rules = pair.into_inner();
             let first_pos = inner_rules.next().unwrap();
-            // println!("first_post.as_rule()=>{:?}", first_pos.as_rule());
+            // println!(
+            //     "first_post.as_rule()=>{:?} at {:?}",
+            //     first_pos.as_rule(),
+            //     first_pos.as_span().start()
+            // );
             let (var_type, identifier) = match first_pos.as_rule() {
                 Rule::var_type => {
                     let vartype = parse_type_from_rule(first_pos.into_inner().next().unwrap())?;
-                    let identifier = Identifier { 
+                    let identifier = Identifier {
                         var_name: inner_rules.next().unwrap().as_str().to_string(),
                         tail: Vec::new(),
                     };
@@ -369,20 +381,23 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                     return {
                         Err(ParseError::FormatError(format!(
                             "error parsing statement: {} rule: {:?}",
-                            statement, first_pos.as_rule()
+                            statement,
+                            first_pos.as_rule()
                         )))
                     }
                 }
             };
             let expression = parse_into_expr(inner_rules.next().unwrap().into_inner());
-            Ok(AstNode::Assignment{
+            Ok(AstNode::Assignment {
                 var_type: var_type,
                 identifier: identifier,
                 expr: expression,
+                position: position,
             })
         }
         Rule::array_definition => {
             // format of `int[] a = [expression; size];`
+            let position = pair.as_span().start();
             let mut array_rules = pair.into_inner();
             // to get the type inside of array, we first have to pass the outer loop of array_inst]
             let array_type =
@@ -410,14 +425,13 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 Rule::var_type => {
                     let vtype = parse_type_from_rule(first)?;
                     return Ok(AstNode::Assignment {
-                        var_type:Some(VarType::Array(Box::new(vtype.clone()))), 
-                        identifier:Identifier {var_name: array_name, tail: Vec::new()}, 
-                        expr:Expr::Constant(
-                            Constant::Array(
-                                vtype, 
-                                Vec::new()
-                            )
-                        )
+                        var_type: Some(VarType::Array(Box::new(vtype.clone()))),
+                        identifier: Identifier {
+                            var_name: array_name,
+                            tail: Vec::new(),
+                        },
+                        expr: Expr::Constant(Constant::Array(vtype, Vec::new())),
+                        position: position,
                     });
                 }
                 Rule::expr => (None, parse_into_expr(first.into_inner())),
@@ -497,19 +511,19 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             }
         }
         Rule::return_stm => {
+            let position = pair.as_span().start();
             let return_expr = pair.into_inner().next().unwrap();
-            Ok(AstNode::ReturnStm(parse_into_expr(
-                return_expr.into_inner(),
-            )))
+            Ok(AstNode::ReturnStm(
+                parse_into_expr(return_expr.into_inner()),
+                position,
+            ))
         }
         Rule::structure_def => {
             let pairs = &mut pair.into_inner();
             let struct_name = pairs.next().unwrap().as_str().to_string();
             let next_rule = pairs.next().unwrap();
             let params = match next_rule.as_rule() {
-                Rule::structure_items => (
-                    parse_structure(next_rule.into_inner())?
-                ),
+                Rule::structure_items => (parse_structure(next_rule.into_inner())?),
                 _ => return Err(ParseError::NoReturnType),
             };
             state.struct_map.insert(struct_name, params);
@@ -531,10 +545,9 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 .next()
                 .unwrap()
                 .as_str();
-            let expression = std::fs::read_to_string(filename)
+            let file_contents = std::fs::read_to_string(filename)
                 .expect(&format!("Error cannot read file {}", filename)[..]); //from file
-                                                                              // println!("{}", expression);
-            let pairs = WormParser::parse(Rule::program, &expression)
+            let pairs = WormParser::parse(Rule::program, &file_contents)
                 .unwrap_or_else(|e| panic!("Error {} while reading file {}", e, filename));
             // parses the program into an AST, saves the functions AST in the state to be called upon later
             parse_program(pairs, state)?;

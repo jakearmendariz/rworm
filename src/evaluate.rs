@@ -160,7 +160,7 @@ fn eval_ast(
     state: &State,
 ) -> Result<Option<Constant>, ExecutionError> {
     match ast {
-        AstNode::Assignment {var_type, identifier, expr} => {
+        AstNode::Assignment {var_type, identifier, expr, position:_} => {
             let value = eval_expr(&expr, execution_state, state)?;
             let actual_val = match (var_type.clone(), value) {
                 (Some(VarType::Int), Constant::Char(c)) => Constant::Int(c as i32),
@@ -244,7 +244,7 @@ fn eval_ast(
             }
             ()
         }
-        AstNode::ReturnStm(expr) => {
+        AstNode::ReturnStm(expr, _) => {
             return Ok(Some(eval_expr(&expr, execution_state, state)?));
         }
         AstNode::Skip() => (),
