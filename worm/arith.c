@@ -3,7 +3,7 @@
  * Best demonstration of worm
  */
 
-import "worm/wormstd.c";
+import "/Users/jakearmendariz/Desktop/rworm/worm/wormstd.c";
 
 struct Node {
     type: int,

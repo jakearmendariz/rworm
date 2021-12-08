@@ -109,7 +109,7 @@ fn recurse(
                 _ => panic!("Tried to index a non string or non array"),
             },
             IdentifierHelper::StructIndex(attribute) => match curr_value {
-                Constant::Struct{name, mut pairs} => {
+                Constant::Struct { name, mut pairs } => {
                     let updated_val = pairs.clone().get(&attribute.clone()).unwrap().clone();
                     pairs.insert(
                         attribute.clone(),
@@ -121,7 +121,7 @@ fn recurse(
                             final_value,
                         ),
                     );
-                    return Constant::Struct{name, pairs};
+                    return Constant::Struct { name, pairs };
                 }
                 _ => panic!("struct index on a non struct"),
             },
@@ -160,7 +160,12 @@ fn eval_ast(
     state: &State,
 ) -> Result<Option<Constant>, ExecutionError> {
     match ast {
-        AstNode::Assignment {var_type, identifier, expr, position:_} => {
+        AstNode::Assignment {
+            var_type,
+            identifier,
+            expr,
+            position: _,
+        } => {
             let value = eval_expr(&expr, execution_state, state)?;
             let actual_val = match (var_type.clone(), value) {
                 (Some(VarType::Int), Constant::Char(c)) => Constant::Int(c as i32),
@@ -297,7 +302,9 @@ fn eval_bool(
     ) {
         (Int(i), Int(j)) => (i as f64, j as f64),
         (Char(i), Char(j)) => (i as u32 as f64, j as u32 as f64),
-        (Map(_, _, _), _) | (_, Map(_, _, _)) => panic!("type violation in eval_bool, cannot compare map"),
+        (Map(_, _, _), _) | (_, Map(_, _, _)) => {
+            panic!("type violation in eval_bool, cannot compare map")
+        }
         (String(s1), String(s2)) => {
             return Ok(match op {
                 BoolOp::Eq => s1 == s2,
@@ -333,18 +340,14 @@ fn eval_expr(
     state: &State,
 ) -> Result<Constant, ExecutionError> {
     match exp.clone() {
-        Expr::Identifier(identifier) => {
-            eval_identifier(identifier, execution_state, state)
+        Expr::Identifier(identifier) => eval_identifier(identifier, execution_state, state),
+        Expr::Constant(constant) => match constant {
+            Constant::Array(var_type, elements) => Ok(Constant::Array(var_type, elements)),
+            _ => Ok(constant),
+        },
+        Expr::FnCall { name, params } => {
+            eval_fn_call(FnCall { name, params }, execution_state, state)
         }
-        Expr::Constant(constant) => {
-            match constant {
-                Constant::Array(var_type, elements) => {
-                    Ok(Constant::Array(var_type, elements))
-                },
-                _ => Ok(constant)
-            }
-        }
-        Expr::FnCall {name, params} => eval_fn_call(FnCall{name, params}, execution_state, state),
         Expr::BinaryExpr(lhs, op, rhs) => {
             let left = eval_expr(&*lhs, execution_state, state)?;
             let right = eval_expr(&*rhs, execution_state, state)?;
@@ -429,7 +432,9 @@ fn eval_identifier(
                 _ => panic!("[] index to neither map, array or string"),
             },
             IdentifierHelper::StructIndex(attribute) => match curr_value {
-                Constant::Struct{name:_, pairs} => curr_value = pairs.get(&attribute).unwrap().clone(),
+                Constant::Struct { name: _, pairs } => {
+                    curr_value = pairs.get(&attribute).unwrap().clone()
+                }
                 _ => panic!("struct index to a non struct"),
             },
         }
@@ -514,7 +519,10 @@ fn eval_fn_call(
                 let param_const = eval_expr(&expr.clone(), execution_state, state)?;
                 pairs.insert(param_name.clone(), param_const);
             }
-            return Ok(Constant::Struct{name:fn_name, pairs});
+            return Ok(Constant::Struct {
+                name: fn_name,
+                pairs,
+            });
         }
     };
     let mut var_stack: Vec<(String, u32)> = Vec::new();

@@ -10,29 +10,29 @@ use colored::*;
 
 #[derive(Debug, Clone)]
 pub enum StaticError {
-    ValueDne(String),
+    ValueDne(String, usize),
     TypeViolation(VarType, VarType, usize),
-    NeedReturnStm(String),
-    TypeMismatchInReturn(VarType, VarType),
-    CannotFindFunction(String),
-    General(String),
+    NeedReturnStm(String, usize),
+    TypeMismatchInReturn(VarType, VarType, usize),
+    CannotFindFunction(String, usize),
+    General(String, usize),
 }
 
 impl std::fmt::Display for StaticError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &*self {
-            StaticError::ValueDne(x) => write!(f, "variable \'{}\' does not exist", x),
+            StaticError::ValueDne(x, _) => write!(f, "variable \'{}\' does not exist", x),
             StaticError::TypeViolation(a, b, _) => {
                 write!(f, "expected type \'{}\' recieved type \'{}\'", a, b)
             }
-            StaticError::NeedReturnStm(name) => {
+            StaticError::NeedReturnStm(name,_) => {
                 write!(f, "need a return statment in function \'{}\'", name)
             }
-            StaticError::CannotFindFunction(name) => {
+            StaticError::CannotFindFunction(name, _) => {
                 write!(f, "function \'{}\' does not exist", name)
             }
-            StaticError::General(x) => write!(f, "{}", x),
-            StaticError::TypeMismatchInReturn(expected, recieved) => write!(
+            StaticError::General(x, _) => write!(f, "{}", x),
+            StaticError::TypeMismatchInReturn(expected, recieved,_) => write!(
                 f,
                 "Type mismatch on return, expected {}, recieved {}",
                 expected, recieved
@@ -124,6 +124,7 @@ impl StaticAnalyzer {
                             errors.push(StaticError::TypeMismatchInReturn(
                                 expected_return.clone(),
                                 val,
+                                0
                             ))
                         }
                         return_flag = true;
@@ -134,7 +135,7 @@ impl StaticAnalyzer {
             }
         }
         if !return_flag {
-            errors.push(StaticError::NeedReturnStm(function.name.clone()));
+            errors.push(StaticError::NeedReturnStm(function.name.clone(), 0));
         }
     }
 
@@ -169,8 +170,8 @@ impl StaticAnalyzer {
                         _ => {
                             return Err(StaticError::General(format!(
                                 "Expected Array or Map, got \"{:?}\"",
-                                curr_type
-                            )));
+                                curr_type,
+                            ), 0));
                         }
                     }
                 }
@@ -181,8 +182,8 @@ impl StaticAnalyzer {
                             None => {
                                 return Err(StaticError::ValueDne(format!(
                                     "Struct {}",
-                                    struct_name
-                                )));
+                                    struct_name,
+                                ), 0));
                             }
                         };
                         curr_type = match get_from_vec(&attribute, structure_map) {
@@ -190,14 +191,15 @@ impl StaticAnalyzer {
                             None => {
                                 return Err(StaticError::ValueDne(format!(
                                     "attribute {} from struct {}",
-                                    attribute, struct_name
-                                )));
+                                    attribute, struct_name,
+                                ), 0));
                             }
                         };
                     }
                     _ => {
                         return Err(StaticError::General(
                             "Tried to access attribute on a non-struct".to_string(),
+                            0
                         ));
                     }
                 },
@@ -215,7 +217,7 @@ impl StaticAnalyzer {
                 return Err(StaticError::General(format!(
                     "length of array:\'{}\' must be int",
                     name
-                )));
+                ), 0));
             }
         };
         // elements of the array
@@ -257,7 +259,7 @@ impl StaticAnalyzer {
                         // if no variable type, turn it into an expression and parse value (error if dne)
                         let var_type = self.get_type_of_identifier(state, identifier)?;
                         if !type_match(&var_type, &value_type) {
-                            return Err(StaticError::TypeViolation(var_type, value_type, 0));
+                            return Err(StaticError::TypeViolation(var_type, value_type, position));
                         }
                     }
                 };
@@ -307,7 +309,7 @@ impl StaticAnalyzer {
                 }
                 ()
             }
-            AstNode::ReturnStm(expr, position) => {
+            AstNode::ReturnStm(expr, _position) => {
                 return Ok(Some(self.type_of_expr(state, expr)?));
             }
             AstNode::Skip() => (),
@@ -402,7 +404,7 @@ impl StaticAnalyzer {
             Err(StaticError::General(format!(
                 "Error {} requires exactly {} arg",
                 fn_call.name, expected_params
-            )))
+            ), 0))
         } else {
             Ok(())
         }
@@ -454,7 +456,7 @@ impl StaticAnalyzer {
                     Some(_) => {
                         return Ok(VarType::Struct(func_call.name.clone()));
                     }
-                    None => return Err(StaticError::CannotFindFunction(func_call.name)),
+                    None => return Err(StaticError::CannotFindFunction(func_call.name, 0)),
                 }
             }
         };
