@@ -25,18 +25,6 @@ use colored::*;
 use pest::Parser;
 use std::collections::HashMap;
 
-fn get_position(file_content: String, position: usize) -> (usize, usize) {
-    let mut row_counter = 0;
-    let mut start_of_line = 0;
-    for (idx, character) in file_content[..position].chars().enumerate() {
-        if character == '\n' {
-            row_counter += 1;
-            start_of_line += idx + 1;
-        }
-    }
-    (row_counter, position - start_of_line)
-}
-
 /*
 * Main function for worm interpretter
 */
@@ -60,7 +48,7 @@ fn main() {
     match static_analyzer.check_program(&state) {
         Ok(()) => (),
         Err(e) => {
-            log_errors(e);
+            log_errors(e, file_content);
             return;
         }
     }

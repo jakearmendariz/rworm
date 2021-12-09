@@ -46,14 +46,40 @@ pub struct StaticAnalyzer {
     pub errors: Vec<(String, StaticError)>,
 }
 
-pub fn log_errors(errors: Vec<(String, StaticError)>) {
+fn get_line_col(file_content: &String, position: usize) -> (usize, usize) {
+    let mut row_counter = 0;
+    let mut start_of_line = 0;
+    for (idx, character) in file_content[..position].chars().enumerate() {
+        if character == '\n' {
+            row_counter += 1;
+            start_of_line += idx + 1;
+        }
+    }
+    (row_counter, position - start_of_line)
+}
+
+fn get_position_from_error(file_content: &String, error: StaticError) -> (usize, usize) {
+    let position:usize = match error {
+        StaticError::ValueDne(_, pos) => pos,
+        StaticError::TypeViolation(_,_, pos) => pos,
+        StaticError::NeedReturnStm(_,pos) => pos,
+        StaticError::CannotFindFunction(_, pos) => pos,
+        StaticError::General(_, pos) => pos,
+        StaticError::TypeMismatchInReturn(_,_,pos) => pos,
+    };
+    get_line_col(file_content, position)
+}
+pub fn log_errors(errors: Vec<(String, StaticError)>, file_content: String) {
     let count = errors.len();
     for (fn_name, error) in errors {
+        let (line, col) = get_position_from_error(&file_content, error.clone());
         println!(
-            "{} {} in function {}",
+            "{} {} in function {} on {}:{}",
             "Static Error:".red().bold(),
             error,
-            fn_name
+            fn_name,
+            line,
+            col,
         );
     }
     println!(
@@ -144,12 +170,10 @@ impl StaticAnalyzer {
         state: &State,
         identifier: Identifier,
     ) -> Result<VarType, StaticError> {
-        let mut curr_type = self
-            .execution_state
-            .var_map
-            .get(&identifier.var_name)
-            .unwrap()
-            .clone();
+        let mut curr_type = match self.execution_state.var_map.get(&identifier.var_name) {
+            Some(vtype) => vtype.clone(),
+            None => return Err(StaticError::ValueDne(identifier.var_name, 0)),
+        };
         for indentifier_helper in identifier.tail {
             match indentifier_helper {
                 IdentifierHelper::ArrayIndex(expr) => {
