@@ -25,14 +25,14 @@ impl std::fmt::Display for StaticError {
             StaticError::TypeViolation(a, b, _) => {
                 write!(f, "expected type \'{}\' recieved type \'{}\'", a, b)
             }
-            StaticError::NeedReturnStm(name,_) => {
+            StaticError::NeedReturnStm(name, _) => {
                 write!(f, "need a return statment in function \'{}\'", name)
             }
             StaticError::CannotFindFunction(name, _) => {
                 write!(f, "function \'{}\' does not exist", name)
             }
             StaticError::General(x, _) => write!(f, "{}", x),
-            StaticError::TypeMismatchInReturn(expected, recieved,_) => write!(
+            StaticError::TypeMismatchInReturn(expected, recieved, _) => write!(
                 f,
                 "Type mismatch on return, expected {}, recieved {}",
                 expected, recieved
@@ -47,25 +47,26 @@ pub struct StaticAnalyzer {
 }
 
 fn get_line_col(file_content: &String, position: usize) -> (usize, usize) {
-    let mut row_counter = 0;
+    let mut row_counter = 1;
     let mut start_of_line = 0;
     for (idx, character) in file_content[..position].chars().enumerate() {
         if character == '\n' {
             row_counter += 1;
-            start_of_line += idx + 1;
+            start_of_line = idx;
         }
     }
+    // println!("{} {} {}", position, row_counter, start_of_line);
     (row_counter, position - start_of_line)
 }
 
 fn get_position_from_error(file_content: &String, error: StaticError) -> (usize, usize) {
-    let position:usize = match error {
+    let position: usize = match error {
         StaticError::ValueDne(_, pos) => pos,
-        StaticError::TypeViolation(_,_, pos) => pos,
-        StaticError::NeedReturnStm(_,pos) => pos,
+        StaticError::TypeViolation(_, _, pos) => pos,
+        StaticError::NeedReturnStm(_, pos) => pos,
         StaticError::CannotFindFunction(_, pos) => pos,
         StaticError::General(_, pos) => pos,
-        StaticError::TypeMismatchInReturn(_,_,pos) => pos,
+        StaticError::TypeMismatchInReturn(_, _, pos) => pos,
     };
     get_line_col(file_content, position)
 }
@@ -150,7 +151,7 @@ impl StaticAnalyzer {
                             errors.push(StaticError::TypeMismatchInReturn(
                                 expected_return.clone(),
                                 val,
-                                0
+                                0,
                             ))
                         }
                         return_flag = true;
@@ -169,33 +170,34 @@ impl StaticAnalyzer {
         &mut self,
         state: &State,
         identifier: Identifier,
+        position: usize,
     ) -> Result<VarType, StaticError> {
         let mut curr_type = match self.execution_state.var_map.get(&identifier.var_name) {
             Some(vtype) => vtype.clone(),
-            None => return Err(StaticError::ValueDne(identifier.var_name, 0)),
+            None => return Err(StaticError::ValueDne(identifier.var_name, position)),
         };
         for indentifier_helper in identifier.tail {
             match indentifier_helper {
                 IdentifierHelper::ArrayIndex(expr) => {
-                    let expr_type = self.type_of_expr(state, expr)?;
+                    let (expr_type, position) = self.type_of_expr(state, expr)?;
                     match curr_type {
                         VarType::Array(var_type) => {
-                            expect_type(&VarType::Int, &expr_type)?;
+                            expect_type(&VarType::Int, &expr_type, position)?;
                             curr_type = *var_type;
                         }
                         VarType::Map(key_vtype, value_vtype) => {
-                            expect_type(&*key_vtype, &expr_type)?;
+                            expect_type(&*key_vtype, &expr_type, position)?;
                             curr_type = *value_vtype;
                         }
                         VarType::String => {
-                            expect_type(&VarType::Int, &expr_type)?;
+                            expect_type(&VarType::Int, &expr_type, position)?;
                             curr_type = VarType::Char;
                         }
                         _ => {
-                            return Err(StaticError::General(format!(
-                                "Expected Array or Map, got \"{:?}\"",
-                                curr_type,
-                            ), 0));
+                            return Err(StaticError::General(
+                                format!("Expected Array or Map, got \"{:?}\"", curr_type,),
+                                position,
+                            ));
                         }
                     }
                 }
@@ -204,26 +206,26 @@ impl StaticAnalyzer {
                         let structure_map = match state.struct_map.get(&struct_name) {
                             Some(structure_map) => structure_map,
                             None => {
-                                return Err(StaticError::ValueDne(format!(
-                                    "Struct {}",
-                                    struct_name,
-                                ), 0));
+                                return Err(StaticError::ValueDne(
+                                    format!("Struct {}", struct_name,),
+                                    position,
+                                ));
                             }
                         };
                         curr_type = match get_from_vec(&attribute, structure_map) {
                             Some(vtype) => vtype,
                             None => {
-                                return Err(StaticError::ValueDne(format!(
-                                    "attribute {} from struct {}",
-                                    attribute, struct_name,
-                                ), 0));
+                                return Err(StaticError::ValueDne(
+                                    format!("attribute {} from struct {}", attribute, struct_name,),
+                                    position,
+                                ));
                             }
                         };
                     }
                     _ => {
                         return Err(StaticError::General(
                             "Tried to access attribute on a non-struct".to_string(),
-                            0
+                            position,
                         ));
                     }
                 },
@@ -233,15 +235,21 @@ impl StaticAnalyzer {
     }
 
     fn check_array_def(
-        &mut self, state: &State, var_type: VarType, name: String, piped: Option<String>, value_exp: Expr, length_exp: Expr
+        &mut self,
+        state: &State,
+        var_type: VarType,
+        name: String,
+        piped: Option<String>,
+        value_exp: Expr,
+        length_exp: Expr,
     ) -> Result<(), StaticError> {
         match self.type_of_expr(state, length_exp)? {
-            VarType::Int => (),
-            _ => {
-                return Err(StaticError::General(format!(
-                    "length of array:\'{}\' must be int",
-                    name
-                ), 0));
+            (VarType::Int, _) => (),
+            (_, pos) => {
+                return Err(StaticError::General(
+                    format!("length of array:\'{}\' must be int", name),
+                    pos,
+                ));
             }
         };
         // elements of the array
@@ -266,9 +274,14 @@ impl StaticAnalyzer {
 
     fn eval_ast(&mut self, state: &State, ast: AstNode) -> Result<Option<VarType>, StaticError> {
         match ast {
-            AstNode::Assignment{var_type, identifier, expr, position} => {
+            AstNode::Assignment {
+                var_type,
+                identifier,
+                expr,
+                position,
+            } => {
                 // type check, variable type must match the result of expression
-                let value_type = self.type_of_expr(state, expr)?;
+                let (value_type, pos) = self.type_of_expr(state, expr)?;
                 match var_type {
                     Some(vtype) => {
                         if type_match(&vtype, &value_type) {
@@ -281,7 +294,7 @@ impl StaticAnalyzer {
                     }
                     None => {
                         // if no variable type, turn it into an expression and parse value (error if dne)
-                        let var_type = self.get_type_of_identifier(state, identifier)?;
+                        let var_type = self.get_type_of_identifier(state, identifier, position)?;
                         if !type_match(&var_type, &value_type) {
                             return Err(StaticError::TypeViolation(var_type, value_type, position));
                         }
@@ -333,8 +346,8 @@ impl StaticAnalyzer {
                 }
                 ()
             }
-            AstNode::ReturnStm(expr, _position) => {
-                return Ok(Some(self.type_of_expr(state, expr)?));
+            AstNode::ReturnStm(expr, _) => {
+                return Ok(Some(self.type_of_expr_wrapper(state, expr)?));
             }
             AstNode::Skip() => (),
         }
@@ -365,52 +378,64 @@ impl StaticAnalyzer {
      * evaluates expressions and constants to true false values
      */
     fn check_bool(&mut self, state: &State, lhs: &Expr, rhs: &Expr) -> Result<(), StaticError> {
-        let right = self.type_of_expr(state, rhs.clone())?;
-        let left = self.type_of_expr(state, lhs.clone())?;
+        let (right, rightpos) = self.type_of_expr(state, rhs.clone())?;
+        let (left, leftpos) = self.type_of_expr(state, lhs.clone())?;
         if !type_match(&left, &right) {
-            return Err(StaticError::TypeViolation(left, right, 0));
+            return Err(StaticError::TypeViolation(left, right, leftpos));
         };
         Ok(())
+    }
+    fn type_of_expr_wrapper(&mut self, state: &State, exp: Expr) -> Result<VarType, StaticError> {
+        let (vtype, _) = self.type_of_expr(state, exp)?;
+        Ok(vtype)
     }
     /*
      * type_of_expr returns the type provided by an inline expression
      */
-    fn type_of_expr(&mut self, state: &State, exp: Expr) -> Result<VarType, StaticError> {
+    fn type_of_expr(&mut self, state: &State, exp: Expr) -> Result<(VarType, usize), StaticError> {
         match exp {
             Expr::Identifier(identifier) => {
                 // get variable as a constant value
-                self.get_type_of_identifier(state, identifier)
+                Ok((self.get_type_of_identifier(state, identifier, 0)?, 0))
             }
-            Expr::Constant(constant) => {
-                match constant {
-                    Constant::Array(var_type, _elements) => {
-                        Ok(VarType::Array(Box::new(var_type)))
-                    }
-                    Constant::Int(_) => Ok(VarType::Int),
-                    Constant::Char(_) => Ok(VarType::Char),
-                    Constant::String(_) => Ok(VarType::String),
-                    Constant::Struct {name, pairs:_} => Ok(VarType::Struct(name)),
-                    Constant::Map(key_type, value_type, _) => {
-                        Ok(VarType::Map(Box::new(key_type), Box::new(value_type)))
-                    }
+            Expr::Constant(constant, position) => match constant {
+                Constant::Array(var_type, _elements) => {
+                    Ok((VarType::Array(Box::new(var_type)), position))
                 }
-            }
-            Expr::FnCall{name, params} => {
-                self.type_of_func_call(state, FnCall {name, params})
-            }
+                Constant::Int(_) => Ok((VarType::Int, position)),
+                Constant::Char(_) => Ok((VarType::Char, position)),
+                Constant::String(_) => Ok((VarType::String, position)),
+                Constant::Struct { name, pairs: _ } => Ok((VarType::Struct(name), position)),
+                Constant::Map(key_type, value_type, _) => Ok((
+                    VarType::Map(Box::new(key_type), Box::new(value_type)),
+                    position,
+                )),
+            },
+            Expr::FnCall {
+                name,
+                params,
+                position,
+            } => Ok((
+                self.type_of_func_call(state, FnCall { name, params, position })?,
+                position,
+            )),
             Expr::BinaryExpr(lhs, _, rhs) => {
-                let left = self.type_of_expr(state, *lhs)?;
-                let right = self.type_of_expr(state, *rhs)?;
+                let (left, leftpos) = self.type_of_expr(state, *lhs)?;
+                let (right, rightpos) = self.type_of_expr(state, *rhs)?;
                 use VarType::*;
                 match (left.clone(), right.clone()) {
-                    (Char, Char) => Ok(VarType::String),
-                    (Char, String) => Ok(VarType::String),
-                    (String, Char) => Ok(VarType::String),
+                    (Char, Char) => Ok((VarType::String, leftpos)),
+                    (Char, String) => Ok((VarType::String, leftpos)),
+                    (String, Char) => Ok((VarType::String, leftpos)),
                     (_, _) => {
                         if type_match(&left, &right) {
-                            Ok(left)
+                            Ok((left, leftpos))
                         } else {
-                            Err(StaticError::TypeViolation(left.clone(), right.clone(), 0))
+                            Err(StaticError::TypeViolation(
+                                left.clone(),
+                                right.clone(),
+                                leftpos,
+                            ))
                         }
                     }
                 }
@@ -425,10 +450,13 @@ impl StaticAnalyzer {
     ) -> Result<(), StaticError> {
         // TODO check all params match
         if fn_call.params.len() != expected_params {
-            Err(StaticError::General(format!(
-                "Error {} requires exactly {} arg",
-                fn_call.name, expected_params
-            ), 0))
+            Err(StaticError::General(
+                format!(
+                    "Error {} requires exactly {} arg",
+                    fn_call.name, expected_params
+                ),
+                0,
+            ))
         } else {
             Ok(())
         }
@@ -456,11 +484,10 @@ impl StaticAnalyzer {
             APPEND => {
                 self.arg_count_helper(2, func_call)?;
                 // append(List<T>, T)
-                let list = self.type_of_expr(state, func_call.params[0].clone())?;
-                let value = VarType::Array(Box::new(
-                    self.type_of_expr(state, func_call.params[1].clone())?,
-                ));
-                expect_type(&value, &list)?;
+                let (list, pos) = self.type_of_expr(state, func_call.params[0].clone())?;
+                let (inner_type, _) = self.type_of_expr(state, func_call.params[1].clone())?;
+                let value = VarType::Array(Box::new(inner_type));
+                expect_type(&value, &list, pos)?;
                 Ok(value)
             }
             _ => panic!("ERROR CANNOT FIND RESERVED FUNCTION"),
@@ -480,14 +507,14 @@ impl StaticAnalyzer {
                     Some(_) => {
                         return Ok(VarType::Struct(func_call.name.clone()));
                     }
-                    None => return Err(StaticError::CannotFindFunction(func_call.name, 0)),
+                    None => return Err(StaticError::CannotFindFunction(func_call.name, func_call.position)),
                 }
             }
         };
         // iterate through the parameters provided and the function def,
         for (expr, (var_type, _)) in func_call.params.iter().zip(function.params.iter()) {
-            let param_const = self.type_of_expr(state, expr.clone())?;
-            expect_type(&var_type, &param_const)?;
+            let (param_const, position) = self.type_of_expr(state, expr.clone())?;
+            expect_type(&var_type, &param_const, position)?;
         }
         // function input types match expected values, return a empty constant of matching type
         Ok(function.return_type.clone())
@@ -507,9 +534,13 @@ impl StaticAnalyzer {
     }
 }
 
-fn expect_type(expected: &VarType, actual: &VarType) -> Result<(), StaticError> {
+fn expect_type(expected: &VarType, actual: &VarType, position: usize) -> Result<(), StaticError> {
     if !type_match(expected, actual) {
-        Err(StaticError::TypeViolation(expected.clone(), actual.clone(), 0))
+        Err(StaticError::TypeViolation(
+            expected.clone(),
+            actual.clone(),
+            position,
+        ))
     } else {
         Ok(())
     }

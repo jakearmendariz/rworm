@@ -341,12 +341,12 @@ fn eval_expr(
 ) -> Result<Constant, ExecutionError> {
     match exp.clone() {
         Expr::Identifier(identifier) => eval_identifier(identifier, execution_state, state),
-        Expr::Constant(constant) => match constant {
+        Expr::Constant(constant, _) => match constant {
             Constant::Array(var_type, elements) => Ok(Constant::Array(var_type, elements)),
             _ => Ok(constant),
         },
-        Expr::FnCall { name, params } => {
-            eval_fn_call(FnCall { name, params }, execution_state, state)
+        Expr::FnCall { name, params, position } => {
+            eval_fn_call(FnCall { name, params, position }, execution_state, state)
         }
         Expr::BinaryExpr(lhs, op, rhs) => {
             let left = eval_expr(&*lhs, execution_state, state)?;

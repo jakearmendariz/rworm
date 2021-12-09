@@ -35,7 +35,7 @@ impl Expr {
             Expr::Identifier(identifier) => {
                 format!("{}", identifier)
             }
-            Expr::FnCall{name, params} => {
+            Expr::FnCall{name, params, position:_} => {
                 let mut result = format!("{}(", name);
                 let mut first = true;
                 for expr in params {
@@ -47,7 +47,7 @@ impl Expr {
                 }
                 format!("{})", result)
             }
-            Expr::Constant(constant) => {
+            Expr::Constant(constant, _) => {
                 format!("{}", constant)
             }
             Expr::BinaryExpr(exp1, op, exp2) => {

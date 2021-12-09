@@ -19,12 +19,6 @@ fn int_get_val(int[] arr, int i) -> int {
     return arr[i];
 }
 
-fn int_append(int[] arr, int a) -> int[] {
-    int[] b = [|i| int_get_val(arr, i); len(arr)+1];
-    b[len(arr)] = a;
-    return b;
-}
-
 fn prepend(int[] arr, int a) -> int[] {
     int[] b = [|i| int_get_val(arr, i-1); len(arr)+1];
     b[0] = a;
@@ -97,12 +91,9 @@ fn pop_str(string arr) -> string {
 
 /* stdlib testing */
 fn std_checks(int a) -> string {
-    
     int[] arr = [|i| i; 10];
     int[] arr2 = prepend(arr, 11);
-    int[] arr3 = int_append(arr, 11);
     assert(arr2[0] == 11);
-    assert(arr3[10] == 11);
     return "SUCCESS";
 }
 

@@ -86,6 +86,7 @@ pub struct Function {
 pub struct FnCall {
     pub name: String,
     pub params: Vec<Expr>,
+    pub position: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq)]
@@ -119,10 +120,11 @@ pub enum BoolOp {
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Expr {
     Identifier(Identifier),
-    Constant(Constant),
+    Constant(Constant, usize),
     FnCall {
         name: String,
         params: Vec<Expr>,
+        position:usize,
     },
     BinaryExpr(Box<Expr>, OpType, Box<Expr>),
 }

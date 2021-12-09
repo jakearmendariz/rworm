@@ -114,17 +114,21 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
         expression,
         |pair: Pair<Rule>| match pair.as_rule() {
             Rule::int => {
+                let position = pair.as_span().start();
                 let mut no_whitespace = pair.as_str().to_string();
                 remove_whitespace(&mut no_whitespace);
-                Expr::Constant(Constant::Int(no_whitespace.parse::<i32>().unwrap()))
+                Expr::Constant(Constant::Int(no_whitespace.parse::<i32>().unwrap()), position)
             }
-            Rule::char => Expr::Constant(Constant::Char({
+            Rule::char => {
+                let position = pair.as_span().start();
+                Expr::Constant(Constant::Char({
                 let character = pair.into_inner().next().unwrap().as_str();
                 character.chars().next().unwrap()
-            })),
+            }), position)},
             // Rule::var_name => Expr::ExpVal(Object::Variable(pair.as_str().to_string())),
             Rule::identifier => Expr::Identifier(parse_identifier(pair)),
             Rule::func_call => {
+                let position = pair.as_span().start();
                 let mut inner = pair.into_inner();
                 let func_name = inner.next().unwrap().as_str().to_string();
                 let mut params = Vec::new();
@@ -140,17 +144,29 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                 Expr::FnCall {
                     name: func_name,
                     params: params,
+                    position: position,
                 }
             }
-            Rule::array_empty => Expr::Constant(Constant::Array(
-                parse_type_from_rule(pair.into_inner().next().unwrap()).unwrap(),
-                Vec::new(),
-            )),
-            Rule::string => Expr::Constant(Constant::String(
-                pair.into_inner().next().unwrap().as_str().to_string(),
-            )),
+            Rule::array_empty => {
+                let position = pair.as_span().start();
+                Expr::Constant(
+                    Constant::Array(
+                        parse_type_from_rule(pair.into_inner().next().unwrap()).unwrap(),
+                        Vec::new(),
+                    ),
+                    position,
+                )
+            }
+            Rule::string => {
+                let position = pair.as_span().start();
+                Expr::Constant(
+                    Constant::String(pair.into_inner().next().unwrap().as_str().to_string()),
+                    position,
+                )
+            }
             Rule::expr => parse_into_expr(pair.into_inner()),
             Rule::hash_obj => {
+                let position = pair.as_span().start();
                 let mut inner_types = pair.into_inner();
                 let key_type = parse_type_from_rule(match inner_types.next() {
                     Some(a_rule) => match a_rule.as_rule() {
@@ -168,7 +184,10 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                     None => panic!("missing key type from Map"),
                 })
                 .unwrap();
-                Expr::Constant(Constant::Map(key_type, value_type, BTreeMap::default()))
+                Expr::Constant(
+                    Constant::Map(key_type, value_type, BTreeMap::default()),
+                    position,
+                )
             }
             _ => unreachable!(),
         },
@@ -430,7 +449,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                             var_name: array_name,
                             tail: Vec::new(),
                         },
-                        expr: Expr::Constant(Constant::Array(vtype, Vec::new())),
+                        expr: Expr::Constant(Constant::Array(vtype, Vec::new()), position),
                         position: position,
                     });
                 }
