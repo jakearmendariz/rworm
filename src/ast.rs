@@ -13,8 +13,8 @@ pub type Position = usize;
 pub enum AstNode {
     // option(type) var_name = expression
     Assignment {
-        var_type: Option<VarType>, 
-        identifier: Identifier, 
+        var_type: Option<VarType>,
+        identifier: Identifier,
         expr: Expr,
         position: Position,
     },
@@ -53,6 +53,7 @@ pub enum IdentifierHelper {
 pub struct Identifier {
     pub var_name: String,
     pub tail: Vec<IdentifierHelper>,
+    pub position: usize,
 }
 
 pub const APPEND: &str = "append";
@@ -80,6 +81,7 @@ pub struct Function {
     pub params: Vec<(VarType, String)>,
     pub return_type: VarType,
     pub statements: Vec<Box<AstNode>>,
+    pub position: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]
@@ -105,7 +107,6 @@ pub enum BuiltIn {
     StaticPrint(Expr),
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq)]
 pub enum BoolOp {
     Eq,
@@ -124,7 +125,7 @@ pub enum Expr {
     FnCall {
         name: String,
         params: Vec<Expr>,
-        position:usize,
+        position: usize,
     },
     BinaryExpr(Box<Expr>, OpType, Box<Expr>),
 }
@@ -159,7 +160,10 @@ pub enum Constant {
     Char(char),
     Array(VarType, Vec<Constant>), // Arrays are fixed size in worm, but its easiest to implement with vec
     Map(VarType, VarType, BTreeMap<Constant, Constant>), // custom type for Hash, PartialEq, PartialOrd, Eqmap
-    Struct {name: String, pairs: BTreeMap<String, Constant>},
+    Struct {
+        name: String,
+        pairs: BTreeMap<String, Constant>,
+    },
 }
 
 use std::cmp::Ordering;

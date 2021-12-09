@@ -151,7 +151,7 @@ impl StaticAnalyzer {
                             errors.push(StaticError::TypeMismatchInReturn(
                                 expected_return.clone(),
                                 val,
-                                0,
+                                function.position,
                             ))
                         }
                         return_flag = true;
@@ -162,7 +162,10 @@ impl StaticAnalyzer {
             }
         }
         if !return_flag {
-            errors.push(StaticError::NeedReturnStm(function.name.clone(), 0));
+            errors.push(StaticError::NeedReturnStm(
+                function.name.clone(),
+                function.position,
+            ));
         }
     }
 
@@ -170,11 +173,15 @@ impl StaticAnalyzer {
         &mut self,
         state: &State,
         identifier: Identifier,
-        position: usize,
     ) -> Result<VarType, StaticError> {
         let mut curr_type = match self.execution_state.var_map.get(&identifier.var_name) {
             Some(vtype) => vtype.clone(),
-            None => return Err(StaticError::ValueDne(identifier.var_name, position)),
+            None => {
+                return Err(StaticError::ValueDne(
+                    identifier.var_name,
+                    identifier.position,
+                ))
+            }
         };
         for indentifier_helper in identifier.tail {
             match indentifier_helper {
@@ -208,7 +215,7 @@ impl StaticAnalyzer {
                             None => {
                                 return Err(StaticError::ValueDne(
                                     format!("Struct {}", struct_name,),
-                                    position,
+                                    identifier.position,
                                 ));
                             }
                         };
@@ -217,7 +224,7 @@ impl StaticAnalyzer {
                             None => {
                                 return Err(StaticError::ValueDne(
                                     format!("attribute {} from struct {}", attribute, struct_name,),
-                                    position,
+                                    identifier.position,
                                 ));
                             }
                         };
@@ -225,7 +232,7 @@ impl StaticAnalyzer {
                     _ => {
                         return Err(StaticError::General(
                             "Tried to access attribute on a non-struct".to_string(),
-                            position,
+                            identifier.position,
                         ));
                     }
                 },
@@ -281,7 +288,7 @@ impl StaticAnalyzer {
                 position,
             } => {
                 // type check, variable type must match the result of expression
-                let (value_type, pos) = self.type_of_expr(state, expr)?;
+                let (value_type, _) = self.type_of_expr(state, expr)?;
                 match var_type {
                     Some(vtype) => {
                         if type_match(&vtype, &value_type) {
@@ -294,7 +301,7 @@ impl StaticAnalyzer {
                     }
                     None => {
                         // if no variable type, turn it into an expression and parse value (error if dne)
-                        let var_type = self.get_type_of_identifier(state, identifier, position)?;
+                        let var_type = self.get_type_of_identifier(state, identifier)?;
                         if !type_match(&var_type, &value_type) {
                             return Err(StaticError::TypeViolation(var_type, value_type, position));
                         }
@@ -378,7 +385,7 @@ impl StaticAnalyzer {
      * evaluates expressions and constants to true false values
      */
     fn check_bool(&mut self, state: &State, lhs: &Expr, rhs: &Expr) -> Result<(), StaticError> {
-        let (right, rightpos) = self.type_of_expr(state, rhs.clone())?;
+        let (right, _) = self.type_of_expr(state, rhs.clone())?;
         let (left, leftpos) = self.type_of_expr(state, lhs.clone())?;
         if !type_match(&left, &right) {
             return Err(StaticError::TypeViolation(left, right, leftpos));
@@ -396,7 +403,8 @@ impl StaticAnalyzer {
         match exp {
             Expr::Identifier(identifier) => {
                 // get variable as a constant value
-                Ok((self.get_type_of_identifier(state, identifier, 0)?, 0))
+                let position = identifier.position;
+                Ok((self.get_type_of_identifier(state, identifier)?, position))
             }
             Expr::Constant(constant, position) => match constant {
                 Constant::Array(var_type, _elements) => {
@@ -416,12 +424,19 @@ impl StaticAnalyzer {
                 params,
                 position,
             } => Ok((
-                self.type_of_func_call(state, FnCall { name, params, position })?,
+                self.type_of_func_call(
+                    state,
+                    FnCall {
+                        name,
+                        params,
+                        position,
+                    },
+                )?,
                 position,
             )),
             Expr::BinaryExpr(lhs, _, rhs) => {
                 let (left, leftpos) = self.type_of_expr(state, *lhs)?;
-                let (right, rightpos) = self.type_of_expr(state, *rhs)?;
+                let (right, _) = self.type_of_expr(state, *rhs)?;
                 use VarType::*;
                 match (left.clone(), right.clone()) {
                     (Char, Char) => Ok((VarType::String, leftpos)),
@@ -455,7 +470,7 @@ impl StaticAnalyzer {
                     "Error {} requires exactly {} arg",
                     fn_call.name, expected_params
                 ),
-                0,
+                fn_call.position,
             ))
         } else {
             Ok(())
@@ -507,7 +522,12 @@ impl StaticAnalyzer {
                     Some(_) => {
                         return Ok(VarType::Struct(func_call.name.clone()));
                     }
-                    None => return Err(StaticError::CannotFindFunction(func_call.name, func_call.position)),
+                    None => {
+                        return Err(StaticError::CannotFindFunction(
+                            func_call.name,
+                            func_call.position,
+                        ))
+                    }
                 }
             }
         };

@@ -345,9 +345,19 @@ fn eval_expr(
             Constant::Array(var_type, elements) => Ok(Constant::Array(var_type, elements)),
             _ => Ok(constant),
         },
-        Expr::FnCall { name, params, position } => {
-            eval_fn_call(FnCall { name, params, position }, execution_state, state)
-        }
+        Expr::FnCall {
+            name,
+            params,
+            position,
+        } => eval_fn_call(
+            FnCall {
+                name,
+                params,
+                position,
+            },
+            execution_state,
+            state,
+        ),
         Expr::BinaryExpr(lhs, op, rhs) => {
             let left = eval_expr(&*lhs, execution_state, state)?;
             let right = eval_expr(&*rhs, execution_state, state)?;
@@ -458,7 +468,9 @@ fn eval_reserved_functions(
             match eval_expr(&func_call.params[0].clone(), execution_state, state)? {
                 Constant::String(s) => {
                     // println!("parse int from `{}`", s);
-                    Ok(Constant::Int(s.parse::<i32>().expect(&("Expected to parse int, got ".to_owned() + &s[..]))))
+                    Ok(Constant::Int(s.parse::<i32>().expect(
+                        &("Expected to parse int, got ".to_owned() + &s[..]),
+                    )))
                 }
                 Constant::Char(c) => Ok(Constant::Int(c as i32 - 48)),
                 _ => panic!("panicked tried to find the length of a non array string"),

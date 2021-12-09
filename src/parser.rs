@@ -117,14 +117,21 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                 let position = pair.as_span().start();
                 let mut no_whitespace = pair.as_str().to_string();
                 remove_whitespace(&mut no_whitespace);
-                Expr::Constant(Constant::Int(no_whitespace.parse::<i32>().unwrap()), position)
+                Expr::Constant(
+                    Constant::Int(no_whitespace.parse::<i32>().unwrap()),
+                    position,
+                )
             }
             Rule::char => {
                 let position = pair.as_span().start();
-                Expr::Constant(Constant::Char({
-                let character = pair.into_inner().next().unwrap().as_str();
-                character.chars().next().unwrap()
-            }), position)},
+                Expr::Constant(
+                    Constant::Char({
+                        let character = pair.into_inner().next().unwrap().as_str();
+                        character.chars().next().unwrap()
+                    }),
+                    position,
+                )
+            }
             // Rule::var_name => Expr::ExpVal(Object::Variable(pair.as_str().to_string())),
             Rule::identifier => Expr::Identifier(parse_identifier(pair)),
             Rule::func_call => {
@@ -303,7 +310,9 @@ fn parse_type_from_rule(rule: Pair<Rule>) -> Result<VarType, ParseError> {
 * parse the function from the pair provided.
 */
 pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), ParseError> {
-    let fn_name = pairs.next().unwrap().as_str().to_string();
+    let name_pair = pairs.next().unwrap();
+    let position = name_pair.as_span().start();
+    let fn_name = name_pair.as_str().to_string();
 
     let next_rule = pairs.next().unwrap();
     let (params, return_type) = match next_rule.as_rule() {
@@ -329,6 +338,7 @@ pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), 
         return_type: return_type,
         params: params,
         statements: stms,
+        position: position,
     };
     state.func_map.insert(fn_name.clone(), function);
     state.fn_list.push(fn_name);
@@ -336,6 +346,7 @@ pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), 
 }
 
 pub fn parse_identifier(pair: Pair<Rule>) -> Identifier {
+    let position = pair.as_span().start();
     // println!("{}", pair.as_str());
     let mut structure_index_rules = pair.into_inner();
     let var_name = structure_index_rules.next().unwrap().as_str().to_string();
@@ -360,7 +371,11 @@ pub fn parse_identifier(pair: Pair<Rule>) -> Identifier {
             }
         }
     }
-    return Identifier { var_name, tail };
+    return Identifier {
+        var_name,
+        tail,
+        position,
+    };
 }
 
 /*
@@ -389,6 +404,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                     let identifier = Identifier {
                         var_name: inner_rules.next().unwrap().as_str().to_string(),
                         tail: Vec::new(),
+                        position: position,
                     };
                     (Some(vartype), identifier)
                 }
@@ -448,6 +464,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                         identifier: Identifier {
                             var_name: array_name,
                             tail: Vec::new(),
+                            position,
                         },
                         expr: Expr::Constant(Constant::Array(vtype, Vec::new()), position),
                         position: position,

@@ -4,9 +4,9 @@
 * but also every value in the function, the state is built in parser.rs, analyzed in static_analysis and eveulated in evaluate.rs
 * it is THE worm object :)
 */
+use crate::ast::*;
 use crate::HashMap;
 use serde::{Deserialize, Serialize};
-use crate::ast::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct State {
@@ -14,7 +14,6 @@ pub struct State {
     pub fn_list: Vec<String>, // list of function names
     pub struct_map: HashMap<String, Vec<(String, VarType)>>,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ExecutionState {
@@ -29,7 +28,6 @@ pub struct FakeExecutionState {
     pub var_stack: Vec<(String, u32)>,
     pub stack_lvl: u32,
 }
-
 
 impl FakeExecutionState {
     // increase stack level
@@ -68,7 +66,6 @@ impl FakeExecutionState {
         self.var_map.insert(var_name, value);
     }
 }
-
 
 impl ExecutionState {
     // increase stack level

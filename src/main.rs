@@ -17,9 +17,9 @@ mod static_analysis;
 
 mod display;
 mod state;
-use crate::state::{State, ExecutionState};
 use crate::evaluate::run_program;
 use crate::parser::*;
+use crate::state::{ExecutionState, State};
 use crate::static_analysis::{log_errors, StaticAnalyzer};
 use colored::*;
 use pest::Parser;
@@ -31,8 +31,7 @@ use std::collections::HashMap;
 fn main() {
     let filename = std::env::args().nth(1).expect("expected a filename");
     let file_content = std::fs::read_to_string(filename).expect("cannot read file");
-    let pairs =
-        WormParser::parse(Rule::program, &file_content).unwrap_or_else(|e| panic!("{}", e));
+    let pairs = WormParser::parse(Rule::program, &file_content).unwrap_or_else(|e| panic!("{}", e));
     // println!("{:?}", get_position(file_content.clone(), 27));
     let mut state = State::default();
     // parses the program into an AST, saves the functions AST in the state to be called upon later
@@ -43,7 +42,7 @@ fn main() {
             return;
         }
     }
-    
+
     let mut static_analyzer = StaticAnalyzer::default();
     match static_analyzer.check_program(&state) {
         Ok(()) => (),

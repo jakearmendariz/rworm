@@ -24,7 +24,7 @@ impl std::fmt::Display for BoolOp {
             BoolOp::Leq => write!(f, "<="),
             BoolOp::Geq => write!(f, ">="),
             BoolOp::Lt => write!(f, "<"),
-            BoolOp::Gt =>write!(f, ">"),
+            BoolOp::Gt => write!(f, ">"),
         }
     }
 }
@@ -35,7 +35,11 @@ impl Expr {
             Expr::Identifier(identifier) => {
                 format!("{}", identifier)
             }
-            Expr::FnCall{name, params, position:_} => {
+            Expr::FnCall {
+                name,
+                params,
+                position: _,
+            } => {
                 let mut result = format!("{}(", name);
                 let mut first = true;
                 for expr in params {
@@ -95,7 +99,7 @@ impl std::fmt::Display for Constant {
             Constant::String(s) => write!(f, "{}", s),
             Constant::Array(t, n) => write!(f, "{}[{}]", t, n.len()),
             Constant::Map(key_type, val_type, _) => write!(f, "map<{},{}>{{}}", key_type, val_type),
-            Constant::Struct { name, pairs:_ } => write!(f, "struct {}", name),
+            Constant::Struct { name, pairs: _ } => write!(f, "struct {}", name),
         }
     }
 }
