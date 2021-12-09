@@ -43,8 +43,13 @@ fn get_precedence_order() -> map<char, int> {
 /* extracts a substring that represents an integer */
 fn int_substring(string s, int index) -> string {
     string result = "";
-    int i = index;
-    while index < len(s) & s[index] != ' ') {
+    if s[index] == '-' {
+        /* eat the negative */
+        result = result + s[index];
+        index = index + 1;
+    }
+    /* Error is here because - isn't beiong increased */
+    while index < len(s) & s[index] != ' ' & s[index] != ')' & is_operator(s[index]) == 0) {
         result = result + s[index];
         index = index + 1;
     }
@@ -64,19 +69,35 @@ fn infix_to_postfix(string infix) -> string {
             index = index + 1;
         }
         else {
-            if (curr == '-' & infix[index+1] != ' ') | (is_operator(curr) != 1) {
+            if (curr == '(') {
+                stack = prepend_char(stack, curr);
+                index = index + 1;
+            } else if (curr == ')') {
+                char popped = stack[0];
+                stack = pop_left(stack);
+                index = index + 1;
+                while (popped != '(') {
+                    postfix = postfix + ' ' + popped;
+                    popped = stack[0];
+                    stack = pop_left(stack);
+                }
+            }
+            else if (curr == '-' & infix[index+1] != ' ') | (is_operator(curr) != 1) {
                 /* Operand */
                 string num = int_substring(infix, index);
                 postfix = postfix + ' ' + num;
                 index = index + len(num);
             }
             /* is operator */
-            else if len(stack) == 0 {
+            else if len(stack) == 0{
                 stack = prepend_char(stack, curr);
                 index = index + 1;
             } else {
                 char top_element = stack[0];
-                if precedence_order[curr] == precedence_order[top_element] {
+                if top_element == '(' {
+                    stack = prepend_char(stack, curr);
+                    index = index + 1;
+                } else if precedence_order[curr] == precedence_order[top_element] {
                     postfix = postfix + ' ' + stack[0];
                     stack = pop_left(stack);
                 } else if precedence_order[curr] > precedence_order[top_element] {

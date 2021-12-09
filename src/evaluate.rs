@@ -415,9 +415,10 @@ fn eval_identifier(
                     _ => panic!("Tried an array with an non int value"),
                 },
                 Constant::Map(_, _, wmap) => {
+                    let key = &eval_expr(&exp, execution_state, state)?;
                     curr_value = wmap
-                        .get(&eval_expr(&exp, execution_state, state)?)
-                        .unwrap()
+                        .get(key)
+                        .expect(&format!("Could not find value \"{}\" in map", key)[..])
                         .clone();
                 }
                 Constant::String(s) => {
@@ -457,7 +458,7 @@ fn eval_reserved_functions(
             match eval_expr(&func_call.params[0].clone(), execution_state, state)? {
                 Constant::String(s) => {
                     // println!("parse int from `{}`", s);
-                    Ok(Constant::Int(s.parse::<i32>().unwrap()))
+                    Ok(Constant::Int(s.parse::<i32>().expect(&("Expected to parse int, got ".to_owned() + &s[..]))))
                 }
                 Constant::Char(c) => Ok(Constant::Int(c as i32 - 48)),
                 _ => panic!("panicked tried to find the length of a non array string"),
