@@ -232,26 +232,17 @@ fn parse_structure(mut attribute_rules: Pairs<Rule>) -> Result<Vec<(String, VarT
     let mut attributes: Vec<(String, VarType)> = Vec::new();
     loop {
         //each param is in form { var_type var_name }
-        let attribute_rule = match attribute_rules.next() {
-            Some(a) => a,
+        let (var_name_rule, vtype_rule) = match attribute_rules.next() {
+            Some(var_name_rule) => (var_name_rule, attribute_rules.next().unwrap()),
             None => break,
         };
-        match attribute_rule.as_rule() {
-            Rule::var_name => {
-                let attribute_name = attribute_rule.as_str().to_string();
-                let attribute_type = parse_type_from_rule(
-                    attribute_rules
-                        .next()
-                        .expect("Struct values must be followed by a type"),
-                )?;
+        match (var_name_rule.as_rule(), vtype_rule.as_rule()) {
+            (Rule::var_name, Rule::var_type) => {
+                let attribute_name = var_name_rule.as_str().to_string();
+                let attribute_type = parse_type_from_rule(vtype_rule)?;
                 attributes.push((attribute_name, attribute_type));
             }
-            _ => {
-                return Err(ParseError::GeneralParseError(format!(
-                    "Struct needs attributes Var_name:type, recieved: {:?}",
-                    attribute_rule.as_rule()
-                )));
-            }
+            _ => panic!("structures should be var_name, var_type"),
         }
     }
     Ok(attributes)
@@ -295,14 +286,7 @@ fn parse_type_from_rule(rule: Pair<Rule>) -> Result<VarType, ParseError> {
                 .to_string();
             VarType::Struct(structure_name)
         }
-        _ => {
-            return {
-                Err(ParseError::FormatError(format!(
-                    "parse_type_from_rule() error on {:?}",
-                    rule
-                )))
-            }
-        }
+        _ => panic!("parse_type_from_rule() error on {:?}", rule),
     })
 }
 
@@ -327,12 +311,11 @@ pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), 
         _ => return Err(ParseError::NoReturnType),
     };
 
-    let mut stms = std::vec::Vec::new();
-    for stm in pairs {
-        // two in forloop, one in while loop
-        let ast = parse_ast(stm, state)?;
-        stms.push(Box::new(ast));
+    let mut stms = Vec::new();
+    for pair in pairs {
+        stms.push(Box::new(parse_ast(pair, state)?));
     }
+
     let function = Function {
         name: fn_name.clone(),
         return_type: return_type,
@@ -340,8 +323,7 @@ pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), 
         statements: stms,
         position: position,
     };
-    state.func_map.insert(fn_name.clone(), function);
-    state.fn_list.push(fn_name);
+    state.func_map.insert(fn_name, function);
     Ok(())
 }
 
@@ -350,27 +332,13 @@ pub fn parse_identifier(pair: Pair<Rule>) -> Identifier {
     // println!("{}", pair.as_str());
     let mut structure_index_rules = pair.into_inner();
     let var_name = structure_index_rules.next().unwrap().as_str().to_string();
-    let mut tail: Vec<IdentifierHelper> = Vec::new();
-    loop {
-        match structure_index_rules.next() {
-            Some(identifier_tail) => match identifier_tail.as_rule() {
-                Rule::expr => {
-                    tail.push(IdentifierHelper::ArrayIndex(parse_into_expr(
-                        identifier_tail.into_inner(),
-                    )));
-                }
-                Rule::var_name => {
-                    tail.push(IdentifierHelper::StructIndex(
-                        identifier_tail.as_str().to_string(),
-                    ));
-                }
-                _ => panic!(),
-            },
-            None => {
-                break;
-            }
-        }
-    }
+    let tail = structure_index_rules
+        .map(|rule| match rule.as_rule() {
+            Rule::expr => IdentifierHelper::ArrayIndex(parse_into_expr(rule.into_inner())),
+            Rule::var_name => IdentifierHelper::StructIndex(rule.as_str().to_string()),
+            _ => panic!(),
+        })
+        .collect::<Vec<IdentifierHelper>>();
     return Identifier {
         var_name,
         tail,
@@ -488,45 +456,38 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             let mut inner_rules = pair.into_inner();
             let mut bool_exp = inner_rules.next().unwrap().into_inner();
             let bool_ast = parse_bool_ast(&mut bool_exp);
+            
             let mut stms = Vec::new();
-
             for stm in inner_rules {
-                let ast = parse_ast(stm, state)?;
-                stms.push(Box::new(ast));
+                stms.push(Box::new(parse_ast(stm, state)?));
             }
 
             Ok(AstNode::While(bool_ast, stms))
         }
         Rule::ifstm => {
-            let mut inner_rules = pair.into_inner();
-            let mut if_set = Vec::new();
-            loop {
-                //this will break once all if else have been parsed
-                let (ifstm, boolexp) = match inner_rules.next() {
-                    Some(stm) => {
-                        match stm.as_rule() {
-                            Rule::else_stm => {
-                                let inner = stm.into_inner();
-                                (inner, BoolAst::Const(true))
-                            }
-                            _ => {
-                                //only if or if else statements get to this point, they are handled the same
-                                let mut inner = stm.into_inner();
-                                let mut boolast = inner.next().unwrap().into_inner();
-                                (inner, parse_bool_ast(&mut boolast))
-                            }
-                        }
+            let inner_rules = pair.into_inner();
+            let mut if_else_list = Vec::new();
+            for stm in inner_rules {
+                let (ifstm, boolexp) = match stm.as_rule() {
+                    Rule::else_stm => {
+                        let inner = stm.into_inner();
+                        (inner, BoolAst::Const(true))
                     }
-                    None => break,
+                    _ => {
+                        //only if or if else statements get to this point, they are handled the same
+                        let mut inner = stm.into_inner();
+                        let mut boolast = inner.next().unwrap().into_inner();
+                        (inner, parse_bool_ast(&mut boolast))
+                    }
                 };
                 //get the body of statements
                 let mut stms: Vec<Box<AstNode>> = Vec::new();
                 for stm in ifstm {
                     stms.push(Box::new(parse_ast(stm, state)?));
                 }
-                if_set.push((boolexp, stms));
+                if_else_list.push((boolexp, stms));
             }
-            Ok(AstNode::If(if_set))
+            Ok(AstNode::If(if_else_list))
         }
         Rule::skip => return Ok(AstNode::Skip()),
         Rule::builtin => {

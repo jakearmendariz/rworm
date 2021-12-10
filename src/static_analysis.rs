@@ -91,23 +91,13 @@ pub fn log_errors(errors: Vec<(String, StaticError)>, file_content: String) {
 }
 
 impl StaticAnalyzer {
-    pub fn check_program(&mut self, state: &State) -> Result<(), Vec<(String, StaticError)>> {
-        let mut errors = Vec::new();
-        for name in state.func_map.keys() {
-            match self.inspect_function(name.to_string(), state) {
-                Ok(()) => (),
-                Err(fn_errors) => {
-                    for error in fn_errors {
-                        errors.push((name.to_string(), error));
-                    }
-                }
-            }
-        }
-        if errors.len() > 0 {
-            Err(errors)
-        } else {
-            Ok(())
-        }
+    pub fn check_program(&mut self, state: &State) -> Vec<(String, StaticError)> {
+        let errors = state
+            .func_map
+            .keys()
+            .flat_map(|name| self.inspect_function(name.to_string(), state))
+            .collect();
+        errors
     }
 
     // same as check_function, except with a index instead of passing function
@@ -115,31 +105,24 @@ impl StaticAnalyzer {
         &mut self,
         fn_name: String,
         state: &State,
-    ) -> Result<(), Vec<StaticError>> {
+    ) -> Vec<(String, StaticError)> {
         self.execution_state.increment_stack_level();
         // save parameters of the function into state
         let function = state.func_map.get(&fn_name.to_string()).unwrap();
-        let params = &function.params;
-        for (param_type, param_name) in params {
+        function.params.iter().for_each(|(param_type, param_name)| {
             self.execution_state
-                .save_variable(param_name.to_string(), param_type.clone());
-        }
-        let mut errors = Vec::new();
-        self.check_statements(function, state, &mut errors);
+                .save_variable(param_name.to_string(), param_type.clone())
+        });
+        let errors = self.check_statements(function, state);
         self.execution_state.pop_stack();
-        if errors.len() > 0 {
-            Err(errors)
-        } else {
-            Ok(())
-        }
+        errors
+            .into_iter()
+            .map(|error| (fn_name.clone(), error))
+            .collect()
     }
 
-    fn check_statements(
-        &mut self,
-        function: &Function,
-        state: &State,
-        errors: &mut Vec<StaticError>,
-    ) {
+    fn check_statements(&mut self, function: &Function, state: &State) -> Vec<StaticError> {
+        let mut errors = Vec::new();
         let mut return_flag = false;
         let expected_return = &function.return_type;
         for ast in &function.statements {
@@ -167,6 +150,7 @@ impl StaticAnalyzer {
                 function.position,
             ));
         }
+        errors
     }
 
     fn get_type_of_identifier(
@@ -460,21 +444,21 @@ impl StaticAnalyzer {
 
     fn arg_count_helper(
         &mut self,
-        expected_params: usize,
+        expected_params: Vec<VarType>,
         fn_call: &FnCall,
     ) -> Result<(), StaticError> {
-        // TODO check all params match
-        if fn_call.params.len() != expected_params {
-            Err(StaticError::General(
+        // TODO types match
+        if fn_call.params.len() != expected_params.len() {
+            return Err(StaticError::General(
                 format!(
                     "Error {} requires exactly {} arg",
-                    fn_call.name, expected_params
+                    fn_call.name,
+                    expected_params.len()
                 ),
                 fn_call.position,
             ))
-        } else {
-            Ok(())
         }
+        Ok(())
     }
 
     fn reserved_function(
@@ -484,20 +468,26 @@ impl StaticAnalyzer {
     ) -> Result<VarType, StaticError> {
         match &func_call.name[..] {
             LEN => {
-                self.arg_count_helper(1, func_call)?;
+                self.arg_count_helper(vec![VarType::Array(Box::new(VarType::Int))], func_call)?;
                 Ok(VarType::Int)
             }
             PARSE_INT => {
-                self.arg_count_helper(1, func_call)?;
+                self.arg_count_helper(vec![VarType::String], func_call)?;
                 Ok(VarType::Int)
             }
-            USER_INPUT => Ok(VarType::String),
+            USER_INPUT => {
+                self.arg_count_helper(vec![], func_call)?;
+                Ok(VarType::String)
+            }
             TO_STR => {
-                self.arg_count_helper(1, func_call)?;
+                self.arg_count_helper(vec![VarType::Int], func_call)?;
                 Ok(VarType::String)
             }
             APPEND => {
-                self.arg_count_helper(2, func_call)?;
+                self.arg_count_helper(
+                    vec![VarType::Array(Box::new(VarType::Int)), VarType::Int],
+                    func_call,
+                )?;
                 // append(List<T>, T)
                 let (list, pos) = self.type_of_expr(state, func_call.params[0].clone())?;
                 let (inner_type, _) = self.type_of_expr(state, func_call.params[1].clone())?;

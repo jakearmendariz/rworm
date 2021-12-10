@@ -3,7 +3,12 @@ fn sum(int a, int b) -> int {
     int c = a + b;
     return c;
 }
-
+/*
+fn parse_error(int a) -> int[] {
+    int[] nums = [1, 2, 3];
+    return nums;
+}
+*/
 fn provide_arr(int limit) -> int[] {
     int[] nums = [|i| i; limit];
     string c = 'a';
@@ -38,6 +43,7 @@ fn sum_up(int limit) -> int {
 
 fn main() -> string {
     string a = fuck();
+    /* int[] test = parse_error(0); */
     /* assert(6 == scope_test(4)); is broken*/
     int x = 10;
     int y = 20;

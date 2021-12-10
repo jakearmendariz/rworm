@@ -44,13 +44,12 @@ fn main() {
     }
 
     let mut static_analyzer = StaticAnalyzer::default();
-    match static_analyzer.check_program(&state) {
-        Ok(()) => (),
-        Err(e) => {
-            log_errors(e, file_content);
-            return;
-        }
+    let errors = static_analyzer.check_program(&state);
+    if errors.len() > 0 {
+        log_errors(errors, file_content);
+        return;
     }
+
     let mut execution_state = ExecutionState::default();
     match run_program(&mut execution_state, &state) {
         Ok(result) => {
