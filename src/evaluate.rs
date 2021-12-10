@@ -178,30 +178,6 @@ fn eval_ast(
                 }
             }
         }
-        AstNode::ArrayDef(var_type, name, piped, value_exp, length_exp) => {
-            let len = match eval_expr(&length_exp, execution_state, state)? {
-                Constant::Int(i) => i as usize,
-                _ => panic!("type mismatch found during execution"),
-            };
-            // elements of the array
-            let mut elements: Vec<Constant> = Vec::new();
-            let (variable, pipe) = match piped {
-                Some(piped) => (piped, true),
-                None => (String::from(""), false),
-            };
-            execution_state.increment_stack_level();
-            for i in 0..len {
-                // not currently type checking need to add that later on
-                if pipe {
-                    execution_state
-                        .var_map
-                        .insert(variable.clone(), Constant::Int(i as i32));
-                }
-                elements.push(eval_expr(&value_exp.clone(), execution_state, state)?);
-            }
-            execution_state.pop_stack();
-            execution_state.save_variable(name, Constant::Array(var_type, elements));
-        }
         AstNode::If(if_pairs) => {
             execution_state.increment_stack_level();
             for (conditional, mut stms) in if_pairs {

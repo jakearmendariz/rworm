@@ -225,44 +225,6 @@ impl StaticAnalyzer {
         Ok(curr_type)
     }
 
-    fn check_array_def(
-        &mut self,
-        state: &State,
-        var_type: VarType,
-        name: String,
-        piped: Option<String>,
-        value_exp: Expr,
-        length_exp: Expr,
-    ) -> Result<(), StaticError> {
-        match self.type_of_expr(state, length_exp)? {
-            (VarType::Int, _) => (),
-            (_, pos) => {
-                return Err(StaticError::General(
-                    format!("length of array:\'{}\' must be int", name),
-                    pos,
-                ));
-            }
-        };
-        // elements of the array
-        let (variable, pipe) = match piped {
-            Some(piped) => (piped, true),
-            None => (String::from(""), false),
-        };
-        self.execution_state.increment_stack_level();
-        for _ in 0..2 {
-            // not currently type checking need to add that later on
-            if pipe {
-                self.execution_state
-                    .save_variable(variable.clone(), VarType::Int);
-            }
-            self.type_of_expr(state, value_exp.clone())?;
-        }
-        self.execution_state.pop_stack();
-        self.execution_state
-            .save_variable(name, VarType::Array(Box::new(var_type)));
-        Ok(())
-    }
-
     fn eval_ast(&mut self, state: &State, ast: AstNode) -> Result<Option<VarType>, StaticError> {
         match ast {
             AstNode::Assignment {
@@ -291,9 +253,6 @@ impl StaticAnalyzer {
                         }
                     }
                 };
-            }
-            AstNode::ArrayDef(var_type, name, piped, value_exp, length_exp) => {
-                self.check_array_def(state, var_type, name, piped, value_exp, length_exp)?;
             }
             AstNode::If(if_pairs) => {
                 // TOOO: need to check every single branch

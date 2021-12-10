@@ -18,9 +18,6 @@ pub enum AstNode {
         expr: Expr,
         position: Position,
     },
-    //type, name, optional piped variable for index, value expression, size expression
-    // int[] arr = [|opt| expr1; expr2]
-    ArrayDef(VarType, String, Option<String>, Expr, Expr),
     // if bool then do ast
     If(Vec<(BoolAst, Vec<Box<AstNode>>)>),
     While(BoolAst, Vec<Box<AstNode>>),
