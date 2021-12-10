@@ -54,6 +54,9 @@ impl Expr {
             Expr::Constant(constant, _) => {
                 format!("{}", constant)
             }
+            Expr::ListComprehension {piped_var, value_expr, in_expr} => {
+                format!("|{:?}| {} in {}", piped_var, value_expr, in_expr)
+            }
             Expr::BinaryExpr(exp1, op, exp2) => {
                 let p1 = exp1.clone().expr_to_str();
                 let p2 = exp2.clone().expr_to_str();
@@ -84,6 +87,7 @@ impl std::fmt::Display for VarType {
             VarType::Int => write!(f, "int"),
             VarType::Char => write!(f, "char"),
             VarType::String => write!(f, "string"),
+            VarType::Generic => write!(f, "generic"),
             VarType::Array(vtype) => write!(f, "{}[]", vtype),
             VarType::Map(key_type, val_type) => write!(f, "map<{},{}>", key_type, val_type),
             VarType::Struct(_) => write!(f, "worm struct"),

@@ -358,6 +358,30 @@ fn eval_expr(
             execution_state,
             state,
         ),
+        Expr::ListComprehension { piped_var, value_expr, in_expr } => {
+            let len = match eval_expr(&in_expr, execution_state, state)? {
+                Constant::Int(i) => i as usize,
+                _ => panic!("type mismatch found during execution"),
+            };
+            // elements of the array
+            let mut elements: Vec<Constant> = Vec::new();
+            let (variable, pipe) = match piped_var {
+                Some(piped) => (piped, true),
+                None => (String::from(""), false),
+            };
+            execution_state.increment_stack_level();
+            for i in 0..len {
+                // not currently type checking need to add that later on
+                if pipe {
+                    execution_state
+                        .var_map
+                        .insert(variable.clone(), Constant::Int(i as i32));
+                }
+                elements.push(eval_expr(&value_expr.clone(), execution_state, state)?);
+            }
+            execution_state.pop_stack();
+            Ok(Constant::Array(VarType::Generic, elements))
+        }
         Expr::BinaryExpr(lhs, op, rhs) => {
             let left = eval_expr(&*lhs, execution_state, state)?;
             let right = eval_expr(&*rhs, execution_state, state)?;

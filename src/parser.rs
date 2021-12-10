@@ -448,9 +448,23 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             // let expression = parse_into_expr(array_def.next().unwrap().into_inner());
             // size must be an uinteger, but parse into expression anyways in case a variable is passed in
             let size_expr = parse_into_expr(array_def.next().unwrap().into_inner());
-            Ok(AstNode::ArrayDef(
-                array_type, array_name, piped, expression, size_expr,
-            ))
+            // Ok(AstNode::ArrayDef(
+            //     array_type, array_name, piped, expression, size_expr,
+            // ))
+            Ok(AstNode::Assignment{
+                var_type: Some(VarType::Array(Box::new(array_type))),
+                identifier: Identifier {
+                    var_name:array_name,
+                    tail: Vec::new(),
+                    position,
+                },
+                expr: Expr::ListComprehension {
+                    piped_var: piped,
+                    value_expr: Box::new(expression),
+                    in_expr: Box::new(size_expr),
+                },
+                position
+            })
         }
         Rule::whilestm => {
             let mut inner_rules = pair.into_inner();

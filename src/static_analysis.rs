@@ -418,6 +418,18 @@ impl StaticAnalyzer {
                 )?,
                 position,
             )),
+            Expr::ListComprehension {piped_var, value_expr, in_expr:_} => {
+                self.execution_state.increment_stack_level();
+                match piped_var {
+                    Some(name) => self.execution_state.save_variable(name, VarType::Generic),
+                    None => (),
+                };
+                let (value_expr_type, pos) = self.type_of_expr(state, *value_expr)?;
+                Ok((
+                    VarType::Array(Box::new(value_expr_type)),
+                    pos,
+                ))
+            }
             Expr::BinaryExpr(lhs, _, rhs) => {
                 let (left, leftpos) = self.type_of_expr(state, *lhs)?;
                 let (right, _) = self.type_of_expr(state, *rhs)?;
@@ -426,6 +438,8 @@ impl StaticAnalyzer {
                     (Char, Char) => Ok((VarType::String, leftpos)),
                     (Char, String) => Ok((VarType::String, leftpos)),
                     (String, Char) => Ok((VarType::String, leftpos)),
+                    (Generic, a) => Ok((a, leftpos)),
+                    (a, Generic) => Ok((a, leftpos)),
                     (_, _) => {
                         if type_match(&left, &right) {
                             Ok((left, leftpos))
@@ -564,6 +578,8 @@ fn type_match(a: &VarType, b: &VarType) -> bool {
         (Int, Char) => true, // allow int => char conversion
         (Map(k1, v1), Map(k2, v2)) => type_match(&*k1, &*k2) && type_match(&*v1, &*v2),
         (Array(arr1), Array(arr2)) => type_match(&*arr1, &*arr2),
+        (Generic, _) => true,
+        (_, Generic) => true,
         _ => false,
     }
 }

@@ -127,6 +127,11 @@ pub enum Expr {
         params: Vec<Expr>,
         position: usize,
     },
+    ListComprehension {
+        piped_var: Option<String>, 
+        value_expr: Box<Expr>, 
+        in_expr: Box<Expr>,
+    },
     BinaryExpr(Box<Expr>, OpType, Box<Expr>),
 }
 
@@ -147,6 +152,7 @@ pub enum VarType {
     Int,
     Char,
     String,
+    Generic, // Not used in code yet, but needed for analysis
     Array(Box<VarType>),
     Map(Box<VarType>, Box<VarType>),
     Struct(String),
