@@ -171,6 +171,48 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                     position,
                 )
             }
+            Rule::array_value => {
+                // format of `int[] a = [expression; size];`
+                let position = pair.as_span().start();
+
+                let init_or_call = pair.into_inner().next().unwrap();
+                let mut array_def = match init_or_call.as_rule() {
+                    Rule::array_initial => init_or_call.into_inner(),
+                    Rule::array_empty => {
+                        return Expr::Constant(
+                            Constant::Array(
+                                parse_type_from_rule(init_or_call.into_inner().next().unwrap()).unwrap(),
+                                Vec::new(),
+                            ),
+                            position,
+                        );
+                    }
+                    _ => {
+                        panic!("")
+                    }
+                };
+                // expression can be a constant or a value to be evaulated to, var i represents the index of an array
+                let first = array_def.next().unwrap();
+                // catch the piped variable, optional, but if there it's the index of the program
+                let (piped, expression) = match first.as_rule() {
+                    Rule::piped => (
+                        Some(first.into_inner().next().unwrap().as_str().to_string()),
+                        parse_into_expr(array_def.next().unwrap().into_inner()),
+                    ),
+                    Rule::expr => (None, parse_into_expr(first.into_inner())),
+                    _ => {
+                        panic!("")
+                    }
+                };
+                // let expression = parse_into_expr(array_def.next().unwrap().into_inner());
+                // size must be an uinteger, but parse into expression anyways in case a variable is passed in
+                let size_expr = parse_into_expr(array_def.next().unwrap().into_inner());
+                Expr::ListComprehension {
+                    piped_var: piped,
+                    value_expr: Box::new(expression),
+                    in_expr: Box::new(size_expr),
+                }
+            }
             Rule::expr => parse_into_expr(pair.into_inner()),
             Rule::hash_obj => {
                 let position = pair.as_span().start();
@@ -315,7 +357,6 @@ pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), 
     for pair in pairs {
         stms.push(Box::new(parse_ast(pair, state)?));
     }
-
     let function = Function {
         name: fn_name.clone(),
         return_type: return_type,
@@ -329,7 +370,6 @@ pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), 
 
 pub fn parse_identifier(pair: Pair<Rule>) -> Identifier {
     let position = pair.as_span().start();
-    // println!("{}", pair.as_str());
     let mut structure_index_rules = pair.into_inner();
     let var_name = structure_index_rules.next().unwrap().as_str().to_string();
     let tail = structure_index_rules
@@ -396,74 +436,6 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 identifier: identifier,
                 expr: expression,
                 position: position,
-            })
-        }
-        Rule::array_definition => {
-            // format of `int[] a = [expression; size];`
-            let position = pair.as_span().start();
-            let mut array_rules = pair.into_inner();
-            // to get the type inside of array, we first have to pass the outer loop of array_inst]
-            let array_type =
-                parse_type_from_rule(array_rules.next().unwrap().into_inner().next().unwrap())?;
-            let array_name = array_rules.next().unwrap().as_str().to_string();
-
-            let init_or_call = array_rules.next().unwrap();
-            let mut array_def = match init_or_call.as_rule() {
-                Rule::array_initial => init_or_call.into_inner(),
-                Rule::array_empty => init_or_call.into_inner(),
-                _ => {
-                    return Err(ParseError::GeneralParseError(String::from(
-                        "non array type in front of array dec",
-                    )))
-                }
-            };
-            // expression can be a constant or a value to be evaulated to, var i represents the index of an array
-            let first = array_def.next().unwrap();
-            // catch the piped variable, optional, but if there it's the index of the program
-            let (piped, expression) = match first.as_rule() {
-                Rule::piped => (
-                    Some(first.into_inner().next().unwrap().as_str().to_string()),
-                    parse_into_expr(array_def.next().unwrap().into_inner()),
-                ),
-                Rule::var_type => {
-                    let vtype = parse_type_from_rule(first)?;
-                    return Ok(AstNode::Assignment {
-                        var_type: Some(VarType::Array(Box::new(vtype.clone()))),
-                        identifier: Identifier {
-                            var_name: array_name,
-                            tail: Vec::new(),
-                            position,
-                        },
-                        expr: Expr::Constant(Constant::Array(vtype, Vec::new()), position),
-                        position: position,
-                    });
-                }
-                Rule::expr => (None, parse_into_expr(first.into_inner())),
-                _ => {
-                    return Err(ParseError::GeneralParseError(String::from(
-                        "Unmatched rule in piped slot of array def",
-                    )))
-                }
-            };
-            // let expression = parse_into_expr(array_def.next().unwrap().into_inner());
-            // size must be an uinteger, but parse into expression anyways in case a variable is passed in
-            let size_expr = parse_into_expr(array_def.next().unwrap().into_inner());
-            // Ok(AstNode::ArrayDef(
-            //     array_type, array_name, piped, expression, size_expr,
-            // ))
-            Ok(AstNode::Assignment{
-                var_type: Some(VarType::Array(Box::new(array_type))),
-                identifier: Identifier {
-                    var_name:array_name,
-                    tail: Vec::new(),
-                    position,
-                },
-                expr: Expr::ListComprehension {
-                    piped_var: piped,
-                    value_expr: Box::new(expression),
-                    in_expr: Box::new(size_expr),
-                },
-                position
             })
         }
         Rule::whilestm => {

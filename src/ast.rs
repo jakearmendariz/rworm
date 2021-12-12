@@ -124,6 +124,14 @@ pub enum Expr {
         params: Vec<Expr>,
         position: usize,
     },
+    // current: 
+    //  [|i| i; 10] => [0,1,2,3,4,5,6,7,8,9]
+    //  [int] => [] # this stays
+    // desired: # any of the following
+    //  [0..10]
+    //  [i for i in range(0..10)]
+    //  [0,1,2,3,4,5,6,7,8,9]
+    //  [i for value in array]
     ListComprehension {
         piped_var: Option<String>, 
         value_expr: Box<Expr>, 
