@@ -54,6 +54,8 @@ pub struct Identifier {
 }
 
 pub const APPEND: &str = "append";
+pub const PREPEND: &str = "prepend";
+pub const REMOVE: &str = "remove";
 pub const TO_STR: &str = "to_str";
 pub const USER_INPUT: &str = "user_input";
 pub const PARSE_INT: &str = "parse_int";
@@ -64,6 +66,8 @@ lazy_static::lazy_static! {
     pub static ref RESERVED_FUNCTIONS: HashSet<&'static str> = {
         let mut reserved: HashSet<&'static str> = HashSet::with_capacity(10);
         reserved.insert(APPEND);
+        reserved.insert(PREPEND);
+        reserved.insert(REMOVE);
         reserved.insert(TO_STR);
         reserved.insert(USER_INPUT);
         reserved.insert(PARSE_INT);

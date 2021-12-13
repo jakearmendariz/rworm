@@ -456,7 +456,25 @@ impl StaticAnalyzer {
                 self.arg_count_helper(vec![VarType::Int], func_call)?;
                 Ok(VarType::String)
             }
-            APPEND => {
+            REMOVE => {
+                self.arg_count_helper(
+                    vec![VarType::Array(Box::new(VarType::Generic)), VarType::Int],
+                    func_call,
+                )?;
+                let (list, pos) = self.type_of_expr(state, func_call.params[0].clone())?;
+                let (index, index_pos) = self.type_of_expr(state, func_call.params[1].clone())?;
+                expect_type(&VarType::Int, &index, index_pos)?;
+                match list {
+                    VarType::Array(inner) => {
+                        Ok(VarType::Array(inner))
+                    }
+                    VarType::String => {
+                        Ok(VarType::String)
+                    }
+                    actual_type => Err(StaticError::TypeViolation(VarType::Array(Box::new(VarType::Generic)), actual_type, pos))
+                }
+            }
+            APPEND | PREPEND => {
                 self.arg_count_helper(
                     vec![VarType::Array(Box::new(VarType::Int)), VarType::Int],
                     func_call,
@@ -537,6 +555,8 @@ fn type_match(a: &VarType, b: &VarType) -> bool {
         (Int, Char) => true, // allow int => char conversion
         (Map(k1, v1), Map(k2, v2)) => type_match(&*k1, &*k2) && type_match(&*v1, &*v2),
         (Array(arr1), Array(arr2)) => type_match(&*arr1, &*arr2),
+        (Array(inner), String) => type_match(&*inner, &VarType::Char),
+        (String, Array(inner)) => type_match(&*inner, &VarType::Char),
         (Generic, _) => true,
         (_, Generic) => true,
         _ => false,

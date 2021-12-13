@@ -495,6 +495,35 @@ fn eval_reserved_functions(
                 _ => panic!("Tried appending non array"),
             }
         }
+        PREPEND => {
+            let value = eval_expr(&func_call.params[0].clone(), execution_state, state)?;
+            match value {
+                Constant::Array(vtype, mut values) => {
+                    values.insert(0, eval_expr(
+                        &func_call.params[1].clone(),
+                        execution_state,
+                        state,
+                    )?);
+                    Ok(Constant::Array(vtype, values))
+                }
+                _ => panic!("Tried appending non array"),
+            }
+        }
+        REMOVE => {
+            let value = eval_expr(&func_call.params[0].clone(), execution_state, state)?;
+            let index = eval_expr(&func_call.params[1].clone(), execution_state, state)?;
+            match (value, index) {
+                (Constant::Array(vtype, mut values), Constant::Int(i)) => {
+                    values.remove(i as usize);
+                    Ok(Constant::Array(vtype, values))
+                }
+                (Constant::String(mut values), Constant::Int(i)) => {
+                    values.remove(i as usize);
+                    Ok(Constant::String(values))
+                }
+                _ => panic!("Tried poping non array"),
+            }
+        }
         TO_STR => match eval_expr(&func_call.params[0].clone(), execution_state, state)? {
             Constant::Int(i) => Ok(Constant::String(i.to_string())),
             Constant::Char(c) => Ok(Constant::String(c.to_string())),

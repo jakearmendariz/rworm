@@ -70,16 +70,16 @@ fn infix_to_postfix(string infix) -> string {
         }
         else {
             if (curr == '(') {
-                stack = prepend_char(stack, curr);
+                stack = prepend(stack, curr);
                 index = index + 1;
             } else if (curr == ')') {
                 char popped = stack[0];
-                stack = pop_left(stack);
+                stack = remove(stack, 0);
                 index = index + 1;
                 while (popped != '(') {
                     postfix = postfix + ' ' + popped;
                     popped = stack[0];
-                    stack = pop_left(stack);
+                    stack = remove(stack, 0);
                 }
             }
             else if (curr == '-' & infix[index+1] != ' ') | (is_operator(curr) != 1) {
@@ -90,22 +90,22 @@ fn infix_to_postfix(string infix) -> string {
             }
             /* is operator */
             else if len(stack) == 0{
-                stack = prepend_char(stack, curr);
+                stack = prepend(stack, curr);
                 index = index + 1;
             } else {
                 char top_element = stack[0];
                 if top_element == '(' {
-                    stack = prepend_char(stack, curr);
+                    stack = prepend(stack, curr);
                     index = index + 1;
                 } else if precedence_order[curr] == precedence_order[top_element] {
                     postfix = postfix + ' ' + stack[0];
-                    stack = pop_left(stack);
+                    stack = remove(stack, 0);
                 } else if precedence_order[curr] > precedence_order[top_element] {
-                    stack = prepend_char(stack, curr);
+                    stack = prepend(stack, curr);
                     index = index + 1;
                 } else {
                     char popped = stack[0];
-                    stack = pop_left(stack);
+                    stack = remove(stack, 0);
                     postfix = postfix + ' ' + popped;
                 }
             }
@@ -114,15 +114,10 @@ fn infix_to_postfix(string infix) -> string {
     /* add everything that is left */
     while len(stack) > 0 {
         char popped = stack[0];
-        stack = pop_left(stack);
+        stack = remove(stack, 0);
         postfix = postfix + ' ' + popped;
     }
     return postfix;
-}
-
-fn pop_stack(struct<Node>[] arr) -> struct<Node>[] {
-    struct<Node>[] b = [|i| arr[i]; len(arr)-1];
-    return b;
 }
 
 /* Convert the postfix notation to a tree */
@@ -144,9 +139,9 @@ fn postfix_to_tree(string postfix) -> struct<Node> {
             /* is an operator */
             struct<Node> node = build_op(curr);
             node.right = append(node.right, stack[len(stack) -1]);
-            stack = pop_stack(stack);
+            stack = remove(stack, len(stack)-1);
             node.left = append(node.left, stack[len(stack) -1]);
-            stack = pop_stack(stack);
+            stack = remove(stack, len(stack)-1);
             stack = append(stack, node);
         }
         i = i + 1;
@@ -179,7 +174,7 @@ fn evaluate_tree(struct<Node> root) -> int {
 
 /* turns string into postfix, then a tree, then it evaluates tree with a pres order traversal */
 fn evaluate_expression(string infix) -> int {
-    infix = pop_str(infix); /* remove the \n */
+    infix = remove(infix, len(infix) -1); /* remove the \n */
     string postfix = infix_to_postfix(infix);
     struct<Node> root = postfix_to_tree(postfix + ' ');
     return evaluate_tree(root);
