@@ -83,3 +83,13 @@ fn test_append() -> int {
     assert(len(arr1) == 11);
     return 0;
 }
+
+
+fn test_boolean_expressions() -> int {
+    int x = 4;
+    int result = ((x*x)+x);
+    assert(x == 4 & x != 5);
+    assert(result == 20);
+    assert(x*x+x == 20 & 7 != 70);
+    return 0;
+}

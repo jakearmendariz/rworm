@@ -259,7 +259,7 @@ impl StaticAnalyzer {
                 self.execution_state.increment_stack_level();
                 let mut return_val = None;
                 for (conditional, mut stms) in if_pairs {
-                    self.check_bool_ast(state, &conditional)?;
+                    self.check_bool_expr(state, conditional)?;
                     while stms.len() > 0 {
                         match self.eval_ast(state, *stms.remove(0))? {
                             Some(eval) => return_val = Some(eval),
@@ -271,7 +271,7 @@ impl StaticAnalyzer {
                 return Ok(return_val);
             }
             AstNode::While(conditional, stms) => {
-                self.check_bool_ast(state, &conditional)?;
+                self.check_bool_expr(state, conditional)?;
                 self.execution_state.increment_stack_level();
                 for stm in stms.iter() {
                     match self.eval_ast(state, *stm.clone())? {
@@ -290,8 +290,8 @@ impl StaticAnalyzer {
                     BuiltIn::StaticPrint(exp) => {
                         self.type_of_expr(state, exp)?;
                     }
-                    BuiltIn::Assert(boolast) => {
-                        self.check_bool_ast(state, &boolast)?;
+                    BuiltIn::Assert(bool_expr) => {
+                        self.check_bool_expr(state, bool_expr)?;
                     }
                 }
                 ()
@@ -307,20 +307,9 @@ impl StaticAnalyzer {
     /*
      * evalulates booleans based on their conjunction
      */
-    fn check_bool_ast(&mut self, state: &State, bool_ast: &BoolAst) -> Result<(), StaticError> {
-        match &*bool_ast {
-            BoolAst::Not(body) => self.check_bool_ast(state, &*body)?,
-            BoolAst::And(a, b) => {
-                self.check_bool_ast(state, &*a)?;
-                self.check_bool_ast(state, &*b)?;
-            }
-            BoolAst::Or(a, b) => {
-                self.check_bool_ast(state, &*a)?;
-                self.check_bool_ast(state, &*b)?
-            }
-            BoolAst::Exp(left, _, right) => self.check_bool(state, left, right)?,
-            BoolAst::Const(_) => (),
-        };
+    fn check_bool_expr(&mut self, state: &State, expr: Expr) -> Result<(), StaticError> {
+        let (bool_expr, pos) = self.type_of_expr(state,expr)?;
+        expect_type(&VarType::Bool, &bool_expr, pos)?;
         Ok(())
     }
 
@@ -354,6 +343,7 @@ impl StaticAnalyzer {
                     Ok((VarType::Array(Box::new(var_type)), position))
                 }
                 Constant::Int(_) => Ok((VarType::Int, position)),
+                Constant::Bool(_) => Ok((VarType::Bool, position)),
                 Constant::Char(_) => Ok((VarType::Char, position)),
                 Constant::String(_) => Ok((VarType::String, position)),
                 Constant::Struct { name, pairs: _ } => Ok((VarType::Struct(name), position)),
@@ -389,28 +379,44 @@ impl StaticAnalyzer {
                     pos,
                 ))
             }
-            Expr::BinaryExpr(lhs, _, rhs) => {
+            Expr::BinaryExpr(lhs, op, rhs) => {
                 let (left, leftpos) = self.type_of_expr(state, *lhs)?;
-                let (right, _) = self.type_of_expr(state, *rhs)?;
+                let (right, rightpos) = self.type_of_expr(state, *rhs)?;
                 use VarType::*;
-                match (left.clone(), right.clone()) {
-                    (Char, Char) => Ok((VarType::String, leftpos)),
-                    (Char, String) => Ok((VarType::String, leftpos)),
-                    (String, Char) => Ok((VarType::String, leftpos)),
-                    (Generic, a) => Ok((a, leftpos)),
-                    (a, Generic) => Ok((a, leftpos)),
-                    (_, _) => {
-                        if type_match(&left, &right) {
-                            Ok((left, leftpos))
-                        } else {
-                            Err(StaticError::TypeViolation(
-                                left.clone(),
-                                right.clone(),
-                                leftpos,
-                            ))
+                use OpType::*;
+                match op {
+                    And | Or => {
+                        // If the operator is `and` or `or` then both sides must eval to boolean.
+                        expect_type(&VarType::Bool, &left, leftpos)?;
+                        expect_type(&VarType::Bool, &right, rightpos)?;
+                        Ok((VarType::Bool, leftpos))
+                    }
+                    Lt | Gt | Leq | Geq | Neq | Eq => {
+                        expect_type(&left, &right, leftpos)?;
+                        Ok((VarType::Bool, leftpos))
+                    }
+                    _ => {
+                        match (left.clone(), right.clone()) {
+                            (Char, Char) => Ok((String, leftpos)),
+                            (Char, String) => Ok((String, leftpos)),
+                            (String, Char) => Ok((String, leftpos)),
+                            (Generic, a) => Ok((a, leftpos)),
+                            (a, Generic) => Ok((a, leftpos)),
+                            (_, _) => {
+                                if type_match(&left, &right) {
+                                    Ok((left, leftpos))
+                                } else {
+                                    Err(StaticError::TypeViolation(
+                                        left.clone(),
+                                        right.clone(),
+                                        leftpos,
+                                    ))
+                                }
+                            }
                         }
                     }
                 }
+                
             }
         }
     }
@@ -550,7 +556,7 @@ fn expect_type(expected: &VarType, actual: &VarType, position: usize) -> Result<
 fn type_match(a: &VarType, b: &VarType) -> bool {
     use VarType::*;
     match (a, b) {
-        (Int, Int) | (String, String) | (Char, Char) => true,
+        (Int, Int) | (String, String) | (Char, Char) | (Bool, Bool) => true,
         (Struct(s1), Struct(s2)) => s1.eq(s2),
         (Int, Char) => true, // allow int => char conversion
         (Map(k1, v1), Map(k2, v2)) => type_match(&*k1, &*k2) && type_match(&*v1, &*v2),

@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, HashMap};
 #[derive(Debug, Clone)]
 pub enum ExecutionError {
     DivideByZero,
-    AssertionError(BoolAst),
+    AssertionError(Expr),
 }
 
 static MAIN: &str = "main";
@@ -181,7 +181,7 @@ fn eval_ast(
         AstNode::If(if_pairs) => {
             execution_state.increment_stack_level();
             for (conditional, mut stms) in if_pairs {
-                if eval_bool_ast(&conditional, execution_state, state)? {
+                if eval_bool_expr(&conditional, execution_state, state)? {
                     while stms.len() > 0 {
                         match eval_ast(*stms.remove(0), execution_state, state)? {
                             Some(eval) => return Ok(Some(eval)),
@@ -194,7 +194,7 @@ fn eval_ast(
             execution_state.pop_stack();
         }
         AstNode::While(conditional, stms) => {
-            while eval_bool_ast(&conditional, execution_state, state)? {
+            while eval_bool_expr(&conditional, execution_state, state)? {
                 execution_state.increment_stack_level();
                 for stm in stms.iter() {
                     match eval_ast(*stm.clone(), execution_state, state)? {
@@ -216,7 +216,7 @@ fn eval_ast(
                 }
                 BuiltIn::StaticPrint(_) => (),
                 BuiltIn::Assert(boolexp) => {
-                    if !eval_bool_ast(&boolexp, execution_state, state)? {
+                    if !eval_bool_expr(&boolexp, execution_state, state)? {
                         return Err(ExecutionError::AssertionError(boolexp));
                     } else {
                         println!("{} {}", "ASSERTION PASS:".blue(), boolexp);
@@ -236,28 +236,15 @@ fn eval_ast(
 /*
 * evalulates booleans based on their conjunction
 */
-fn eval_bool_ast(
-    bool_ast: &BoolAst,
+fn eval_bool_expr(
+    bool_expr: &Expr,
     execution_state: &mut ExecutionState,
     state: &State,
 ) -> Result<bool, ExecutionError> {
-    Ok(match &*bool_ast {
-        BoolAst::Not(body) => !eval_bool_ast(&*body, execution_state, state)?,
-        BoolAst::And(a, b) => {
-            if eval_bool_ast(&*a, execution_state, state)? {
-                // only evaluate the second if the first is true
-                eval_bool_ast(&*b, execution_state, state)?
-            } else {
-                false
-            }
-        }
-        BoolAst::Or(a, b) => {
-            eval_bool_ast(&*a, execution_state, state)?
-                | eval_bool_ast(&*b, execution_state, state)?
-        }
-        BoolAst::Exp(lhs, op, rhs) => eval_bool(execution_state, state, &*lhs, &*op, &*rhs)?,
-        BoolAst::Const(boolean) => *boolean,
-    })
+    match eval_expr(bool_expr, execution_state, state)? {
+        Constant::Bool(a) => Ok(a),
+        _ => panic!("expected boolean result in conditional"),
+    }
 }
 
 /*
@@ -334,7 +321,11 @@ fn eval_expr(
             execution_state,
             state,
         ),
-        Expr::ListComprehension { piped_var, value_expr, in_expr } => {
+        Expr::ListComprehension {
+            piped_var,
+            value_expr,
+            in_expr,
+        } => {
             let len = match eval_expr(&in_expr, execution_state, state)? {
                 Constant::Int(i) => i as usize,
                 _ => panic!("type mismatch found during execution"),
@@ -362,43 +353,68 @@ fn eval_expr(
             let left = eval_expr(&*lhs, execution_state, state)?;
             let right = eval_expr(&*rhs, execution_state, state)?;
             use Constant::*;
-            let (l, r, var_type) = match (left, right) {
-                (Int(l), Int(r)) => (l as f64, r as f64, VarType::Int),
-                (String(l), String(r)) => match op {
-                    OpType::Add => return Ok(Constant::String(format!("{}{}", l, r))),
-                    _ => panic!("expr operation on strings only allow +"),
-                },
-                (Char(l), Char(r)) => match op {
-                    OpType::Add => return Ok(Constant::String(format!("{}{}", l, r))),
-                    _ => panic!("expr operation on strings only allow +"),
-                },
-                (Char(l), String(r)) => match op {
-                    OpType::Add => return Ok(Constant::String(format!("{}{}", l, r))),
-                    _ => panic!("expr operation on strings only allow +"),
-                },
-                (String(l), Char(r)) => match op {
-                    OpType::Add => return Ok(Constant::String(format!("{}{}", l, r))),
-                    _ => panic!("expr operation on strings only allow +"),
-                },
-                _ => panic!("expr operation on mismatching types"),
-            };
-            let res = match op {
-                OpType::Add => l + r,
-                OpType::Sub => l - r,
-                OpType::Mult => l * r,
-                OpType::Div => {
-                    if r == 0.0 {
-                        return Err(ExecutionError::DivideByZero);
+            use OpType::*;
+            match op {
+                Eq => Ok(Bool(left == right)),
+                Neq => Ok(Bool(left != right)),
+                Lt => Ok(Bool(left < right)),
+                Gt => Ok(Bool(left > right)),
+                Leq => Ok(Bool(left <= right)),
+                Geq => Ok(Bool(left >= right)),
+                And => match (left, right) {
+                    (Bool(left), Bool(right)) => {
+                        Ok(Bool(left && right))
                     }
-                    l / r
-                }
-                OpType::Pow => l.powf(r),
-                OpType::Modulus => l % r,
-            };
-            match var_type {
-                VarType::Int => Ok(Constant::Int(res as i32)),
-                _ => {
-                    panic!("type violation caught in execution while trying to evaluate expression")
+                    _ => panic!("left or right didn't evaluate to bool in `and`"),
+                },
+                Or => match (left, right) {
+                    (Bool(left), Bool(right)) => {
+                        Ok(Bool(left || right))
+                    }
+                    _ => panic!("left or right didn't evaluate to bool in `or`"),
+                },
+                operator => {
+                    // extract integer values, or add chars and strings
+                    let (l, r, var_type) = match (left, right) {
+                        (Int(l), Int(r)) => (l as f64, r as f64, VarType::Int),
+                        (String(l), String(r)) => match operator {
+                            Add => return Ok(String(format!("{}{}", l, r))),
+                            _ => panic!("expr operation on strings only allow +"),
+                        },
+                        (Char(l), Char(r)) => match operator {
+                            Add => return Ok(String(format!("{}{}", l, r))),
+                            _ => panic!("expr operation on strings only allow +"),
+                        },
+                        (Char(l), String(r)) => match operator {
+                            Add => return Ok(String(format!("{}{}", l, r))),
+                            _ => panic!("expr operation on strings only allow +"),
+                        },
+                        (String(l), Char(r)) => match operator {
+                            Add => return Ok(String(format!("{}{}", l, r))),
+                            _ => panic!("expr operation on strings only allow +"),
+                        },
+                        _ => panic!("expr operation on mismatching types"),
+                    };
+                    let res = match operator {
+                        Add => l + r,
+                        Sub => l - r,
+                        Mult => l * r,
+                        Div => {
+                            if r == 0.0 {
+                                return Err(ExecutionError::DivideByZero);
+                            }
+                            l / r
+                        }
+                        Pow => l.powf(r),
+                        Modulus => l % r,
+                        _ => panic!("unmatched arm for operator"),
+                    };
+                    match var_type {
+                        VarType::Int => Ok(Int(res as i32)),
+                        _ => {
+                            panic!("type violation caught in execution while trying to evaluate expression")
+                        }
+                    }
                 }
             }
         }
@@ -499,11 +515,10 @@ fn eval_reserved_functions(
             let value = eval_expr(&func_call.params[0].clone(), execution_state, state)?;
             match value {
                 Constant::Array(vtype, mut values) => {
-                    values.insert(0, eval_expr(
-                        &func_call.params[1].clone(),
-                        execution_state,
-                        state,
-                    )?);
+                    values.insert(
+                        0,
+                        eval_expr(&func_call.params[1].clone(), execution_state, state)?,
+                    );
                     Ok(Constant::Array(vtype, values))
                 }
                 _ => panic!("Tried appending non array"),

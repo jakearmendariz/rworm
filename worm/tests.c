@@ -27,6 +27,8 @@ fn main() -> string {
 
     assert(test_append() == 0);
 
+    assert(test_boolean_expressions() == 0);
+
     /* success */
     return "SUCESS";
 }

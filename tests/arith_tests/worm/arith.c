@@ -49,7 +49,7 @@ fn int_substring(string s, int index) -> string {
         index = index + 1;
     }
     /* Error is here because - isn't beiong increased */
-    while index < len(s) & s[index] != ' ' & s[index] != ')' & is_operator(s[index]) == 0) {
+    while index < len(s) & s[index] != ' ' & s[index] != ')' & is_operator(s[index]) == 0 {
         result = result + s[index];
         index = index + 1;
     }
@@ -60,6 +60,7 @@ fn int_substring(string s, int index) -> string {
 /* converts the infix expression to a postfix expression (easier to turn into an expression tree from there) */
 fn infix_to_postfix(string infix) -> string {
     string postfix = "";
+    infix = infix + " ";
     map<char, int> precedence_order = get_precedence_order();
     char[] stack = [' '; 0];
     int index = 0;

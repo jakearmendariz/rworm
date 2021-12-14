@@ -19,8 +19,8 @@ pub enum AstNode {
         position: Position,
     },
     // if bool then do ast
-    If(Vec<(BoolAst, Vec<Box<AstNode>>)>),
-    While(BoolAst, Vec<Box<AstNode>>),
+    If(Vec<(Expr, Vec<Box<AstNode>>)>),
+    While(Expr, Vec<Box<AstNode>>),
     // these built in functions consume an entire line
     BuiltIn(BuiltIn),
     // return from a function
@@ -104,7 +104,7 @@ pub enum BoolAst {
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq)]
 pub enum BuiltIn {
     Print(Expr),
-    Assert(BoolAst),
+    Assert(Expr),
     StaticPrint(Expr),
 }
 
@@ -152,6 +152,15 @@ pub enum OpType {
     Div,
     Pow,
     Modulus,
+    /// Boolean Operation
+    Eq,
+    Neq,
+    Geq,
+    Leq,
+    Lt,
+    Gt,
+    And,
+    Or,
 }
 
 // vartype and constants are the core of the language
@@ -160,6 +169,7 @@ pub enum OpType {
 pub enum VarType {
     Int,
     Char,
+    Bool,
     String,
     Generic, // Not used in code yet, but needed for analysis
     Array(Box<VarType>),
@@ -171,6 +181,7 @@ pub enum VarType {
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, Eq, Ord)]
 pub enum Constant {
     Int(i32),
+    Bool(bool),
     String(String),
     Char(char),
     Array(VarType, Vec<Constant>), // Arrays are fixed size in worm, but its easiest to implement with vec

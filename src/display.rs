@@ -68,6 +68,14 @@ impl Expr {
                     Div => "/",
                     Pow => "^",
                     Modulus => "%",
+                    Eq => "==",
+                    Neq => "!=",
+                    Leq => "<=",
+                    Geq => ">=",
+                    Lt => "<",
+                    Gt => ">",
+                    And => "and",
+                    Or => "or",
                 };
                 format!("{}{}{}", p1, op, p2)
             }
@@ -86,6 +94,7 @@ impl std::fmt::Display for VarType {
         match &*self {
             VarType::Int => write!(f, "int"),
             VarType::Char => write!(f, "char"),
+            VarType::Bool => write!(f, "bool"),
             VarType::String => write!(f, "string"),
             VarType::Generic => write!(f, "generic"),
             VarType::Array(vtype) => write!(f, "{}[]", vtype),
@@ -99,6 +108,7 @@ impl std::fmt::Display for Constant {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &*self {
             Constant::Int(i) => write!(f, "{}", i),
+            Constant::Bool(b) => write!(f, "{}", b),
             Constant::Char(c) => write!(f, "{}", c),
             Constant::String(s) => write!(f, "{}", s),
             Constant::Array(t, n) => write!(f, "{}[{}]", t, n.len()),

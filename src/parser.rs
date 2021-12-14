@@ -64,52 +64,52 @@ lazy_static::lazy_static! {
 }
 
 /* parse a boolean expression, for a == b, return (a, ==, b) */
-fn parse_bool_exp(bool_exp: &mut Pairs<Rule>) -> BoolAst {
-    BoolAst::Exp(
-        parse_into_expr(bool_exp.next().unwrap().into_inner()),
-        match bool_exp.next().unwrap().as_rule() {
-            Rule::eq => BoolOp::Eq,
-            Rule::neq => BoolOp::Neq,
-            Rule::geq => BoolOp::Geq,
-            Rule::leq => BoolOp::Leq,
-            Rule::lt => BoolOp::Lt,
-            Rule::gt => BoolOp::Gt,
-            _ => {
-                unreachable!();
-            }
-        },
-        parse_into_expr(bool_exp.next().unwrap().into_inner()),
-    )
-}
+// fn parse_bool_exp(bool_exp: &mut Pairs<Rule>) -> BoolAst {
+//     BoolAst::Exp(
+//         parse_expr(bool_exp.next().unwrap().into_inner()),
+//         match bool_exp.next().unwrap().as_rule() {
+//             Rule::eq => BoolOp::Eq,
+//             Rule::neq => BoolOp::Neq,
+//             Rule::geq => BoolOp::Geq,
+//             Rule::leq => BoolOp::Leq,
+//             Rule::lt => BoolOp::Lt,
+//             Rule::gt => BoolOp::Gt,
+//             _ => {
+//                 unreachable!();
+//             }
+//         },
+//         parse_expr(bool_exp.next().unwrap().into_inner()),
+//     )
+// }
 
-/* builds a bool abstract syntax tree */
-fn parse_bool_ast(conditional: &mut Pairs<Rule>) -> BoolAst {
-    PREC_CLIMBER.climb(
-        conditional,
-        |pair: Pair<Rule>| match pair.as_rule() {
-            Rule::tru => BoolAst::Const(true),
-            Rule::fal => BoolAst::Const(false),
-            Rule::boolnot => BoolAst::Not(Box::new(parse_bool_ast(&mut pair.into_inner()))),
-            Rule::boolterm => parse_bool_ast(&mut pair.into_inner()),
-            Rule::boolexp => parse_bool_exp(&mut pair.into_inner()),
-            Rule::boolexpr => parse_bool_ast(&mut pair.into_inner()),
-            _ => {
-                unreachable!();
-            }
-        },
-        |lhs: BoolAst, op: Pair<Rule>, rhs: BoolAst| match op.as_rule() {
-            Rule::and => BoolAst::And(Box::new(lhs), Box::new(rhs)),
-            Rule::or => BoolAst::Or(Box::new(lhs), Box::new(rhs)),
-            _ => unreachable!(),
-        },
-    )
-}
+// /* builds a bool abstract syntax tree */
+// fn parse_bool_ast(conditional: &mut Pairs<Rule>) -> BoolAst {
+//     PREC_CLIMBER.climb(
+//         conditional,
+//         |pair: Pair<Rule>| match pair.as_rule() {
+//             Rule::tru => BoolAst::Const(true),
+//             Rule::fal => BoolAst::Const(false),
+//             Rule::boolnot => BoolAst::Not(Box::new(parse_bool_ast(&mut pair.into_inner()))),
+//             Rule::boolterm => parse_bool_ast(&mut pair.into_inner()),
+//             Rule::boolexp => parse_bool_exp(&mut pair.into_inner()),
+//             Rule::boolexpr => parse_bool_ast(&mut pair.into_inner()),
+//             _ => {
+//                 unreachable!();
+//             }
+//         },
+//         |lhs: BoolAst, op: Pair<Rule>, rhs: BoolAst| match op.as_rule() {
+//             Rule::and => BoolAst::And(Box::new(lhs), Box::new(rhs)),
+//             Rule::or => BoolAst::Or(Box::new(lhs), Box::new(rhs)),
+//             _ => unreachable!(),
+//         },
+//     )
+// }
 fn remove_whitespace(s: &mut String) {
     s.retain(|c| !c.is_whitespace());
 }
 
 /* parses pairs of rules from peg parser into a expression */
-fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
+fn parse_expr(expression: Pairs<Rule>) -> Expr {
     PREC_CLIMBER.climb(
         expression,
         |pair: Pair<Rule>| match pair.as_rule() {
@@ -132,6 +132,8 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                     position,
                 )
             }
+            Rule::tru => Expr::Constant(Constant::Bool(true), 0),
+            Rule::fal => Expr::Constant(Constant::Bool(false), 0),
             // Rule::var_name => Expr::ExpVal(Object::Variable(pair.as_str().to_string())),
             Rule::identifier => Expr::Identifier(parse_identifier(pair)),
             Rule::func_call => {
@@ -142,7 +144,7 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                 match inner.next() {
                     Some(p) => {
                         for item in p.into_inner() {
-                            params.push(parse_into_expr(item.into_inner()));
+                            params.push(parse_expr(item.into_inner()));
                             ()
                         }
                     }
@@ -197,23 +199,23 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
                 let (piped, expression) = match first.as_rule() {
                     Rule::piped => (
                         Some(first.into_inner().next().unwrap().as_str().to_string()),
-                        parse_into_expr(array_def.next().unwrap().into_inner()),
+                        parse_expr(array_def.next().unwrap().into_inner()),
                     ),
-                    Rule::expr => (None, parse_into_expr(first.into_inner())),
+                    Rule::expr => (None, parse_expr(first.into_inner())),
                     _ => {
                         panic!("")
                     }
                 };
-                // let expression = parse_into_expr(array_def.next().unwrap().into_inner());
+                // let expression = parse_expr(array_def.next().unwrap().into_inner());
                 // size must be an uinteger, but parse into expression anyways in case a variable is passed in
-                let size_expr = parse_into_expr(array_def.next().unwrap().into_inner());
+                let size_expr = parse_expr(array_def.next().unwrap().into_inner());
                 Expr::ListComprehension {
                     piped_var: piped,
                     value_expr: Box::new(expression),
                     in_expr: Box::new(size_expr),
                 }
             }
-            Rule::expr => parse_into_expr(pair.into_inner()),
+            Rule::expr => parse_expr(pair.into_inner()),
             Rule::hash_obj => {
                 let position = pair.as_span().start();
                 let mut inner_types = pair.into_inner();
@@ -247,6 +249,14 @@ fn parse_into_expr(expression: Pairs<Rule>) -> Expr {
             Rule::divide => Expr::BinaryExpr(Box::new(lhs), OpType::Div, Box::new(rhs)),
             Rule::power => Expr::BinaryExpr(Box::new(lhs), OpType::Pow, Box::new(rhs)),
             Rule::modulus => Expr::BinaryExpr(Box::new(lhs), OpType::Modulus, Box::new(rhs)),
+            Rule::lt => Expr::BinaryExpr(Box::new(lhs), OpType::Lt, Box::new(rhs)),
+            Rule::gt => Expr::BinaryExpr(Box::new(lhs), OpType::Gt, Box::new(rhs)),
+            Rule::and => Expr::BinaryExpr(Box::new(lhs), OpType::And, Box::new(rhs)),
+            Rule::or => Expr::BinaryExpr(Box::new(lhs), OpType::Or, Box::new(rhs)),
+            Rule::geq => Expr::BinaryExpr(Box::new(lhs), OpType::Geq, Box::new(rhs)),
+            Rule::leq => Expr::BinaryExpr(Box::new(lhs), OpType::Leq, Box::new(rhs)),
+            Rule::eq => Expr::BinaryExpr(Box::new(lhs), OpType::Eq, Box::new(rhs)),
+            Rule::neq => Expr::BinaryExpr(Box::new(lhs), OpType::Neq, Box::new(rhs)),
             _ => unreachable!(),
         },
     )
@@ -374,7 +384,7 @@ pub fn parse_identifier(pair: Pair<Rule>) -> Identifier {
     let var_name = structure_index_rules.next().unwrap().as_str().to_string();
     let tail = structure_index_rules
         .map(|rule| match rule.as_rule() {
-            Rule::expr => IdentifierHelper::ArrayIndex(parse_into_expr(rule.into_inner())),
+            Rule::expr => IdentifierHelper::ArrayIndex(parse_expr(rule.into_inner())),
             Rule::var_name => IdentifierHelper::StructIndex(rule.as_str().to_string()),
             _ => panic!(),
         })
@@ -430,7 +440,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                     }
                 }
             };
-            let expression = parse_into_expr(inner_rules.next().unwrap().into_inner());
+            let expression = parse_expr(inner_rules.next().unwrap().into_inner());
             Ok(AstNode::Assignment {
                 var_type: var_type,
                 identifier: identifier,
@@ -441,7 +451,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
         Rule::whilestm => {
             let mut inner_rules = pair.into_inner();
             let mut bool_exp = inner_rules.next().unwrap().into_inner();
-            let bool_ast = parse_bool_ast(&mut bool_exp);
+            let bool_ast = parse_expr(bool_exp);
             
             let mut stms = Vec::new();
             for stm in inner_rules {
@@ -457,13 +467,13 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 let (ifstm, boolexp) = match stm.as_rule() {
                     Rule::else_stm => {
                         let inner = stm.into_inner();
-                        (inner, BoolAst::Const(true))
+                        (inner, Expr::Constant(Constant::Bool(true), 0))
                     }
                     _ => {
                         //only if or if else statements get to this point, they are handled the same
                         let mut inner = stm.into_inner();
                         let mut boolast = inner.next().unwrap().into_inner();
-                        (inner, parse_bool_ast(&mut boolast))
+                        (inner, parse_expr(boolast))
                     }
                 };
                 //get the body of statements
@@ -480,15 +490,15 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             let builtin = pair.into_inner().next().unwrap();
             match builtin.as_rule() {
                 Rule::print => {
-                    let expression = parse_into_expr(builtin.into_inner());
+                    let expression = parse_expr(builtin.into_inner());
                     Ok(AstNode::BuiltIn(BuiltIn::Print(expression)))
                 }
                 Rule::static_print => {
-                    let expression = parse_into_expr(builtin.into_inner());
+                    let expression = parse_expr(builtin.into_inner());
                     Ok(AstNode::BuiltIn(BuiltIn::StaticPrint(expression)))
                 }
-                Rule::assert => Ok(AstNode::BuiltIn(BuiltIn::Assert(parse_bool_ast(
-                    &mut builtin.into_inner(),
+                Rule::assert => Ok(AstNode::BuiltIn(BuiltIn::Assert(parse_expr(
+                    builtin.into_inner(),
                 )))),
                 _ => unreachable!(),
             }
@@ -497,7 +507,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             let position = pair.as_span().start();
             let return_expr = pair.into_inner().next().unwrap();
             Ok(AstNode::ReturnStm(
-                parse_into_expr(return_expr.into_inner()),
+                parse_expr(return_expr.into_inner()),
                 position,
             ))
         }
