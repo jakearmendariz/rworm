@@ -16,7 +16,6 @@ pub enum AstNode {
         var_type: Option<VarType>,
         identifier: Identifier,
         expr: Expr,
-        position: Position,
     },
     // if bool then do ast
     If(Vec<(Expr, Vec<Box<AstNode>>)>),

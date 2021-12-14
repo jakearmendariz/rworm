@@ -382,7 +382,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                     let identifier = Identifier {
                         var_name: inner_rules.next().unwrap().as_str().to_string(),
                         tail: Vec::new(),
-                        position: position,
+                        position,
                     };
                     (Some(vartype), identifier)
                 }
@@ -405,7 +405,6 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 var_type: var_type,
                 identifier: identifier,
                 expr: expression,
-                position: position,
             })
         }
         Rule::whilestm => {

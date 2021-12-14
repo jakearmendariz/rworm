@@ -231,10 +231,9 @@ impl StaticAnalyzer {
                 var_type,
                 identifier,
                 expr,
-                position,
             } => {
                 // type check, variable type must match the result of expression
-                let (value_type, _) = self.type_of_expr(state, expr)?;
+                let (value_type, position) = self.type_of_expr(state, expr)?;
                 match var_type {
                     Some(vtype) => {
                         if type_match(&vtype, &value_type) {

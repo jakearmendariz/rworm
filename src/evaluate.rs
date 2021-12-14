@@ -164,7 +164,6 @@ fn eval_ast(
             var_type,
             identifier,
             expr,
-            position: _,
         } => {
             let value = eval_expr(&expr, execution_state, state)?;
             let actual_val = match (var_type.clone(), value) {
