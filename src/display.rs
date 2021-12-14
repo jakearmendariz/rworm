@@ -3,32 +3,6 @@ use crate::ast::*;
 * display traits for the project, each of the worm objects need to be displayed in error messages
 */
 
-impl std::fmt::Display for BoolAst {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        use BoolAst::*;
-        match &self {
-            Not(a) => write!(f, "{}", a),
-            And(a, b) => write!(f, "{} & {} ", a, b),
-            Or(a, b) => write!(f, "{} | {}", a, b),
-            Exp(lhs, op, rhs) => write!(f, "{} {} {}", lhs, op, rhs),
-            Const(a) => write!(f, "{}", a),
-        }
-    }
-}
-
-impl std::fmt::Display for BoolOp {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match &self {
-            BoolOp::Eq => write!(f, "=="),
-            BoolOp::Neq => write!(f, "!="),
-            BoolOp::Leq => write!(f, "<="),
-            BoolOp::Geq => write!(f, ">="),
-            BoolOp::Lt => write!(f, "<"),
-            BoolOp::Gt => write!(f, ">"),
-        }
-    }
-}
-
 impl Expr {
     pub fn expr_to_str(self) -> String {
         match &*&self {
@@ -54,7 +28,11 @@ impl Expr {
             Expr::Constant(constant, _) => {
                 format!("{}", constant)
             }
-            Expr::ListComprehension {piped_var, value_expr, in_expr} => {
+            Expr::ListComprehension {
+                piped_var,
+                value_expr,
+                in_expr,
+            } => {
                 format!("|{:?}| {} in {}", piped_var, value_expr, in_expr)
             }
             Expr::BinaryExpr(exp1, op, exp2) => {

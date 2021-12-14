@@ -63,47 +63,6 @@ lazy_static::lazy_static! {
     };
 }
 
-/* parse a boolean expression, for a == b, return (a, ==, b) */
-// fn parse_bool_exp(bool_exp: &mut Pairs<Rule>) -> BoolAst {
-//     BoolAst::Exp(
-//         parse_expr(bool_exp.next().unwrap().into_inner()),
-//         match bool_exp.next().unwrap().as_rule() {
-//             Rule::eq => BoolOp::Eq,
-//             Rule::neq => BoolOp::Neq,
-//             Rule::geq => BoolOp::Geq,
-//             Rule::leq => BoolOp::Leq,
-//             Rule::lt => BoolOp::Lt,
-//             Rule::gt => BoolOp::Gt,
-//             _ => {
-//                 unreachable!();
-//             }
-//         },
-//         parse_expr(bool_exp.next().unwrap().into_inner()),
-//     )
-// }
-
-// /* builds a bool abstract syntax tree */
-// fn parse_bool_ast(conditional: &mut Pairs<Rule>) -> BoolAst {
-//     PREC_CLIMBER.climb(
-//         conditional,
-//         |pair: Pair<Rule>| match pair.as_rule() {
-//             Rule::tru => BoolAst::Const(true),
-//             Rule::fal => BoolAst::Const(false),
-//             Rule::boolnot => BoolAst::Not(Box::new(parse_bool_ast(&mut pair.into_inner()))),
-//             Rule::boolterm => parse_bool_ast(&mut pair.into_inner()),
-//             Rule::boolexp => parse_bool_exp(&mut pair.into_inner()),
-//             Rule::boolexpr => parse_bool_ast(&mut pair.into_inner()),
-//             _ => {
-//                 unreachable!();
-//             }
-//         },
-//         |lhs: BoolAst, op: Pair<Rule>, rhs: BoolAst| match op.as_rule() {
-//             Rule::and => BoolAst::And(Box::new(lhs), Box::new(rhs)),
-//             Rule::or => BoolAst::Or(Box::new(lhs), Box::new(rhs)),
-//             _ => unreachable!(),
-//         },
-//     )
-// }
 fn remove_whitespace(s: &mut String) {
     s.retain(|c| !c.is_whitespace());
 }
@@ -183,7 +142,8 @@ fn parse_expr(expression: Pairs<Rule>) -> Expr {
                     Rule::array_empty => {
                         return Expr::Constant(
                             Constant::Array(
-                                parse_type_from_rule(init_or_call.into_inner().next().unwrap()).unwrap(),
+                                parse_type_from_rule(init_or_call.into_inner().next().unwrap())
+                                    .unwrap(),
                                 Vec::new(),
                             ),
                             position,
@@ -450,9 +410,9 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
         }
         Rule::whilestm => {
             let mut inner_rules = pair.into_inner();
-            let mut bool_exp = inner_rules.next().unwrap().into_inner();
+            let bool_exp = inner_rules.next().unwrap().into_inner();
             let bool_ast = parse_expr(bool_exp);
-            
+
             let mut stms = Vec::new();
             for stm in inner_rules {
                 stms.push(Box::new(parse_ast(stm, state)?));
@@ -472,7 +432,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                     _ => {
                         //only if or if else statements get to this point, they are handled the same
                         let mut inner = stm.into_inner();
-                        let mut boolast = inner.next().unwrap().into_inner();
+                        let boolast = inner.next().unwrap().into_inner();
                         (inner, parse_expr(boolast))
                     }
                 };

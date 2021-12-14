@@ -308,22 +308,11 @@ impl StaticAnalyzer {
      * evalulates booleans based on their conjunction
      */
     fn check_bool_expr(&mut self, state: &State, expr: Expr) -> Result<(), StaticError> {
-        let (bool_expr, pos) = self.type_of_expr(state,expr)?;
+        let (bool_expr, pos) = self.type_of_expr(state, expr)?;
         expect_type(&VarType::Bool, &bool_expr, pos)?;
         Ok(())
     }
 
-    /*
-     * evaluates expressions and constants to true false values
-     */
-    fn check_bool(&mut self, state: &State, lhs: &Expr, rhs: &Expr) -> Result<(), StaticError> {
-        let (right, _) = self.type_of_expr(state, rhs.clone())?;
-        let (left, leftpos) = self.type_of_expr(state, lhs.clone())?;
-        if !type_match(&left, &right) {
-            return Err(StaticError::TypeViolation(left, right, leftpos));
-        };
-        Ok(())
-    }
     fn type_of_expr_wrapper(&mut self, state: &State, exp: Expr) -> Result<VarType, StaticError> {
         let (vtype, _) = self.type_of_expr(state, exp)?;
         Ok(vtype)
@@ -367,23 +356,24 @@ impl StaticAnalyzer {
                 )?,
                 position,
             )),
-            Expr::ListComprehension {piped_var, value_expr, in_expr:_} => {
+            Expr::ListComprehension {
+                piped_var,
+                value_expr,
+                in_expr: _,
+            } => {
                 self.execution_state.increment_stack_level();
                 match piped_var {
                     Some(name) => self.execution_state.save_variable(name, VarType::Generic),
                     None => (),
                 };
                 let (value_expr_type, pos) = self.type_of_expr(state, *value_expr)?;
-                Ok((
-                    VarType::Array(Box::new(value_expr_type)),
-                    pos,
-                ))
+                Ok((VarType::Array(Box::new(value_expr_type)), pos))
             }
             Expr::BinaryExpr(lhs, op, rhs) => {
                 let (left, leftpos) = self.type_of_expr(state, *lhs)?;
                 let (right, rightpos) = self.type_of_expr(state, *rhs)?;
-                use VarType::*;
                 use OpType::*;
+                use VarType::*;
                 match op {
                     And | Or => {
                         // If the operator is `and` or `or` then both sides must eval to boolean.
@@ -395,28 +385,25 @@ impl StaticAnalyzer {
                         expect_type(&left, &right, leftpos)?;
                         Ok((VarType::Bool, leftpos))
                     }
-                    _ => {
-                        match (left.clone(), right.clone()) {
-                            (Char, Char) => Ok((String, leftpos)),
-                            (Char, String) => Ok((String, leftpos)),
-                            (String, Char) => Ok((String, leftpos)),
-                            (Generic, a) => Ok((a, leftpos)),
-                            (a, Generic) => Ok((a, leftpos)),
-                            (_, _) => {
-                                if type_match(&left, &right) {
-                                    Ok((left, leftpos))
-                                } else {
-                                    Err(StaticError::TypeViolation(
-                                        left.clone(),
-                                        right.clone(),
-                                        leftpos,
-                                    ))
-                                }
+                    _ => match (left.clone(), right.clone()) {
+                        (Char, Char) => Ok((String, leftpos)),
+                        (Char, String) => Ok((String, leftpos)),
+                        (String, Char) => Ok((String, leftpos)),
+                        (Generic, a) => Ok((a, leftpos)),
+                        (a, Generic) => Ok((a, leftpos)),
+                        (_, _) => {
+                            if type_match(&left, &right) {
+                                Ok((left, leftpos))
+                            } else {
+                                Err(StaticError::TypeViolation(
+                                    left.clone(),
+                                    right.clone(),
+                                    leftpos,
+                                ))
                             }
                         }
-                    }
+                    },
                 }
-                
             }
         }
     }
@@ -435,7 +422,7 @@ impl StaticAnalyzer {
                     expected_params.len()
                 ),
                 fn_call.position,
-            ))
+            ));
         }
         Ok(())
     }
@@ -471,13 +458,13 @@ impl StaticAnalyzer {
                 let (index, index_pos) = self.type_of_expr(state, func_call.params[1].clone())?;
                 expect_type(&VarType::Int, &index, index_pos)?;
                 match list {
-                    VarType::Array(inner) => {
-                        Ok(VarType::Array(inner))
-                    }
-                    VarType::String => {
-                        Ok(VarType::String)
-                    }
-                    actual_type => Err(StaticError::TypeViolation(VarType::Array(Box::new(VarType::Generic)), actual_type, pos))
+                    VarType::Array(inner) => Ok(VarType::Array(inner)),
+                    VarType::String => Ok(VarType::String),
+                    actual_type => Err(StaticError::TypeViolation(
+                        VarType::Array(Box::new(VarType::Generic)),
+                        actual_type,
+                        pos,
+                    )),
                 }
             }
             APPEND | PREPEND => {

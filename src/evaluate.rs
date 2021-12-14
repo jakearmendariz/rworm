@@ -248,53 +248,6 @@ fn eval_bool_expr(
 }
 
 /*
-* evaluates expressions and constants to true false values
-*/
-fn eval_bool(
-    execution_state: &mut ExecutionState,
-    state: &State,
-    lhs: &Expr,
-    op: &BoolOp,
-    rhs: &Expr,
-) -> Result<bool, ExecutionError> {
-    // let BoolExp(lhs, op, rhs) = &*bool_exp;
-    use Constant::*;
-    let (lres, rres) = match (
-        eval_expr(lhs, execution_state, state)?,
-        eval_expr(rhs, execution_state, state)?,
-    ) {
-        (Int(i), Int(j)) => (i as f64, j as f64),
-        (Char(i), Char(j)) => (i as u32 as f64, j as u32 as f64),
-        (Map(_, _, _), _) | (_, Map(_, _, _)) => {
-            panic!("type violation in eval_bool, cannot compare map")
-        }
-        (String(s1), String(s2)) => {
-            return Ok(match op {
-                BoolOp::Eq => s1 == s2,
-                BoolOp::Neq => s1 != s2,
-                BoolOp::Leq => s1 <= s2,
-                BoolOp::Geq => s1 >= s2,
-                BoolOp::Lt => s1 < s2,
-                BoolOp::Gt => s1 > s2,
-            });
-        }
-        _ => panic!(
-            "type violation in eval_bool\n{:?} != {:?}",
-            eval_expr(lhs, execution_state, state)?,
-            eval_expr(rhs, execution_state, state)?
-        ),
-    };
-    Ok(match op {
-        BoolOp::Eq => lres == rres,
-        BoolOp::Neq => lres != rres,
-        BoolOp::Leq => lres <= rres,
-        BoolOp::Geq => lres >= rres,
-        BoolOp::Lt => lres < rres,
-        BoolOp::Gt => lres > rres,
-    })
-}
-
-/*
 * eval_expr evaluates inline expressions
 */
 fn eval_expr(
@@ -362,37 +315,25 @@ fn eval_expr(
                 Leq => Ok(Bool(left <= right)),
                 Geq => Ok(Bool(left >= right)),
                 And => match (left, right) {
-                    (Bool(left), Bool(right)) => {
-                        Ok(Bool(left && right))
-                    }
+                    (Bool(left), Bool(right)) => Ok(Bool(left && right)),
                     _ => panic!("left or right didn't evaluate to bool in `and`"),
                 },
                 Or => match (left, right) {
-                    (Bool(left), Bool(right)) => {
-                        Ok(Bool(left || right))
-                    }
+                    (Bool(left), Bool(right)) => Ok(Bool(left || right)),
                     _ => panic!("left or right didn't evaluate to bool in `or`"),
+                },
+                Add => match (left, right) {
+                    (Int(l), Int(r)) => Ok(Int((l + r) as i32)),
+                    (String(l), String(r)) => Ok(String(format!("{}{}", l, r))),
+                    (Char(l), Char(r)) => return Ok(String(format!("{}{}", l, r))),
+                    (Char(l), String(r)) => return Ok(String(format!("{}{}", l, r))),
+                    (String(l), Char(r)) => return Ok(String(format!("{}{}", l, r))),
+                    _ => panic!("expr operation on mismatching types"),
                 },
                 operator => {
                     // extract integer values, or add chars and strings
                     let (l, r, var_type) = match (left, right) {
-                        (Int(l), Int(r)) => (l as f64, r as f64, VarType::Int),
-                        (String(l), String(r)) => match operator {
-                            Add => return Ok(String(format!("{}{}", l, r))),
-                            _ => panic!("expr operation on strings only allow +"),
-                        },
-                        (Char(l), Char(r)) => match operator {
-                            Add => return Ok(String(format!("{}{}", l, r))),
-                            _ => panic!("expr operation on strings only allow +"),
-                        },
-                        (Char(l), String(r)) => match operator {
-                            Add => return Ok(String(format!("{}{}", l, r))),
-                            _ => panic!("expr operation on strings only allow +"),
-                        },
-                        (String(l), Char(r)) => match operator {
-                            Add => return Ok(String(format!("{}{}", l, r))),
-                            _ => panic!("expr operation on strings only allow +"),
-                        },
+                        (Int(l), Int(r)) => (l, r, VarType::Int),
                         _ => panic!("expr operation on mismatching types"),
                     };
                     let res = match operator {
@@ -400,12 +341,12 @@ fn eval_expr(
                         Sub => l - r,
                         Mult => l * r,
                         Div => {
-                            if r == 0.0 {
+                            if r == 0 {
                                 return Err(ExecutionError::DivideByZero);
                             }
                             l / r
                         }
-                        Pow => l.powf(r),
+                        Pow => l.pow(r as u32),
                         Modulus => l % r,
                         _ => panic!("unmatched arm for operator"),
                     };

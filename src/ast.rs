@@ -93,32 +93,13 @@ pub struct FnCall {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq)]
-pub enum BoolAst {
-    Not(Box<BoolAst>),
-    And(Box<BoolAst>, Box<BoolAst>),
-    Or(Box<BoolAst>, Box<BoolAst>),
-    Exp(Expr, BoolOp, Expr),
-    Const(bool),
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq)]
 pub enum BuiltIn {
     Print(Expr),
     Assert(Expr),
     StaticPrint(Expr),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq)]
-pub enum BoolOp {
-    Eq,
-    Neq,
-    Geq,
-    Leq,
-    Lt,
-    Gt,
-}
-
-// expression represents
+/// Expression is core of ast, all values are created from expressions
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Expr {
     Identifier(Identifier),
@@ -128,7 +109,7 @@ pub enum Expr {
         params: Vec<Expr>,
         position: usize,
     },
-    // current: 
+    // current:
     //  [|i| i; 10] => [0,1,2,3,4,5,6,7,8,9]
     //  [int] => [] # this stays
     // desired: # any of the following
@@ -137,8 +118,8 @@ pub enum Expr {
     //  [0,1,2,3,4,5,6,7,8,9]
     //  [i for value in array]
     ListComprehension {
-        piped_var: Option<String>, 
-        value_expr: Box<Expr>, 
+        piped_var: Option<String>,
+        value_expr: Box<Expr>,
         in_expr: Box<Expr>,
     },
     BinaryExpr(Box<Expr>, OpType, Box<Expr>),
@@ -163,8 +144,7 @@ pub enum OpType {
     Or,
 }
 
-// vartype and constants are the core of the language
-// all expressions evaluate to a specific type, which is represented as a constant
+/// All expressions evaluate to a specific type, which is represented as a constant
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialOrd, Eq, Ord)]
 pub enum VarType {
     Int,
@@ -177,7 +157,6 @@ pub enum VarType {
     Struct(String),
 }
 
-// TODO convert Float to be represented as two integers
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, Eq, Ord)]
 pub enum Constant {
     Int(i32),
