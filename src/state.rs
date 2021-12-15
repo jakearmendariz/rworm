@@ -9,7 +9,7 @@ use crate::HashMap;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct State {
+pub struct AstMap {
     pub func_map: HashMap<String, Function>,
     pub struct_map: HashMap<String, Vec<(String, VarType)>>,
 }

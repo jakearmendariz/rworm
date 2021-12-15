@@ -19,7 +19,7 @@ mod display;
 mod state;
 use crate::evaluate::run_program;
 use crate::parser::*;
-use crate::state::{ExecutionState, State};
+use crate::state::{ExecutionState, AstMap};
 use crate::static_analysis::{log_errors, StaticAnalyzer};
 use colored::*;
 use pest::Parser;
@@ -33,9 +33,9 @@ fn main() {
     let file_content = std::fs::read_to_string(filename).expect("cannot read file");
     let pairs = WormParser::parse(Rule::program, &file_content).unwrap_or_else(|e| panic!("{}", e));
     // println!("{:?}", get_position(file_content.clone(), 27));
-    let mut state = State::default();
+    let mut ast = AstMap::default();
     // parses the program into an AST, saves the functions AST in the state to be called upon later
-    match parse_program(pairs, &mut state) {
+    match parse_program(pairs, &mut ast) {
         Ok(()) => (),
         Err(e) => {
             println!("{} {:?}", "PARSE ERROR:".red().bold(), e);
@@ -44,14 +44,14 @@ fn main() {
     }
 
     let mut static_analyzer = StaticAnalyzer::default();
-    let errors = static_analyzer.check_program(&state);
+    let errors = static_analyzer.check_program(&ast);
     if errors.len() > 0 {
         log_errors(errors, file_content);
         return;
     }
 
     let mut execution_state = ExecutionState::default();
-    match run_program(&mut execution_state, &state) {
+    match run_program(&mut execution_state, &ast) {
         Ok(result) => {
             println!("{}", result);
         }

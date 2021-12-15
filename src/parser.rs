@@ -3,7 +3,7 @@
 * parses the program into an ast
 */
 use crate::ast::*;
-use crate::state::State;
+use crate::state::AstMap;
 use pest::iterators::{Pair, Pairs};
 use pest::prec_climber::{Assoc, Operator, PrecClimber};
 use std::collections::BTreeMap;
@@ -27,15 +27,15 @@ pub enum ParseError {
 * starting from the top
 * currently only only parsing functions, no global variables or code outside functions
 */
-pub fn parse_program(pairs: Pairs<Rule>, state: &mut State) -> Result<(), ParseError> {
+pub fn parse_program(pairs: Pairs<Rule>, ast: &mut AstMap) -> Result<(), ParseError> {
     for pair in pairs {
         match pair.as_rule() {
             Rule::EOI => continue,
             Rule::import_stm => {
-                parse_ast(pair, state)?;
+                parse_ast_node(pair, ast)?;
                 continue;
             }
-            _ => match parse_ast(pair, state)? {
+            _ => match parse_ast_node(pair, ast)? {
                 AstNode::Skip() => (),
                 _ => return Err(ParseError::UnencampslatedStatement),
             },
@@ -63,9 +63,6 @@ lazy_static::lazy_static! {
     };
 }
 
-fn remove_whitespace(s: &mut String) {
-    s.retain(|c| !c.is_whitespace());
-}
 
 /* parses pairs of rules from peg parser into a expression */
 fn parse_expr(expression: Pairs<Rule>) -> Expr {
@@ -74,10 +71,10 @@ fn parse_expr(expression: Pairs<Rule>) -> Expr {
         |pair: Pair<Rule>| match pair.as_rule() {
             Rule::int => {
                 let position = pair.as_span().start();
-                let mut no_whitespace = pair.as_str().to_string();
-                remove_whitespace(&mut no_whitespace);
+                let mut int_as_str = pair.as_str().to_string();
+                int_as_str.retain(|c| !c.is_whitespace());
                 Expr::Constant(
-                    Constant::Int(no_whitespace.parse::<i32>().unwrap()),
+                    Constant::Int(int_as_str.parse::<i32>().unwrap()),
                     position,
                 )
             }
@@ -318,7 +315,7 @@ fn parse_type_from_rule(rule: Pair<Rule>) -> Result<VarType, ParseError> {
 /*
 * parse the function from the pair provided.
 */
-pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), ParseError> {
+pub fn parse_function(pairs: &mut Pairs<Rule>, ast: &mut AstMap) -> Result<(), ParseError> {
     let name_pair = pairs.next().unwrap();
     let position = name_pair.as_span().start();
     let fn_name = name_pair.as_str().to_string();
@@ -338,7 +335,7 @@ pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), 
 
     let mut stms = Vec::new();
     for pair in pairs {
-        stms.push(Box::new(parse_ast(pair, state)?));
+        stms.push(Box::new(parse_ast_node(pair, ast)?));
     }
     let function = Function {
         name: fn_name.clone(),
@@ -347,7 +344,7 @@ pub fn parse_function(pairs: &mut Pairs<Rule>, state: &mut State) -> Result<(), 
         statements: stms,
         position: position,
     };
-    state.func_map.insert(fn_name, function);
+    ast.func_map.insert(fn_name, function);
     Ok(())
 }
 
@@ -372,12 +369,12 @@ pub fn parse_identifier(pair: Pair<Rule>) -> Identifier {
 /*
 * parses ast into nodes, only handles one clause at a time.
 */
-pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseError> {
+pub fn parse_ast_node(pair: Pair<Rule>, ast: &mut AstMap) -> Result<AstNode, ParseError> {
     let rule = pair.as_rule();
     let statement = pair.as_str();
     match rule {
         Rule::func_def => {
-            parse_function(&mut pair.into_inner(), state)?;
+            parse_function(&mut pair.into_inner(), ast)?;
             Ok(AstNode::Skip())
         }
         Rule::assignment => {
@@ -427,7 +424,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
 
             let mut stms = Vec::new();
             for stm in inner_rules {
-                stms.push(Box::new(parse_ast(stm, state)?));
+                stms.push(Box::new(parse_ast_node(stm, ast)?));
             }
 
             Ok(AstNode::While(bool_ast, stms))
@@ -451,7 +448,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 //get the body of statements
                 let mut stms: Vec<Box<AstNode>> = Vec::new();
                 for stm in ifstm {
-                    stms.push(Box::new(parse_ast(stm, state)?));
+                    stms.push(Box::new(parse_ast_node(stm, ast)?));
                 }
                 if_else_list.push((boolexp, stms));
             }
@@ -489,7 +486,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
                 Rule::structure_items => (parse_structure(next_rule.into_inner())?),
                 _ => return Err(ParseError::NoReturnType),
             };
-            state.struct_map.insert(struct_name, params);
+            ast.struct_map.insert(struct_name, params);
             Ok(AstNode::Skip())
         }
         Rule::parse_error => {
@@ -513,7 +510,7 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             let pairs = WormParser::parse(Rule::program, &file_contents)
                 .unwrap_or_else(|e| panic!("Error {} while reading file {}", e, filename));
             // parses the program into an AST, saves the functions AST in the state to be called upon later
-            parse_program(pairs, state)?;
+            parse_program(pairs, ast)?;
             Ok(AstNode::Skip())
         }
         Rule::EOI => return Err(ParseError::EndOfInput),

@@ -2,7 +2,7 @@
 * evaluates the ast, panics on missed type static errors, but catches execution errors and returns result
 */
 use crate::ast::*;
-use crate::state::{ExecutionState, State};
+use crate::state::{ExecutionState, AstMap};
 use colored::*;
 use std::collections::{BTreeMap, HashMap};
 
@@ -17,22 +17,22 @@ static MAIN: &str = "main";
 /* run program calls the main function to run the program */
 pub fn run_program(
     execution_state: &mut ExecutionState,
-    state: &State,
+    ast: &AstMap,
 ) -> Result<Constant, ExecutionError> {
-    Ok(eval_func(MAIN.to_string(), execution_state, state)?)
+    Ok(eval_func(MAIN.to_string(), execution_state, ast)?)
 }
 
 /* execute turns a ast object into a Result */
 pub fn eval_func(
     name: String,
     execution_state: &mut ExecutionState,
-    state: &State,
+    ast: &AstMap,
 ) -> Result<Constant, ExecutionError> {
-    let function = state.func_map.get(&name).unwrap();
+    let function = ast.func_map.get(&name).unwrap();
     execution_state.increment_stack_level();
-    for ast in &function.statements {
+    for ast_node in &function.statements {
         // execute ast will run a single statement or loop, if there is a return value, exit out of function
-        match eval_ast((**ast).clone(), execution_state, state)? {
+        match eval_ast((**ast_node).clone(), execution_state, ast)? {
             Some(val) => {
                 execution_state.pop_stack();
                 return Ok(val);
@@ -45,7 +45,7 @@ pub fn eval_func(
 
 fn recurse(
     execution_state: &mut ExecutionState,
-    state: &State,
+    ast: &AstMap,
     identifier_opt: &mut core::slice::Iter<IdentifierHelper>,
     curr_value: Constant,
     final_value: Constant,
@@ -54,14 +54,14 @@ fn recurse(
         Some(val) => match val {
             IdentifierHelper::ArrayIndex(expr) => match curr_value {
                 Constant::Array(vtype, mut list) => {
-                    match eval_expr(expr, execution_state, state).unwrap() {
+                    match eval_expr(expr, execution_state, ast).unwrap() {
                         Constant::Int(i) => {
                             if (i as usize) >= list.len() {
                                 panic!("Index out of bounds for on array")
                             }
                             list[i as usize] = recurse(
                                 execution_state,
-                                state,
+                                ast,
                                 identifier_opt,
                                 list[i as usize].clone(),
                                 final_value,
@@ -72,14 +72,14 @@ fn recurse(
                     }
                 }
                 Constant::Map(ktype, vtype, mut wmap) => {
-                    let key = eval_expr(expr, execution_state, state).unwrap();
+                    let key = eval_expr(expr, execution_state, ast).unwrap();
                     match wmap.clone().get(&key) {
                         Some(constant) => {
                             wmap.insert(
                                 key,
                                 recurse(
                                     execution_state,
-                                    state,
+                                    ast,
                                     identifier_opt,
                                     constant.clone(),
                                     final_value,
@@ -93,7 +93,7 @@ fn recurse(
                     return Constant::Map(ktype, vtype, wmap);
                 }
                 Constant::String(s) => {
-                    let index = eval_expr(expr, execution_state, state).unwrap();
+                    let index = eval_expr(expr, execution_state, ast).unwrap();
                     match index {
                         Constant::Int(i) => {
                             return {
@@ -115,7 +115,7 @@ fn recurse(
                         attribute.clone(),
                         recurse(
                             execution_state,
-                            state,
+                            ast,
                             identifier_opt,
                             updated_val.clone(),
                             final_value,
@@ -132,7 +132,7 @@ fn recurse(
 
 fn save_value(
     execution_state: &mut ExecutionState,
-    state: &State,
+    ast: &AstMap,
     identifier: Identifier,
     value: Constant,
 ) {
@@ -143,7 +143,7 @@ fn save_value(
         .clone();
     let value = recurse(
         execution_state,
-        state,
+        ast,
         &mut identifier.tail.iter(),
         large,
         value,
@@ -155,17 +155,17 @@ fn save_value(
 * evaluate an ast, one line or one if/while stm
 */
 fn eval_ast(
-    ast: AstNode,
+    ast_node: AstNode,
     execution_state: &mut ExecutionState,
-    state: &State,
+    ast: &AstMap,
 ) -> Result<Option<Constant>, ExecutionError> {
-    match ast {
+    match ast_node {
         AstNode::Assignment {
             var_type,
             identifier,
             expr,
         } => {
-            let value = eval_expr(&expr, execution_state, state)?;
+            let value = eval_expr(&expr, execution_state, ast)?;
             let actual_val = match (var_type.clone(), value) {
                 (Some(VarType::Int), Constant::Char(c)) => Constant::Int(c as i32),
                 (_, val) => val,
@@ -173,16 +173,16 @@ fn eval_ast(
             match var_type {
                 Some(_) => execution_state.save_variable(identifier.var_name, actual_val),
                 None => {
-                    save_value(execution_state, state, identifier, actual_val);
+                    save_value(execution_state, ast, identifier, actual_val);
                 }
             }
         }
         AstNode::If(if_pairs) => {
             execution_state.increment_stack_level();
             for (conditional, mut stms) in if_pairs {
-                if eval_bool_expr(&conditional, execution_state, state)? {
+                if eval_bool_expr(&conditional, execution_state, ast)? {
                     while stms.len() > 0 {
-                        match eval_ast(*stms.remove(0), execution_state, state)? {
+                        match eval_ast(*stms.remove(0), execution_state, ast)? {
                             Some(eval) => return Ok(Some(eval)),
                             None => (),
                         }
@@ -193,10 +193,10 @@ fn eval_ast(
             execution_state.pop_stack();
         }
         AstNode::While(conditional, stms) => {
-            while eval_bool_expr(&conditional, execution_state, state)? {
+            while eval_bool_expr(&conditional, execution_state, ast)? {
                 execution_state.increment_stack_level();
                 for stm in stms.iter() {
-                    match eval_ast(*stm.clone(), execution_state, state)? {
+                    match eval_ast(*stm.clone(), execution_state, ast)? {
                         Some(eval) => return Ok(Some(eval)),
                         None => (),
                     }
@@ -210,12 +210,12 @@ fn eval_ast(
                     println!(
                         "\"{}\" => {}",
                         exp,
-                        eval_expr(&exp, execution_state, state)?
+                        eval_expr(&exp, execution_state, ast)?
                     );
                 }
                 BuiltIn::StaticPrint(_) => (),
                 BuiltIn::Assert(boolexp) => {
-                    if !eval_bool_expr(&boolexp, execution_state, state)? {
+                    if !eval_bool_expr(&boolexp, execution_state, ast)? {
                         return Err(ExecutionError::AssertionError(boolexp));
                     } else {
                         println!("{} {}", "ASSERTION PASS:".blue(), boolexp);
@@ -225,7 +225,7 @@ fn eval_ast(
             ()
         }
         AstNode::ReturnStm(expr) => {
-            return Ok(Some(eval_expr(&expr, execution_state, state)?));
+            return Ok(Some(eval_expr(&expr, execution_state, ast)?));
         }
         AstNode::Skip() => (),
     }
@@ -238,9 +238,9 @@ fn eval_ast(
 fn eval_bool_expr(
     bool_expr: &Expr,
     execution_state: &mut ExecutionState,
-    state: &State,
+    ast: &AstMap,
 ) -> Result<bool, ExecutionError> {
-    match eval_expr(bool_expr, execution_state, state)? {
+    match eval_expr(bool_expr, execution_state, ast)? {
         Constant::Bool(a) => Ok(a),
         _ => panic!("expected boolean result in conditional"),
     }
@@ -252,16 +252,16 @@ fn eval_bool_expr(
 fn eval_expr(
     exp: &Expr,
     execution_state: &mut ExecutionState,
-    state: &State,
+    ast: &AstMap,
 ) -> Result<Constant, ExecutionError> {
     match exp.clone() {
-        Expr::Identifier(identifier) => eval_identifier(identifier, execution_state, state),
+        Expr::Identifier(identifier) => eval_identifier(identifier, execution_state, ast),
         Expr::Constant(constant, _) => match constant {
             Constant::Array(var_type, elements) => Ok(Constant::Array(var_type, elements)),
             _ => Ok(constant),
         },
         Expr::UnaryExpr(op, expr) => {
-            let value = eval_expr(&expr, execution_state, state)?;
+            let value = eval_expr(&expr, execution_state, ast)?;
             match (op, value) {
                 (UnaryOp::Not, Constant::Bool(value)) => Ok(Constant::Bool(!value)),
                 _ => panic!("Type error on unaryexpr"),
@@ -278,14 +278,14 @@ fn eval_expr(
                 position,
             },
             execution_state,
-            state,
+            ast,
         ),
         Expr::ListComprehension {
             piped_var,
             value_expr,
             in_expr,
         } => {
-            let len = match eval_expr(&in_expr, execution_state, state)? {
+            let len = match eval_expr(&in_expr, execution_state, ast)? {
                 Constant::Int(i) => i as usize,
                 _ => panic!("type mismatch found during execution"),
             };
@@ -303,14 +303,14 @@ fn eval_expr(
                         .var_map
                         .insert(variable.clone(), Constant::Int(i as i32));
                 }
-                elements.push(eval_expr(&value_expr.clone(), execution_state, state)?);
+                elements.push(eval_expr(&value_expr.clone(), execution_state, ast)?);
             }
             execution_state.pop_stack();
             Ok(Constant::Array(VarType::Generic, elements))
         }
         Expr::BinaryExpr(lhs, op, rhs) => {
-            let left = eval_expr(&*lhs, execution_state, state)?;
-            let right = eval_expr(&*rhs, execution_state, state)?;
+            let left = eval_expr(&*lhs, execution_state, ast)?;
+            let right = eval_expr(&*rhs, execution_state, ast)?;
             use Constant::*;
             use OpType::*;
             match op {
@@ -371,7 +371,7 @@ fn eval_expr(
 fn eval_identifier(
     identifier: Identifier,
     execution_state: &mut ExecutionState,
-    state: &State,
+    ast: &AstMap,
 ) -> Result<Constant, ExecutionError> {
     let mut curr_value = execution_state
         .var_map
@@ -381,21 +381,21 @@ fn eval_identifier(
     for ih in identifier.tail {
         match ih {
             IdentifierHelper::ArrayIndex(exp) => match curr_value {
-                Constant::Array(_, list) => match eval_expr(&exp, execution_state, state)? {
+                Constant::Array(_, list) => match eval_expr(&exp, execution_state, ast)? {
                     Constant::Int(i) => {
                         curr_value = list[i as usize].clone();
                     }
                     _ => panic!("Tried an array with an non int value"),
                 },
                 Constant::Map(_, _, wmap) => {
-                    let key = &eval_expr(&exp, execution_state, state)?;
+                    let key = &eval_expr(&exp, execution_state, ast)?;
                     curr_value = wmap
                         .get(key)
                         .expect(&format!("Could not find value \"{}\" in map", key)[..])
                         .clone();
                 }
                 Constant::String(s) => {
-                    let index = eval_expr(&exp, execution_state, state).unwrap();
+                    let index = eval_expr(&exp, execution_state, ast).unwrap();
                     match index {
                         Constant::Int(i) => {
                             return Ok(Constant::Char(s.chars().nth(i as usize).unwrap()))
@@ -419,16 +419,16 @@ fn eval_identifier(
 fn eval_reserved_functions(
     func_call: &FnCall,
     execution_state: &mut ExecutionState,
-    state: &State,
+    ast: &AstMap,
 ) -> Result<Constant, ExecutionError> {
     match &func_call.name[..] {
-        LEN => match eval_expr(&func_call.params[0].clone(), execution_state, state)? {
+        LEN => match eval_expr(&func_call.params[0].clone(), execution_state, ast)? {
             Constant::Array(_, elements) => Ok(Constant::Int(elements.len() as i32)),
             Constant::String(s) => Ok(Constant::Int(s.len() as i32)),
             _ => panic!("panicked tried to find the length of a non array string"),
         },
         PARSE_INT => {
-            match eval_expr(&func_call.params[0].clone(), execution_state, state)? {
+            match eval_expr(&func_call.params[0].clone(), execution_state, ast)? {
                 Constant::String(s) => {
                     // println!("parse int from `{}`", s);
                     Ok(Constant::Int(s.parse::<i32>().expect(
@@ -445,13 +445,13 @@ fn eval_reserved_functions(
             Ok(Constant::String(line))
         }
         APPEND => {
-            let value = eval_expr(&func_call.params[0].clone(), execution_state, state)?;
+            let value = eval_expr(&func_call.params[0].clone(), execution_state, ast)?;
             match value {
                 Constant::Array(vtype, mut values) => {
                     values.push(eval_expr(
                         &func_call.params[1].clone(),
                         execution_state,
-                        state,
+                        ast,
                     )?);
                     Ok(Constant::Array(vtype, values))
                 }
@@ -459,12 +459,12 @@ fn eval_reserved_functions(
             }
         }
         PREPEND => {
-            let value = eval_expr(&func_call.params[0].clone(), execution_state, state)?;
+            let value = eval_expr(&func_call.params[0].clone(), execution_state, ast)?;
             match value {
                 Constant::Array(vtype, mut values) => {
                     values.insert(
                         0,
-                        eval_expr(&func_call.params[1].clone(), execution_state, state)?,
+                        eval_expr(&func_call.params[1].clone(), execution_state, ast)?,
                     );
                     Ok(Constant::Array(vtype, values))
                 }
@@ -472,8 +472,8 @@ fn eval_reserved_functions(
             }
         }
         REMOVE => {
-            let value = eval_expr(&func_call.params[0].clone(), execution_state, state)?;
-            let index = eval_expr(&func_call.params[1].clone(), execution_state, state)?;
+            let value = eval_expr(&func_call.params[0].clone(), execution_state, ast)?;
+            let index = eval_expr(&func_call.params[1].clone(), execution_state, ast)?;
             match (value, index) {
                 (Constant::Array(vtype, mut values), Constant::Int(i)) => {
                     values.remove(i as usize);
@@ -486,7 +486,7 @@ fn eval_reserved_functions(
                 _ => panic!("Tried poping non array"),
             }
         }
-        TO_STR => match eval_expr(&func_call.params[0].clone(), execution_state, state)? {
+        TO_STR => match eval_expr(&func_call.params[0].clone(), execution_state, ast)? {
             Constant::Int(i) => Ok(Constant::String(i.to_string())),
             Constant::Char(c) => Ok(Constant::String(c.to_string())),
             _ => panic!("panicked tried to find the length of a non array string"),
@@ -500,27 +500,27 @@ fn eval_reserved_functions(
 fn eval_fn_call(
     func_call: FnCall,
     execution_state: &mut ExecutionState,
-    state: &State,
+    ast: &AstMap,
 ) -> Result<Constant, ExecutionError> {
     // need a new var map for the function, just the parameters
     if RESERVED_FUNCTIONS.contains(&func_call.name[..]) {
-        return eval_reserved_functions(&func_call, execution_state, state);
+        return eval_reserved_functions(&func_call, execution_state, ast);
     }
 
     let mut var_map: HashMap<String, Constant> = HashMap::new();
     let fn_name = func_call.name;
-    let function = match state.func_map.get(&fn_name) {
+    let function = match ast.func_map.get(&fn_name) {
         Some(function) => function,
         None => {
             // STRUCT CONSTRUCTOR
-            let type_map = state
+            let type_map = ast
                 .struct_map
                 .get(&fn_name)
                 .expect("Value does not exist for function/constructor");
             // iterate through the parameters provided and the function def,
             let mut pairs = BTreeMap::new();
             for (expr, (param_name, _)) in func_call.params.iter().zip(type_map.iter()) {
-                let param_const = eval_expr(&expr.clone(), execution_state, state)?;
+                let param_const = eval_expr(&expr.clone(), execution_state, ast)?;
                 pairs.insert(param_name.clone(), param_const);
             }
             return Ok(Constant::Struct {
@@ -533,7 +533,7 @@ fn eval_fn_call(
     let params = function.params.clone();
     // iterate through the parameters provided and the function def,
     for (expr, (_, param_name)) in func_call.params.iter().zip(params.iter()) {
-        let param_const = eval_expr(&expr.clone(), execution_state, state)?;
+        let param_const = eval_expr(&expr.clone(), execution_state, ast)?;
         var_stack.push((param_name.clone(), 0));
         var_map.insert(param_name.to_string(), param_const);
     }
@@ -542,5 +542,5 @@ fn eval_fn_call(
         var_stack,
         stack_lvl: 0,
     };
-    eval_func(fn_name, &mut func_state, state)
+    eval_func(fn_name, &mut func_state, ast)
 }

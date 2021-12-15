@@ -91,11 +91,11 @@ pub fn log_errors(errors: Vec<(String, StaticError)>, file_content: String) {
 }
 
 impl StaticAnalyzer {
-    pub fn check_program(&mut self, state: &State) -> Vec<(String, StaticError)> {
-        let errors = state
+    pub fn check_program(&mut self, ast: &AstMap) -> Vec<(String, StaticError)> {
+        let errors = ast
             .func_map
             .keys()
-            .flat_map(|name| self.inspect_function(name.to_string(), state))
+            .flat_map(|name| self.inspect_function(name.to_string(), ast))
             .collect();
         errors
     }
@@ -104,16 +104,16 @@ impl StaticAnalyzer {
     pub fn inspect_function(
         &mut self,
         fn_name: String,
-        state: &State,
+        ast: &AstMap,
     ) -> Vec<(String, StaticError)> {
         self.execution_state.increment_stack_level();
         // save parameters of the function into state
-        let function = state.func_map.get(&fn_name.to_string()).unwrap();
+        let function = ast.func_map.get(&fn_name.to_string()).unwrap();
         function.params.iter().for_each(|(param_type, param_name)| {
             self.execution_state
                 .save_variable(param_name.to_string(), param_type.clone())
         });
-        let errors = self.check_statements(function, state);
+        let errors = self.check_statements(function, ast);
         self.execution_state.pop_stack();
         errors
             .into_iter()
@@ -121,13 +121,13 @@ impl StaticAnalyzer {
             .collect()
     }
 
-    fn check_statements(&mut self, function: &Function, state: &State) -> Vec<StaticError> {
+    fn check_statements(&mut self, function: &Function, ast: &AstMap) -> Vec<StaticError> {
         let mut errors = Vec::new();
         let mut return_flag = false;
         let expected_return = &function.return_type;
-        for ast in &function.statements {
-            // execute ast will run a single statement or loop, if there is a return value, exit out of function
-            match self.eval_ast(state, (**ast).clone()) {
+        for ast_node in &function.statements {
+            // execute ast_node will run a single statement or loop, if there is a return value, exit out of function
+            match self.eval_ast_node(ast, (**ast_node).clone()) {
                 Ok(res) => match res {
                     Some(val) => {
                         if !type_match(&expected_return, &val) {
@@ -155,7 +155,7 @@ impl StaticAnalyzer {
 
     fn get_type_of_identifier(
         &mut self,
-        state: &State,
+        ast: &AstMap,
         identifier: Identifier,
     ) -> Result<VarType, StaticError> {
         let mut curr_type = match self.execution_state.var_map.get(&identifier.var_name) {
@@ -170,7 +170,7 @@ impl StaticAnalyzer {
         for indentifier_helper in identifier.tail {
             match indentifier_helper {
                 IdentifierHelper::ArrayIndex(expr) => {
-                    let (expr_type, position) = self.type_of_expr(state, expr)?;
+                    let (expr_type, position) = self.type_of_expr(ast, expr)?;
                     match curr_type {
                         VarType::Array(var_type) => {
                             expect_type(&VarType::Int, &expr_type, position)?;
@@ -194,7 +194,7 @@ impl StaticAnalyzer {
                 }
                 IdentifierHelper::StructIndex(attribute) => match curr_type {
                     VarType::Struct(struct_name) => {
-                        let structure_map = match state.struct_map.get(&struct_name) {
+                        let structure_map = match ast.struct_map.get(&struct_name) {
                             Some(structure_map) => structure_map,
                             None => {
                                 return Err(StaticError::ValueDne(
@@ -225,15 +225,15 @@ impl StaticAnalyzer {
         Ok(curr_type)
     }
 
-    fn eval_ast(&mut self, state: &State, ast: AstNode) -> Result<Option<VarType>, StaticError> {
-        match ast {
+    fn eval_ast_node(&mut self, ast: &AstMap, ast_node: AstNode) -> Result<Option<VarType>, StaticError> {
+        match ast_node {
             AstNode::Assignment {
                 var_type,
                 identifier,
                 expr,
             } => {
                 // type check, variable type must match the result of expression
-                let (value_type, position) = self.type_of_expr(state, expr)?;
+                let (value_type, position) = self.type_of_expr(ast, expr)?;
                 match var_type {
                     Some(vtype) => {
                         if type_match(&vtype, &value_type) {
@@ -246,7 +246,7 @@ impl StaticAnalyzer {
                     }
                     None => {
                         // if no variable type, turn it into an expression and parse value (error if dne)
-                        let var_type = self.get_type_of_identifier(state, identifier)?;
+                        let var_type = self.get_type_of_identifier(ast, identifier)?;
                         if !type_match(&var_type, &value_type) {
                             return Err(StaticError::TypeViolation(var_type, value_type, position));
                         }
@@ -258,9 +258,9 @@ impl StaticAnalyzer {
                 self.execution_state.increment_stack_level();
                 let mut return_val = None;
                 for (conditional, mut stms) in if_pairs {
-                    self.check_bool_expr(state, conditional)?;
+                    self.check_bool_expr(ast, conditional)?;
                     while stms.len() > 0 {
-                        match self.eval_ast(state, *stms.remove(0))? {
+                        match self.eval_ast_node(ast, *stms.remove(0))? {
                             Some(eval) => return_val = Some(eval),
                             None => (),
                         }
@@ -270,10 +270,10 @@ impl StaticAnalyzer {
                 return Ok(return_val);
             }
             AstNode::While(conditional, stms) => {
-                self.check_bool_expr(state, conditional)?;
+                self.check_bool_expr(ast, conditional)?;
                 self.execution_state.increment_stack_level();
                 for stm in stms.iter() {
-                    match self.eval_ast(state, *stm.clone())? {
+                    match self.eval_ast_node(ast, *stm.clone())? {
                         Some(eval) => return Ok(Some(eval)), //if there was a return statement, return the value
                         None => (),
                     }
@@ -284,19 +284,19 @@ impl StaticAnalyzer {
                 match builtin {
                     BuiltIn::Print(exp) => {
                         // println!("compilerPrint: {}", exp);
-                        self.type_of_expr(state, exp)?;
+                        self.type_of_expr(ast, exp)?;
                     }
                     BuiltIn::StaticPrint(exp) => {
-                        self.type_of_expr(state, exp)?;
+                        self.type_of_expr(ast, exp)?;
                     }
                     BuiltIn::Assert(bool_expr) => {
-                        self.check_bool_expr(state, bool_expr)?;
+                        self.check_bool_expr(ast, bool_expr)?;
                     }
                 }
                 ()
             }
             AstNode::ReturnStm(expr) => {
-                return Ok(Some(self.type_of_expr_wrapper(state, expr)?));
+                return Ok(Some(self.type_of_expr_wrapper(ast, expr)?));
             }
             AstNode::Skip() => (),
         }
@@ -306,25 +306,25 @@ impl StaticAnalyzer {
     /*
      * evalulates booleans based on their conjunction
      */
-    fn check_bool_expr(&mut self, state: &State, expr: Expr) -> Result<(), StaticError> {
-        let (bool_expr, pos) = self.type_of_expr(state, expr)?;
+    fn check_bool_expr(&mut self, ast: &AstMap, expr: Expr) -> Result<(), StaticError> {
+        let (bool_expr, pos) = self.type_of_expr(ast, expr)?;
         expect_type(&VarType::Bool, &bool_expr, pos)?;
         Ok(())
     }
 
-    fn type_of_expr_wrapper(&mut self, state: &State, exp: Expr) -> Result<VarType, StaticError> {
-        let (vtype, _) = self.type_of_expr(state, exp)?;
+    fn type_of_expr_wrapper(&mut self, ast: &AstMap, exp: Expr) -> Result<VarType, StaticError> {
+        let (vtype, _) = self.type_of_expr(ast, exp)?;
         Ok(vtype)
     }
     /*
      * type_of_expr returns the type provided by an inline expression
      */
-    fn type_of_expr(&mut self, state: &State, exp: Expr) -> Result<(VarType, usize), StaticError> {
+    fn type_of_expr(&mut self, ast: &AstMap, exp: Expr) -> Result<(VarType, usize), StaticError> {
         match exp {
             Expr::Identifier(identifier) => {
                 // get variable as a constant value
                 let position = identifier.position;
-                Ok((self.get_type_of_identifier(state, identifier)?, position))
+                Ok((self.get_type_of_identifier(ast, identifier)?, position))
             }
             Expr::Constant(constant, position) => match constant {
                 Constant::Array(var_type, _elements) => {
@@ -346,7 +346,7 @@ impl StaticAnalyzer {
                 position,
             } => Ok((
                 self.type_of_func_call(
-                    state,
+                    ast,
                     FnCall {
                         name,
                         params,
@@ -365,19 +365,19 @@ impl StaticAnalyzer {
                     Some(name) => self.execution_state.save_variable(name, VarType::Generic),
                     None => (),
                 };
-                let (value_expr_type, pos) = self.type_of_expr(state, *value_expr)?;
+                let (value_expr_type, pos) = self.type_of_expr(ast, *value_expr)?;
                 Ok((VarType::Array(Box::new(value_expr_type)), pos))
             }
             Expr::UnaryExpr(unary_op, expr) => {
-                let (actual_type, pos) = self.type_of_expr(state, *expr)?;
+                let (actual_type, pos) = self.type_of_expr(ast, *expr)?;
                 match (unary_op, actual_type.clone()) {
                     (UnaryOp::Not, VarType::Bool) => Ok((VarType::Bool, pos)),
                     _ => Err(StaticError::TypeViolation(VarType::Bool, actual_type, pos))
                 }
             }
             Expr::BinaryExpr(lhs, op, rhs) => {
-                let (left, leftpos) = self.type_of_expr(state, *lhs)?;
-                let (right, rightpos) = self.type_of_expr(state, *rhs)?;
+                let (left, leftpos) = self.type_of_expr(ast, *lhs)?;
+                let (right, rightpos) = self.type_of_expr(ast, *rhs)?;
                 use OpType::*;
                 use VarType::*;
                 match op {
@@ -435,7 +435,7 @@ impl StaticAnalyzer {
 
     fn reserved_function(
         &mut self,
-        state: &State,
+        ast: &AstMap,
         func_call: &FnCall,
     ) -> Result<VarType, StaticError> {
         match &func_call.name[..] {
@@ -460,8 +460,8 @@ impl StaticAnalyzer {
                     vec![VarType::Array(Box::new(VarType::Generic)), VarType::Int],
                     func_call,
                 )?;
-                let (list, pos) = self.type_of_expr(state, func_call.params[0].clone())?;
-                let (index, index_pos) = self.type_of_expr(state, func_call.params[1].clone())?;
+                let (list, pos) = self.type_of_expr(ast, func_call.params[0].clone())?;
+                let (index, index_pos) = self.type_of_expr(ast, func_call.params[1].clone())?;
                 expect_type(&VarType::Int, &index, index_pos)?;
                 match list {
                     VarType::Array(inner) => Ok(VarType::Array(inner)),
@@ -479,8 +479,8 @@ impl StaticAnalyzer {
                     func_call,
                 )?;
                 // append(List<T>, T)
-                let (list, pos) = self.type_of_expr(state, func_call.params[0].clone())?;
-                let (inner_type, _) = self.type_of_expr(state, func_call.params[1].clone())?;
+                let (list, pos) = self.type_of_expr(ast, func_call.params[0].clone())?;
+                let (inner_type, _) = self.type_of_expr(ast, func_call.params[1].clone())?;
                 let value = VarType::Array(Box::new(inner_type));
                 expect_type(&value, &list, pos)?;
                 Ok(value)
@@ -491,14 +491,14 @@ impl StaticAnalyzer {
 
     fn user_created_function(
         &mut self,
-        state: &State,
+        ast: &AstMap,
         func_call: FnCall,
     ) -> Result<VarType, StaticError> {
-        let function = match state.func_map.get(&func_call.name.clone()) {
+        let function = match ast.func_map.get(&func_call.name.clone()) {
             Some(func) => func,
             None => {
                 // No function found. Check if struct constructor
-                match state.struct_map.get(&func_call.name.clone()) {
+                match ast.struct_map.get(&func_call.name.clone()) {
                     Some(_) => {
                         return Ok(VarType::Struct(func_call.name.clone()));
                     }
@@ -513,7 +513,7 @@ impl StaticAnalyzer {
         };
         // iterate through the parameters provided and the function def,
         for (expr, (var_type, _)) in func_call.params.iter().zip(function.params.iter()) {
-            let (param_const, position) = self.type_of_expr(state, expr.clone())?;
+            let (param_const, position) = self.type_of_expr(ast, expr.clone())?;
             expect_type(&var_type, &param_const, position)?;
         }
         // function input types match expected values, return a empty constant of matching type
@@ -522,14 +522,14 @@ impl StaticAnalyzer {
 
     fn type_of_func_call(
         &mut self,
-        state: &State,
+        ast: &AstMap,
         func_call: FnCall,
     ) -> Result<VarType, StaticError> {
         // retrive function from memory, make sure its value matches
         if RESERVED_FUNCTIONS.contains(&func_call.name[..]) {
-            self.reserved_function(state, &func_call)
+            self.reserved_function(ast, &func_call)
         } else {
-            self.user_created_function(state, func_call)
+            self.user_created_function(ast, func_call)
         }
     }
 }
