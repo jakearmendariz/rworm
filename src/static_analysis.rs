@@ -95,13 +95,13 @@ impl StaticAnalyzer {
         let errors = ast
             .func_map
             .keys()
-            .flat_map(|name| self.inspect_function(name.to_string(), ast))
+            .flat_map(|name| self.check_function(name.to_string(), ast))
             .collect();
         errors
     }
 
     // same as check_function, except with a index instead of passing function
-    pub fn inspect_function(
+    pub fn check_function(
         &mut self,
         fn_name: String,
         ast: &AstMap,
@@ -153,7 +153,7 @@ impl StaticAnalyzer {
         errors
     }
 
-    fn get_type_of_identifier(
+    fn type_of_identifier(
         &mut self,
         ast: &AstMap,
         identifier: Identifier,
@@ -240,13 +240,12 @@ impl StaticAnalyzer {
                             self.execution_state
                                 .save_variable(identifier.var_name, vtype);
                         } else {
-                            // println!("Error at {}", position);
                             return Err(StaticError::TypeViolation(vtype, value_type, position));
                         }
                     }
                     None => {
                         // if no variable type, turn it into an expression and parse value (error if dne)
-                        let var_type = self.get_type_of_identifier(ast, identifier)?;
+                        let var_type = self.type_of_identifier(ast, identifier)?;
                         if !type_match(&var_type, &value_type) {
                             return Err(StaticError::TypeViolation(var_type, value_type, position));
                         }
@@ -324,7 +323,7 @@ impl StaticAnalyzer {
             Expr::Identifier(identifier) => {
                 // get variable as a constant value
                 let position = identifier.position;
-                Ok((self.get_type_of_identifier(ast, identifier)?, position))
+                Ok((self.type_of_identifier(ast, identifier)?, position))
             }
             Expr::Literal(literal, position) => match literal {
                 Literal::Array(var_type, _elements) => {
@@ -433,7 +432,7 @@ impl StaticAnalyzer {
         Ok(())
     }
 
-    fn reserved_function(
+    fn check_reserved_function(
         &mut self,
         ast: &AstMap,
         func_call: &FnCall,
@@ -489,7 +488,7 @@ impl StaticAnalyzer {
         }
     }
 
-    fn user_created_function(
+    fn check_user_created_fn(
         &mut self,
         ast: &AstMap,
         func_call: FnCall,
@@ -527,9 +526,9 @@ impl StaticAnalyzer {
     ) -> Result<VarType, StaticError> {
         // retrive function from memory, make sure its value matches
         if RESERVED_FUNCTIONS.contains(&func_call.name[..]) {
-            self.reserved_function(ast, &func_call)
+            self.check_reserved_function(ast, &func_call)
         } else {
-            self.user_created_function(ast, func_call)
+            self.check_user_created_fn(ast, func_call)
         }
     }
 }

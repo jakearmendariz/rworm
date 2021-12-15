@@ -43,26 +43,39 @@ pub fn eval_func(
     panic!("no return statement from function")
 }
 
-fn recurse(
+/// Saving a value requires us to explore the identifier's "tail"
+/// ## Example
+/// `object[i].attri = value;`
+/// The tail in this case is [ArrayIndex(i), StructIndex(attri)]
+/// 
+/// We need to update the attri value, but then also the value in the array
+/// and finally the object inside of var_map.
+/// 
+/// @param curr_value maintains the current value being accessed, so in 
+/// ArrayIndex(i) it contains the object and in StructIndex(attri) it contains
+/// the array value.
+/// 
+/// @param final_value is the value that we should set at the tail of the tail.
+fn recurse_identifier_tail(
     execution_state: &mut ExecutionState,
     ast: &AstMap,
-    identifier_opt: &mut core::slice::Iter<IdentifierHelper>,
+    identifier_tail: &mut core::slice::Iter<IdentifierHelper>,
     curr_value: Literal,
     final_value: Literal,
 ) -> Literal {
-    match identifier_opt.next() {
+    match identifier_tail.next() {
         Some(val) => match val {
             IdentifierHelper::ArrayIndex(expr) => match curr_value {
                 Literal::Array(vtype, mut list) => {
                     match eval_expr(expr, execution_state, ast).unwrap() {
                         Literal::Int(i) => {
                             if (i as usize) >= list.len() {
-                                panic!("Index out of bounds for on array")
+                                panic!("Index out of bounds for an array")
                             }
-                            list[i as usize] = recurse(
+                            list[i as usize] = recurse_identifier_tail(
                                 execution_state,
                                 ast,
-                                identifier_opt,
+                                identifier_tail,
                                 list[i as usize].clone(),
                                 final_value,
                             );
@@ -77,10 +90,10 @@ fn recurse(
                         Some(literal) => {
                             wmap.insert(
                                 key,
-                                recurse(
+                                recurse_identifier_tail(
                                     execution_state,
                                     ast,
-                                    identifier_opt,
+                                    identifier_tail,
                                     literal.clone(),
                                     final_value,
                                 ),
@@ -113,10 +126,10 @@ fn recurse(
                     let updated_val = pairs.clone().get(&attribute.clone()).unwrap().clone();
                     pairs.insert(
                         attribute.clone(),
-                        recurse(
+                        recurse_identifier_tail(
                             execution_state,
                             ast,
-                            identifier_opt,
+                            identifier_tail,
                             updated_val.clone(),
                             final_value,
                         ),
@@ -136,16 +149,16 @@ fn save_value(
     identifier: Identifier,
     value: Literal,
 ) {
-    let large = execution_state
+    let curr_value = execution_state
         .var_map
         .get(&identifier.var_name)
         .unwrap()
         .clone();
-    let value = recurse(
+    let value = recurse_identifier_tail(
         execution_state,
         ast,
         &mut identifier.tail.iter(),
-        large,
+        curr_value,
         value,
     );
     execution_state.var_map.insert(identifier.var_name, value);

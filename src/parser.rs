@@ -174,15 +174,15 @@ fn parse_expr(expression: Pairs<Rule>) -> Expr {
             }
             Rule::expr => parse_expr(pair.into_inner()),
             Rule::unary_expr => {
-                let mut inner_pairs = pair.into_inner();
-                match inner_pairs.next().unwrap().as_rule() {
+                let mut unary_expr_pairs = pair.into_inner();
+                match unary_expr_pairs.next().unwrap().as_rule() {
                     Rule::not => {
                         Expr::UnaryExpr(
                             UnaryOp::Not,
-                            Box::new(parse_expr(inner_pairs.next().unwrap().into_inner()))
+                            Box::new(parse_expr(unary_expr_pairs.next().unwrap().into_inner()))
                         )
                     }
-                    _ => unreachable!("not happening")
+                    _ => unreachable!("Unexpected unary rules")
                 }
             }
             Rule::hash_obj => {
@@ -279,9 +279,9 @@ fn parse_type_from_rule(rule: Pair<Rule>) -> Result<VarType, ParseError> {
         Rule::hmap => {
             let mut inner_types = rule.into_inner();
             let key_type = parse_type_from_rule(match inner_types.next() {
-                Some(a_rule) => match a_rule.as_rule() {
-                    Rule::var_type => a_rule.into_inner().next().unwrap(),
-                    _ => a_rule,
+                Some(type_rule) => match type_rule.as_rule() {
+                    Rule::var_type => type_rule.into_inner().next().unwrap(),
+                    _ => type_rule,
                 },
                 None => panic!("missing key type from Map"),
             })
@@ -379,25 +379,20 @@ pub fn parse_ast_node(pair: Pair<Rule>, ast: &mut AstMap) -> Result<AstNode, Par
         }
         Rule::assignment => {
             let position = pair.as_span().start();
-            let mut inner_rules = pair.into_inner();
-            let first_pos = inner_rules.next().unwrap();
-            // println!(
-            //     "first_post.as_rule()=>{:?} at {:?}",
-            //     first_pos.as_rule(),
-            //     first_pos.as_span().start()
-            // );
-            let (var_type, identifier) = match first_pos.as_rule() {
+            let mut assignment_rules = pair.into_inner();
+            let vtype_or_name = assignment_rules.next().unwrap();
+            let (var_type, identifier) = match vtype_or_name.as_rule() {
                 Rule::var_type => {
-                    let vartype = parse_type_from_rule(first_pos.into_inner().next().unwrap())?;
+                    let vartype = parse_type_from_rule(vtype_or_name.into_inner().next().unwrap())?;
                     let identifier = Identifier {
-                        var_name: inner_rules.next().unwrap().as_str().to_string(),
+                        var_name: assignment_rules.next().unwrap().as_str().to_string(),
                         tail: Vec::new(),
                         position,
                     };
                     (Some(vartype), identifier)
                 }
                 Rule::identifier => {
-                    let identifier = parse_identifier(first_pos);
+                    let identifier = parse_identifier(vtype_or_name);
                     (None, identifier)
                 }
                 _ => {
@@ -405,12 +400,12 @@ pub fn parse_ast_node(pair: Pair<Rule>, ast: &mut AstMap) -> Result<AstNode, Par
                         Err(ParseError::FormatError(format!(
                             "error parsing statement: {} rule: {:?}",
                             statement,
-                            first_pos.as_rule()
+                            vtype_or_name.as_rule()
                         )))
                     }
                 }
             };
-            let expression = parse_expr(inner_rules.next().unwrap().into_inner());
+            let expression = parse_expr(assignment_rules.next().unwrap().into_inner());
             Ok(AstNode::Assignment {
                 var_type: var_type,
                 identifier: identifier,
