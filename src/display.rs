@@ -30,8 +30,8 @@ impl Expr {
                     UnaryOp::Not => format!("!{}", expr),
                 }
             }
-            Expr::Constant(constant, _) => {
-                format!("{}", constant)
+            Expr::Literal(literal, _) => {
+                format!("{}", literal)
             }
             Expr::ListComprehension {
                 piped_var,
@@ -87,16 +87,16 @@ impl std::fmt::Display for VarType {
     }
 }
 
-impl std::fmt::Display for Constant {
+impl std::fmt::Display for Literal {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &*self {
-            Constant::Int(i) => write!(f, "{}", i),
-            Constant::Bool(b) => write!(f, "{}", b),
-            Constant::Char(c) => write!(f, "{}", c),
-            Constant::String(s) => write!(f, "{}", s),
-            Constant::Array(t, n) => write!(f, "{}[{}]", t, n.len()),
-            Constant::Map(key_type, val_type, _) => write!(f, "map<{},{}>{{}}", key_type, val_type),
-            Constant::Struct { name, pairs: _ } => write!(f, "struct {}", name),
+            Literal::Int(i) => write!(f, "{}", i),
+            Literal::Bool(b) => write!(f, "{}", b),
+            Literal::Char(c) => write!(f, "{}", c),
+            Literal::String(s) => write!(f, "{}", s),
+            Literal::Array(t, n) => write!(f, "{}[{}]", t, n.len()),
+            Literal::Map(key_type, val_type, _) => write!(f, "map<{},{}>{{}}", key_type, val_type),
+            Literal::Struct { name, pairs: _ } => write!(f, "struct {}", name),
         }
     }
 }

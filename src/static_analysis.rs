@@ -326,16 +326,16 @@ impl StaticAnalyzer {
                 let position = identifier.position;
                 Ok((self.get_type_of_identifier(ast, identifier)?, position))
             }
-            Expr::Constant(constant, position) => match constant {
-                Constant::Array(var_type, _elements) => {
+            Expr::Literal(literal, position) => match literal {
+                Literal::Array(var_type, _elements) => {
                     Ok((VarType::Array(Box::new(var_type)), position))
                 }
-                Constant::Int(_) => Ok((VarType::Int, position)),
-                Constant::Bool(_) => Ok((VarType::Bool, position)),
-                Constant::Char(_) => Ok((VarType::Char, position)),
-                Constant::String(_) => Ok((VarType::String, position)),
-                Constant::Struct { name, pairs: _ } => Ok((VarType::Struct(name), position)),
-                Constant::Map(key_type, value_type, _) => Ok((
+                Literal::Int(_) => Ok((VarType::Int, position)),
+                Literal::Bool(_) => Ok((VarType::Bool, position)),
+                Literal::Char(_) => Ok((VarType::Char, position)),
+                Literal::String(_) => Ok((VarType::String, position)),
+                Literal::Struct { name, pairs: _ } => Ok((VarType::Struct(name), position)),
+                Literal::Map(key_type, value_type, _) => Ok((
                     VarType::Map(Box::new(key_type), Box::new(value_type)),
                     position,
                 )),
@@ -516,7 +516,7 @@ impl StaticAnalyzer {
             let (param_const, position) = self.type_of_expr(ast, expr.clone())?;
             expect_type(&var_type, &param_const, position)?;
         }
-        // function input types match expected values, return a empty constant of matching type
+        // function input types match expected values, return a empty literal of matching type
         Ok(function.return_type.clone())
     }
 

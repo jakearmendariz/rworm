@@ -73,23 +73,23 @@ fn parse_expr(expression: Pairs<Rule>) -> Expr {
                 let position = pair.as_span().start();
                 let mut int_as_str = pair.as_str().to_string();
                 int_as_str.retain(|c| !c.is_whitespace());
-                Expr::Constant(
-                    Constant::Int(int_as_str.parse::<i32>().unwrap()),
+                Expr::Literal(
+                    Literal::Int(int_as_str.parse::<i32>().unwrap()),
                     position,
                 )
             }
             Rule::char => {
                 let position = pair.as_span().start();
-                Expr::Constant(
-                    Constant::Char({
+                Expr::Literal(
+                    Literal::Char({
                         let character = pair.into_inner().next().unwrap().as_str();
                         character.chars().next().unwrap()
                     }),
                     position,
                 )
             }
-            Rule::tru => Expr::Constant(Constant::Bool(true), 0),
-            Rule::fal => Expr::Constant(Constant::Bool(false), 0),
+            Rule::tru => Expr::Literal(Literal::Bool(true), 0),
+            Rule::fal => Expr::Literal(Literal::Bool(false), 0),
             // Rule::var_name => Expr::ExpVal(Object::Variable(pair.as_str().to_string())),
             Rule::identifier => Expr::Identifier(parse_identifier(pair)),
             Rule::func_call => {
@@ -114,8 +114,8 @@ fn parse_expr(expression: Pairs<Rule>) -> Expr {
             }
             Rule::array_empty => {
                 let position = pair.as_span().start();
-                Expr::Constant(
-                    Constant::Array(
+                Expr::Literal(
+                    Literal::Array(
                         parse_type_from_rule(pair.into_inner().next().unwrap()).unwrap(),
                         Vec::new(),
                     ),
@@ -124,8 +124,8 @@ fn parse_expr(expression: Pairs<Rule>) -> Expr {
             }
             Rule::string => {
                 let position = pair.as_span().start();
-                Expr::Constant(
-                    Constant::String(pair.into_inner().next().unwrap().as_str().to_string()),
+                Expr::Literal(
+                    Literal::String(pair.into_inner().next().unwrap().as_str().to_string()),
                     position,
                 )
             }
@@ -137,8 +137,8 @@ fn parse_expr(expression: Pairs<Rule>) -> Expr {
                 let mut array_def = match init_or_call.as_rule() {
                     Rule::array_initial => init_or_call.into_inner(),
                     Rule::array_empty => {
-                        return Expr::Constant(
-                            Constant::Array(
+                        return Expr::Literal(
+                            Literal::Array(
                                 parse_type_from_rule(init_or_call.into_inner().next().unwrap())
                                     .unwrap(),
                                 Vec::new(),
@@ -150,7 +150,7 @@ fn parse_expr(expression: Pairs<Rule>) -> Expr {
                         panic!("")
                     }
                 };
-                // expression can be a constant or a value to be evaulated to, var i represents the index of an array
+                // expression can be a Literal or a value to be evaulated to, var i represents the index of an array
                 let first = array_def.next().unwrap();
                 // catch the piped variable, optional, but if there it's the index of the program
                 let (piped, expression) = match first.as_rule() {
@@ -204,8 +204,8 @@ fn parse_expr(expression: Pairs<Rule>) -> Expr {
                     None => panic!("missing key type from Map"),
                 })
                 .unwrap();
-                Expr::Constant(
-                    Constant::Map(key_type, value_type, BTreeMap::default()),
+                Expr::Literal(
+                    Literal::Map(key_type, value_type, BTreeMap::default()),
                     position,
                 )
             }
@@ -436,7 +436,7 @@ pub fn parse_ast_node(pair: Pair<Rule>, ast: &mut AstMap) -> Result<AstNode, Par
                 let (ifstm, boolexp) = match stm.as_rule() {
                     Rule::else_stm => {
                         let inner = stm.into_inner();
-                        (inner, Expr::Constant(Constant::Bool(true), 0))
+                        (inner, Expr::Literal(Literal::Bool(true), 0))
                     }
                     _ => {
                         //only if or if else statements get to this point, they are handled the same

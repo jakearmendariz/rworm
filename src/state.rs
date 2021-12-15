@@ -16,7 +16,7 @@ pub struct AstMap {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ExecutionState {
-    pub var_map: HashMap<String, Constant>,
+    pub var_map: HashMap<String, Literal>,
     pub var_stack: Vec<(String, u32)>,
     pub stack_lvl: u32,
 }
@@ -95,7 +95,7 @@ impl ExecutionState {
     }
 
     // save variable to stack
-    pub fn save_variable(&mut self, var_name: String, value: Constant) {
+    pub fn save_variable(&mut self, var_name: String, value: Literal) {
         match self.var_map.get(&var_name) {
             Some(_) => (), // variable was already inserted
             None => self.var_stack.push((var_name.clone(), self.stack_lvl)),

@@ -125,7 +125,7 @@ pub enum BuiltIn {
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub enum Expr {
     Identifier(Identifier),
-    Constant(Constant, usize),
+    Literal(Literal, usize),
     FnCall {
         name: String,
         params: Vec<Expr>,
@@ -172,7 +172,7 @@ pub enum UnaryOp {
     Not,
 }
 
-/// All expressions evaluate to a specific type, which is represented as a constant
+/// All expressions evaluate to a specific type, which is represented as a Literal
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialOrd, Eq, Ord)]
 pub enum VarType {
     Int,
@@ -186,16 +186,16 @@ pub enum VarType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, Eq, Ord)]
-pub enum Constant {
+pub enum Literal {
     Int(i32),
     Bool(bool),
     String(String),
     Char(char),
-    Array(VarType, Vec<Constant>), // Arrays are fixed size in worm, but its easiest to implement with vec
-    Map(VarType, VarType, BTreeMap<Constant, Constant>),
+    Array(VarType, Vec<Literal>), // Arrays are fixed size in worm, but its easiest to implement with vec
+    Map(VarType, VarType, BTreeMap<Literal, Literal>),
     Struct {
         name: String,
-        pairs: BTreeMap<String, Constant>,
+        pairs: BTreeMap<String, Literal>,
     },
 }
 
@@ -214,10 +214,10 @@ impl PartialEq for VarType {
     }
 }
 
-// Checks equality amon the constants
-impl PartialEq for Constant {
+// Checks equality amon the Literals
+impl PartialEq for Literal {
     fn eq(&self, other: &Self) -> bool {
-        use Constant::*;
+        use Literal::*;
         match (self, other) {
             (Int(i), Int(j)) => i == j,
             (Char(i), Char(j)) => i == j,
@@ -228,10 +228,10 @@ impl PartialEq for Constant {
     }
 }
 
-// Checks equality amon the constants
-impl PartialOrd for Constant {
+// Checks equality amon the Literals
+impl PartialOrd for Literal {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        use Constant::*;
+        use Literal::*;
         Some(match (self, other) {
             (Int(i), Int(j)) => i.cmp(j),
             (Char(i), Char(j)) => i.cmp(j),
