@@ -22,12 +22,12 @@ fn build_op(char value) -> struct<Node> {
 }
 
 /* checks if a character is an operator */
-fn is_operator(char c) -> int {
-    if c == '+' | c == '-' | c == '*' | c == '/' {
-        /* true */
-        return 1;
-    }
-    return 0;
+fn is_operator(char c) -> bool {
+    return c == '+' | c == '-' | c == '*' | c == '/';
+}
+
+fn is_digit(char c) -> bool {
+    return c != ' ' & c != ')' & ! is_operator(c);
 }
 
 /* sets the order of precedence */
@@ -48,10 +48,10 @@ fn int_substring(string s, int index) -> string {
         result = result + s[index];
         index = index + 1;
     }
-    /* Error is here because - isn't beiong increased */
-    while index < len(s) & s[index] != ' ' & s[index] != ')' & is_operator(s[index]) == 0 {
+    while index < len(s) & is_digit(s[index]) {
         result = result + s[index];
         index = index + 1;
+
     }
     return result;
 }
@@ -83,7 +83,7 @@ fn infix_to_postfix(string infix) -> string {
                     stack = remove(stack, 0);
                 }
             }
-            else if (curr == '-' & infix[index+1] != ' ') | (is_operator(curr) != 1) {
+            else if (curr == '-' & infix[index+1] != ' ') | (! is_operator(curr)) {
                 /* Operand */
                 string num = int_substring(infix, index);
                 postfix = postfix + ' ' + num;
@@ -130,7 +130,7 @@ fn postfix_to_tree(string postfix) -> struct<Node> {
         char curr = postfix[i];
         if curr == ' ' {
             skip;
-        } else if is_operator(curr) != 1 | postfix[i+1] != ' ' {
+        } else if (! is_operator(curr)) | postfix[i+1] != ' ' {
             string s = int_substring(postfix, i); /* retrieves the substring containing the integer */
             /* operand */
             struct<Node> node = build_value(parse_int(s));/* parses the integer string, gets the interger underneath */

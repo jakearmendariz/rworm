@@ -277,6 +277,7 @@ fn parse_type_from_rule(rule: Pair<Rule>) -> Result<VarType, ParseError> {
         Rule::vint => VarType::Int,
         Rule::vstring => VarType::String,
         Rule::vchar => VarType::Char,
+        Rule::vbool => VarType::Bool,
         Rule::var_type => parse_type_from_rule(rule.into_inner().next().unwrap())?,
         Rule::hmap => {
             let mut inner_types = rule.into_inner();
