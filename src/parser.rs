@@ -176,6 +176,18 @@ fn parse_expr(expression: Pairs<Rule>) -> Expr {
                 }
             }
             Rule::expr => parse_expr(pair.into_inner()),
+            Rule::unary_expr => {
+                let mut inner_pairs = pair.into_inner();
+                match inner_pairs.next().unwrap().as_rule() {
+                    Rule::not => {
+                        Expr::UnaryExpr(
+                            UnaryOp::Not,
+                            Box::new(parse_expr(inner_pairs.next().unwrap().into_inner()))
+                        )
+                    }
+                    _ => unreachable!("not happening")
+                }
+            }
             Rule::hash_obj => {
                 let position = pair.as_span().start();
                 let mut inner_types = pair.into_inner();

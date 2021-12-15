@@ -368,6 +368,13 @@ impl StaticAnalyzer {
                 let (value_expr_type, pos) = self.type_of_expr(state, *value_expr)?;
                 Ok((VarType::Array(Box::new(value_expr_type)), pos))
             }
+            Expr::UnaryExpr(unary_op, expr) => {
+                let (actual_type, pos) = self.type_of_expr(state, *expr)?;
+                match (unary_op, actual_type.clone()) {
+                    (UnaryOp::Not, VarType::Bool) => Ok((VarType::Bool, pos)),
+                    _ => Err(StaticError::TypeViolation(VarType::Bool, actual_type, pos))
+                }
+            }
             Expr::BinaryExpr(lhs, op, rhs) => {
                 let (left, leftpos) = self.type_of_expr(state, *lhs)?;
                 let (right, rightpos) = self.type_of_expr(state, *rhs)?;

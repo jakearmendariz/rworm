@@ -16,9 +16,14 @@ operation = _{ add | subtract | multiply | divide | power | eq | geq | leq | neq
     leq      = { "<=" }
     neq      = { "!=" }
 
+unary_op = _{ not }
+    not      = { "!" }
+
+unary_expr = { unary_op ~ expr }
+
 int = { ("+" | "-")? ~ ASCII_DIGIT+ }
 expr = { term ~ (operation ~ term)* }
-term = _{ int | char | func_call | identifier | string | hash_obj | array_value | bool_literals | "(" ~ expr ~ ")" }
+term = _{ int | char | func_call | identifier | string | hash_obj | array_value | bool_literals | "(" ~ expr ~ ")" | unary_expr }
 identifier = { var_name ~ (("." ~ var_name) | ("[" ~ expr ~ "]"))* }
 
 COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
@@ -55,28 +60,10 @@ chars = {
 }
 char = ${"\'" ~ chars ~ "\'"}
 
-// boolops = _{eq | geq | leq | neq | lt | gt}
-//     eq = {"=="}
-//     geq = {">="}
-//     leq = {"<="}
-//     neq = {"!="}
-//     lt = {"<"}
-//     gt = {">"}
-
-// bool_joiners = _{and | or}
-//     and = {"&"}
-//     or = {"|"}
-
-not = _{"!"}
-// exprp = _{ expr }
-// boolexp = {exprp ~ boolops ~ exprp}
 bool_literals = _{tru | fal}
     tru = {"true"}
     fal = {"false"}
 
-// boolexpr = {(boolterm | boolnot) ~ ")"? ~ (bool_joiners ~ (boolterm | boolnot))* ~ ")"?}
-// boolterm = {boolconst | boolexp | "(" ~ boolexp ~ ")" }
-// boolnot = {not ~ (("(" ~ boolterm ~ ")") | boolterm) }
 
 del = {"del" ~ "(" ~ var_name ~ ")"}
 skip = {"skip"}

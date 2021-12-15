@@ -260,6 +260,13 @@ fn eval_expr(
             Constant::Array(var_type, elements) => Ok(Constant::Array(var_type, elements)),
             _ => Ok(constant),
         },
+        Expr::UnaryExpr(op, expr) => {
+            let value = eval_expr(&expr, execution_state, state)?;
+            match (op, value) {
+                (UnaryOp::Not, Constant::Bool(value)) => Ok(Constant::Bool(!value)),
+                _ => panic!("Type error on unaryexpr"),
+            }
+        }
         Expr::FnCall {
             name,
             params,

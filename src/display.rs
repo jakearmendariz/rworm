@@ -25,6 +25,11 @@ impl Expr {
                 }
                 format!("{})", result)
             }
+            Expr::UnaryExpr(op, expr) => {
+                match op {
+                    UnaryOp::Not => format!("!{}", expr),
+                }
+            }
             Expr::Constant(constant, _) => {
                 format!("{}", constant)
             }

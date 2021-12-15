@@ -122,6 +122,7 @@ pub enum Expr {
         in_expr: Box<Expr>,
     },
     BinaryExpr(Box<Expr>, OpType, Box<Expr>),
+    UnaryExpr(UnaryOp, Box<Expr>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]
@@ -141,6 +142,11 @@ pub enum OpType {
     Gt,
     And,
     Or,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]
+pub enum UnaryOp {
+    Not,
 }
 
 /// All expressions evaluate to a specific type, which is represented as a constant
