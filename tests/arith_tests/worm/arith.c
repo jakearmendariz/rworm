@@ -32,7 +32,7 @@ fn is_digit(char c) -> bool {
 
 /* sets the order of precedence */
 fn get_precedence_order() -> map<char, int> {
-    map<char, int> po = {char: int};
+    map<char, int> po = {char : int};
     po['+'] = 0;
     po['-'] = 0;
     po['*'] = 1;

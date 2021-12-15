@@ -7,7 +7,30 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub type Position = usize;
+/**
+ * Weird Idea
+ * Maybe instead of expressions be first class nodes, it should be ast and return statements
+ * and expression is just another variant
+ * 
+ * this way I could write
+ * int y = some_function();
+ * int x = if y == value {
+ *      int x = compute on y
+ *      return x
+ * } else {
+ *      while y < value {
+ *          y += 1;
+ *      }
+ *      return y;
+ * }
+ * 
+ * 
+ * Another idea is simplifying boolean expressions where isntead of 
+ * x == 1 | x == 2 | x == 3
+ * I could do
+ * x == (1 | 2 | 3)
+ * x in (1..3)
+ */
 
 #[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq)]
 pub enum AstNode {
@@ -23,7 +46,7 @@ pub enum AstNode {
     // these built in functions consume an entire line
     BuiltIn(BuiltIn),
     // return from a function
-    ReturnStm(Expr, Position),
+    ReturnStm(Expr),
     // Makes life easy when designing ast to have a skip value
     Skip(),
 }
@@ -169,7 +192,7 @@ pub enum Constant {
     String(String),
     Char(char),
     Array(VarType, Vec<Constant>), // Arrays are fixed size in worm, but its easiest to implement with vec
-    Map(VarType, VarType, BTreeMap<Constant, Constant>), // custom type for Hash, PartialEq, PartialOrd, Eqmap
+    Map(VarType, VarType, BTreeMap<Constant, Constant>),
     Struct {
         name: String,
         pairs: BTreeMap<String, Constant>,
@@ -199,6 +222,7 @@ impl PartialEq for Constant {
             (Int(i), Int(j)) => i == j,
             (Char(i), Char(j)) => i == j,
             (String(i), String(j)) => i.eq(j),
+            (Bool(a), Bool(b)) => a == b,
             _ => false,
         }
     }
@@ -212,6 +236,7 @@ impl PartialOrd for Constant {
             (Int(i), Int(j)) => i.cmp(j),
             (Char(i), Char(j)) => i.cmp(j),
             (String(i), String(j)) => i.cmp(j),
+            (Bool(a), Bool(b)) => a.cmp(b),
             _ => return None,
         })
     }

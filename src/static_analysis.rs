@@ -295,7 +295,7 @@ impl StaticAnalyzer {
                 }
                 ()
             }
-            AstNode::ReturnStm(expr, _) => {
+            AstNode::ReturnStm(expr) => {
                 return Ok(Some(self.type_of_expr_wrapper(state, expr)?));
             }
             AstNode::Skip() => (),

@@ -476,11 +476,9 @@ pub fn parse_ast(pair: Pair<Rule>, state: &mut State) -> Result<AstNode, ParseEr
             }
         }
         Rule::return_stm => {
-            let position = pair.as_span().start();
             let return_expr = pair.into_inner().next().unwrap();
             Ok(AstNode::ReturnStm(
                 parse_expr(return_expr.into_inner()),
-                position,
             ))
         }
         Rule::structure_def => {

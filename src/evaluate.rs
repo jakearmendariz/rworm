@@ -224,7 +224,7 @@ fn eval_ast(
             }
             ()
         }
-        AstNode::ReturnStm(expr, _) => {
+        AstNode::ReturnStm(expr) => {
             return Ok(Some(eval_expr(&expr, execution_state, state)?));
         }
         AstNode::Skip() => (),
