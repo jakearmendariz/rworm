@@ -22,7 +22,7 @@ pub fn run_program(
     Ok(eval_func(MAIN.to_string(), execution_state, ast)?)
 }
 
-/* execute turns a ast object into a Result */
+/// eval_func expects parameters and scope to already be handeled. Only calls statements
 pub fn eval_func(
     name: String,
     execution_state: &mut ExecutionState,

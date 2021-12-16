@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
  * Weird Idea
  * Maybe instead of expressions be first class nodes, it should be ast and return statements
  * and expression is just another variant
- * 
+ *
  * this way I could write
  * int y = some_function();
  * int x = if y == value {
@@ -23,9 +23,9 @@ use std::collections::BTreeMap;
  *      }
  *      return y;
  * }
- * 
- * 
- * Another idea is simplifying boolean expressions where isntead of 
+ *
+ *
+ * Another idea is simplifying boolean expressions where isntead of
  * x == 1 | x == 2 | x == 3
  * I could do
  * x == (1 | 2 | 3)
@@ -205,10 +205,14 @@ impl PartialEq for VarType {
     fn eq(&self, other: &VarType) -> bool {
         use VarType::*;
         match (self, other) {
-            (Int, Int) | (String, String) | (Char, Char) => true,
+            (Int, Int) | (String, String) | (Char, Char) | (Bool, Bool) => true,
             (Int, Char) => true, // allow int => char conversion
             (Map(k1, v1), Map(k2, v2)) => k1.eq(&k2) && v1.eq(v2),
             (Array(arr1), Array(arr2)) => arr1.eq(arr2),
+            (Struct(s1), Struct(s2)) => s1.eq(s2),
+            (String, Array(inner)) | (Array(inner), String) => VarType::Char.eq(&*inner),
+            (Generic, _) => true,
+            (_, Generic) => true,
             _ => false,
         }
     }

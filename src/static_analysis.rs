@@ -39,7 +39,7 @@ impl StaticAnalyzerState {
             match self.eval_ast_node(ast, (**ast_node).clone()) {
                 Ok(res) => match res {
                     Some(val) => {
-                        if !type_match(&expected_return, &val) {
+                        if !(expected_return == &val) {
                             errors.push(StaticError::TypeMismatchInReturn(
                                 expected_return.clone(),
                                 val,
@@ -149,7 +149,7 @@ impl StaticAnalyzerState {
                 let (value_type, position) = self.type_of_expr(ast, expr)?;
                 match var_type {
                     Some(vtype) => {
-                        if type_match(&vtype, &value_type) {
+                        if vtype == value_type {
                             self.save_variable(identifier.var_name, vtype);
                         } else {
                             return Err(StaticError::TypeViolation(vtype, value_type, position));
@@ -158,7 +158,7 @@ impl StaticAnalyzerState {
                     None => {
                         // if no variable type, turn it into an expression and parse value (error if dne)
                         let var_type = self.type_of_identifier(ast, identifier)?;
-                        if !type_match(&var_type, &value_type) {
+                        if !(var_type == value_type) {
                             return Err(StaticError::TypeViolation(var_type, value_type, position));
                         }
                     }
@@ -309,7 +309,7 @@ impl StaticAnalyzerState {
                         (Generic, a) => Ok((a, leftpos)),
                         (a, Generic) => Ok((a, leftpos)),
                         (_, _) => {
-                            if type_match(&left, &right) {
+                            if left == right {
                                 Ok((left, leftpos))
                             } else {
                                 Err(StaticError::TypeViolation(
@@ -446,7 +446,7 @@ impl StaticAnalyzerState {
 }
 
 fn expect_type(expected: &VarType, actual: &VarType, position: usize) -> Result<(), StaticError> {
-    if !type_match(expected, actual) {
+    if !(expected == actual) {
         Err(StaticError::TypeViolation(
             expected.clone(),
             actual.clone(),
@@ -454,22 +454,6 @@ fn expect_type(expected: &VarType, actual: &VarType, position: usize) -> Result<
         ))
     } else {
         Ok(())
-    }
-}
-
-fn type_match(a: &VarType, b: &VarType) -> bool {
-    use VarType::*;
-    match (a, b) {
-        (Int, Int) | (String, String) | (Char, Char) | (Bool, Bool) => true,
-        (Struct(s1), Struct(s2)) => s1.eq(s2),
-        (Int, Char) => true, // allow int => char conversion
-        (Map(k1, v1), Map(k2, v2)) => type_match(&*k1, &*k2) && type_match(&*v1, &*v2),
-        (Array(arr1), Array(arr2)) => type_match(&*arr1, &*arr2),
-        (Array(inner), String) => type_match(&*inner, &VarType::Char),
-        (String, Array(inner)) => type_match(&*inner, &VarType::Char),
-        (Generic, _) => true,
-        (_, Generic) => true,
-        _ => false,
     }
 }
 
