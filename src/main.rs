@@ -14,13 +14,14 @@ mod ast;
 mod evaluate;
 mod parser;
 mod static_analysis;
+mod error_handling;
 
 mod display;
 mod state;
 use crate::evaluate::run_program;
 use crate::parser::*;
-use crate::state::{ExecutionState, AstMap};
-use crate::static_analysis::{log_errors, StaticAnalyzer};
+use crate::state::{ExecutionState, AstMap, StaticAnalyzerState};
+use crate::error_handling::{log_errors};
 use colored::*;
 use pest::Parser;
 use std::collections::HashMap;
@@ -31,11 +32,10 @@ use std::collections::HashMap;
 fn main() {
     let filename = std::env::args().nth(1).expect("expected a filename");
     let file_content = std::fs::read_to_string(filename).expect("cannot read file");
-    let pairs = WormParser::parse(Rule::program, &file_content).unwrap_or_else(|e| panic!("{}", e));
-    // println!("{:?}", get_position(file_content.clone(), 27));
+    let parsed_program = WormParser::parse(Rule::program, &file_content).unwrap_or_else(|e| panic!("{}", e));
     let mut ast = AstMap::default();
     // parses the program into an AST, saves the functions AST in the state to be called upon later
-    match parse_program(pairs, &mut ast) {
+    match parse_program(parsed_program, &mut ast) {
         Ok(()) => (),
         Err(e) => {
             println!("{} {:?}", "PARSE ERROR:".red().bold(), e);
@@ -43,7 +43,7 @@ fn main() {
         }
     }
 
-    let mut static_analyzer = StaticAnalyzer::default();
+    let mut static_analyzer = StaticAnalyzerState::default();
     let errors = static_analyzer.check_program(&ast);
     if errors.len() > 0 {
         log_errors(errors, file_content);

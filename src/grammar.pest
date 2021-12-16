@@ -69,7 +69,7 @@ del = {"del" ~ "(" ~ var_name ~ ")"}
 skip = {"skip"}
 print = {"print" ~ "(" ~ expr ~ ")"}
 static_print = {"static_print" ~ "(" ~ expr ~ ")"}
-assert = {"assert(" ~ expr}
+assert = {"assert" ~ "(" ~ expr ~ ")"}
 builtin = {del | print | static_print | assert}
 
 body = _{statement+}

@@ -63,153 +63,137 @@ lazy_static::lazy_static! {
     };
 }
 
-
 /* parses pairs of rules from peg parser into a expression */
 fn parse_expr(expression: Pairs<Rule>) -> Expr {
     PREC_CLIMBER.climb(
         expression,
-        |pair: Pair<Rule>| match pair.as_rule() {
-            Rule::int => {
-                let position = pair.as_span().start();
-                let mut int_as_str = pair.as_str().to_string();
-                int_as_str.retain(|c| !c.is_whitespace());
-                Expr::Literal(
-                    Literal::Int(int_as_str.parse::<i32>().unwrap()),
-                    position,
-                )
-            }
-            Rule::char => {
-                let position = pair.as_span().start();
-                Expr::Literal(
-                    Literal::Char({
-                        let character = pair.into_inner().next().unwrap().as_str();
-                        character.chars().next().unwrap()
-                    }),
-                    position,
-                )
-            }
-            Rule::tru => Expr::Literal(Literal::Bool(true), 0),
-            Rule::fal => Expr::Literal(Literal::Bool(false), 0),
-            // Rule::var_name => Expr::ExpVal(Object::Variable(pair.as_str().to_string())),
-            Rule::identifier => Expr::Identifier(parse_identifier(pair)),
-            Rule::func_call => {
-                let position = pair.as_span().start();
-                let mut inner = pair.into_inner();
-                let func_name = inner.next().unwrap().as_str().to_string();
-                let mut params = Vec::new();
-                match inner.next() {
-                    Some(p) => {
-                        for item in p.into_inner() {
-                            params.push(parse_expr(item.into_inner()));
-                            ()
-                        }
+        |pair: Pair<Rule>| {
+            let position = pair.as_span().start();
+            match pair.as_rule() {
+                Rule::int => {
+                    // parse int from pair, remove whitespace first
+                    let int_lit = pair.as_str().trim().parse::<i32>().unwrap();
+                    Expr::Literal(Literal::Int(int_lit), position)
+                }
+                Rule::char => {
+                    let character_lit = pair
+                        .into_inner()
+                        .next()
+                        .unwrap()
+                        .as_str()
+                        .chars()
+                        .next()
+                        .unwrap();
+                    Expr::Literal(Literal::Char(character_lit), position)
+                }
+                Rule::tru => Expr::Literal(Literal::Bool(true), position),
+                Rule::fal => Expr::Literal(Literal::Bool(false), position),
+                // Rule::var_name => Expr::ExpVal(Object::Variable(pair.as_str().to_string())),
+                Rule::identifier => Expr::Identifier(parse_identifier(pair)),
+                Rule::func_call => {
+                    let mut func_call_pairs = pair.into_inner();
+                    let func_name = func_call_pairs.next().unwrap().as_str().to_string();
+                    let params = match func_call_pairs.next() {
+                        Some(parameters_pair) => parameters_pair
+                            .into_inner()
+                            .map(|item| parse_expr(item.into_inner()))
+                            .collect(),
+                        None => Vec::with_capacity(0),
+                    };
+                    Expr::FnCall {
+                        name: func_name,
+                        params,
+                        position,
                     }
-                    None => (),
                 }
-                Expr::FnCall {
-                    name: func_name,
-                    params: params,
-                    position: position,
-                }
-            }
-            Rule::array_empty => {
-                let position = pair.as_span().start();
-                Expr::Literal(
+                Rule::array_empty => Expr::Literal(
                     Literal::Array(
                         parse_type_from_rule(pair.into_inner().next().unwrap()).unwrap(),
                         Vec::new(),
                     ),
                     position,
-                )
-            }
-            Rule::string => {
-                let position = pair.as_span().start();
-                Expr::Literal(
+                ),
+                Rule::string => Expr::Literal(
                     Literal::String(pair.into_inner().next().unwrap().as_str().to_string()),
                     position,
-                )
-            }
-            Rule::array_value => {
-                // format of `int[] a = [expression; size];`
-                let position = pair.as_span().start();
-
-                let init_or_call = pair.into_inner().next().unwrap();
-                let mut array_def = match init_or_call.as_rule() {
-                    Rule::array_initial => init_or_call.into_inner(),
-                    Rule::array_empty => {
-                        return Expr::Literal(
-                            Literal::Array(
-                                parse_type_from_rule(init_or_call.into_inner().next().unwrap())
-                                    .unwrap(),
-                                Vec::new(),
-                            ),
-                            position,
-                        );
+                ),
+                Rule::array_value => {
+                    // format of `int[] a = [expression; size];`
+                    let init_or_call = pair.into_inner().next().unwrap();
+                    let mut array_def = match init_or_call.as_rule() {
+                        Rule::array_initial => init_or_call.into_inner(),
+                        Rule::array_empty => {
+                            return Expr::Literal(
+                                Literal::Array(
+                                    parse_type_from_rule(init_or_call.into_inner().next().unwrap())
+                                        .unwrap(),
+                                    Vec::new(),
+                                ),
+                                position,
+                            );
+                        }
+                        _ => {
+                            unreachable!("")
+                        }
+                    };
+                    // expression can be a Literal or a value to be evaulated to, var i represents the index of an array
+                    let first = array_def.next().unwrap();
+                    // catch the piped variable, optional, but if there it's the index of the program
+                    let (piped, expression) = match first.as_rule() {
+                        Rule::piped => (
+                            Some(first.into_inner().next().unwrap().as_str().to_string()),
+                            parse_expr(array_def.next().unwrap().into_inner()),
+                        ),
+                        Rule::expr => (None, parse_expr(first.into_inner())),
+                        _ => {
+                            panic!("")
+                        }
+                    };
+                    // let expression = parse_expr(array_def.next().unwrap().into_inner());
+                    // size must be an uinteger, but parse into expression anyways in case a variable is passed in
+                    let size_expr = parse_expr(array_def.next().unwrap().into_inner());
+                    Expr::ListComprehension {
+                        piped_var: piped,
+                        value_expr: Box::new(expression),
+                        in_expr: Box::new(size_expr),
                     }
-                    _ => {
-                        panic!("")
-                    }
-                };
-                // expression can be a Literal or a value to be evaulated to, var i represents the index of an array
-                let first = array_def.next().unwrap();
-                // catch the piped variable, optional, but if there it's the index of the program
-                let (piped, expression) = match first.as_rule() {
-                    Rule::piped => (
-                        Some(first.into_inner().next().unwrap().as_str().to_string()),
-                        parse_expr(array_def.next().unwrap().into_inner()),
-                    ),
-                    Rule::expr => (None, parse_expr(first.into_inner())),
-                    _ => {
-                        panic!("")
-                    }
-                };
-                // let expression = parse_expr(array_def.next().unwrap().into_inner());
-                // size must be an uinteger, but parse into expression anyways in case a variable is passed in
-                let size_expr = parse_expr(array_def.next().unwrap().into_inner());
-                Expr::ListComprehension {
-                    piped_var: piped,
-                    value_expr: Box::new(expression),
-                    in_expr: Box::new(size_expr),
                 }
-            }
-            Rule::expr => parse_expr(pair.into_inner()),
-            Rule::unary_expr => {
-                let mut unary_expr_pairs = pair.into_inner();
-                match unary_expr_pairs.next().unwrap().as_rule() {
-                    Rule::not => {
-                        Expr::UnaryExpr(
+                Rule::expr => parse_expr(pair.into_inner()),
+                Rule::unary_expr => {
+                    let mut unary_expr_pairs = pair.into_inner();
+                    match unary_expr_pairs.next().unwrap().as_rule() {
+                        Rule::not => Expr::UnaryExpr(
                             UnaryOp::Not,
-                            Box::new(parse_expr(unary_expr_pairs.next().unwrap().into_inner()))
-                        )
+                            Box::new(parse_expr(unary_expr_pairs.next().unwrap().into_inner())),
+                        ),
+                        _ => unreachable!("Unexpected unary rules"),
                     }
-                    _ => unreachable!("Unexpected unary rules")
                 }
+                Rule::hash_obj => {
+                    let mut inner_types = pair.into_inner();
+                    let key_type = parse_type_from_rule(match inner_types.next() {
+                        Some(a_rule) => match a_rule.as_rule() {
+                            Rule::var_type => a_rule.into_inner().next().unwrap(),
+                            _ => a_rule,
+                        },
+                        None => panic!("missing key type from Map"),
+                    })
+                    .unwrap();
+                    let value_type = parse_type_from_rule(match inner_types.next() {
+                        Some(a_rule) => match a_rule.as_rule() {
+                            Rule::var_type => a_rule.into_inner().next().unwrap(),
+                            _ => a_rule,
+                        },
+                        None => panic!("missing key type from Map"),
+                    })
+                    .unwrap();
+                    Expr::Literal(
+                        Literal::Map(key_type, value_type, BTreeMap::default()),
+                        position,
+                    )
+                }
+                _ => unreachable!(),
             }
-            Rule::hash_obj => {
-                let position = pair.as_span().start();
-                let mut inner_types = pair.into_inner();
-                let key_type = parse_type_from_rule(match inner_types.next() {
-                    Some(a_rule) => match a_rule.as_rule() {
-                        Rule::var_type => a_rule.into_inner().next().unwrap(),
-                        _ => a_rule,
-                    },
-                    None => panic!("missing key type from Map"),
-                })
-                .unwrap();
-                let value_type = parse_type_from_rule(match inner_types.next() {
-                    Some(a_rule) => match a_rule.as_rule() {
-                        Rule::var_type => a_rule.into_inner().next().unwrap(),
-                        _ => a_rule,
-                    },
-                    None => panic!("missing key type from Map"),
-                })
-                .unwrap();
-                Expr::Literal(
-                    Literal::Map(key_type, value_type, BTreeMap::default()),
-                    position,
-                )
-            }
-            _ => unreachable!(),
         },
         |lhs: Expr, op: Pair<Rule>, rhs: Expr| match op.as_rule() {
             Rule::add => Expr::BinaryExpr(Box::new(lhs), OpType::Add, Box::new(rhs)),
@@ -316,9 +300,9 @@ fn parse_type_from_rule(rule: Pair<Rule>) -> Result<VarType, ParseError> {
 * parse the function from the pair provided.
 */
 pub fn parse_function(pairs: &mut Pairs<Rule>, ast: &mut AstMap) -> Result<(), ParseError> {
-    let name_pair = pairs.next().unwrap();
-    let position = name_pair.as_span().start();
-    let fn_name = name_pair.as_str().to_string();
+    let fn_name_pair = pairs.next().unwrap();
+    let position = fn_name_pair.as_span().start();
+    let fn_name = fn_name_pair.as_str().to_string();
 
     let next_rule = pairs.next().unwrap();
     let (params, return_type) = match next_rule.as_rule() {
@@ -469,9 +453,7 @@ pub fn parse_ast_node(pair: Pair<Rule>, ast: &mut AstMap) -> Result<AstNode, Par
         }
         Rule::return_stm => {
             let return_expr = pair.into_inner().next().unwrap();
-            Ok(AstNode::ReturnStm(
-                parse_expr(return_expr.into_inner()),
-            ))
+            Ok(AstNode::ReturnStm(parse_expr(return_expr.into_inner())))
         }
         Rule::structure_def => {
             let pairs = &mut pair.into_inner();

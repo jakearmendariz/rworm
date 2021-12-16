@@ -22,13 +22,13 @@ pub struct ExecutionState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct FakeExecutionState {
+pub struct StaticAnalyzerState {
     pub var_map: HashMap<String, VarType>,
     pub var_stack: Vec<(String, u32)>,
     pub stack_lvl: u32,
 }
 
-impl FakeExecutionState {
+impl StaticAnalyzerState {
     // increase stack level
     pub fn increment_stack_level(&mut self) {
         self.stack_lvl += 1;

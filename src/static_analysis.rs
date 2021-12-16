@@ -5,123 +5,32 @@
 */
 
 use crate::ast::*;
+use crate::error_handling::StaticError;
 use crate::state::*;
-use colored::*;
 
-#[derive(Debug, Clone)]
-pub enum StaticError {
-    ValueDne(String, usize),
-    TypeViolation(VarType, VarType, usize),
-    NeedReturnStm(String, usize),
-    TypeMismatchInReturn(VarType, VarType, usize),
-    CannotFindFunction(String, usize),
-    General(String, usize),
-}
-
-impl std::fmt::Display for StaticError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match &*self {
-            StaticError::ValueDne(x, _) => write!(f, "variable \'{}\' does not exist", x),
-            StaticError::TypeViolation(a, b, _) => {
-                write!(f, "expected type \'{}\' recieved type \'{}\'", a, b)
-            }
-            StaticError::NeedReturnStm(name, _) => {
-                write!(f, "need a return statment in function \'{}\'", name)
-            }
-            StaticError::CannotFindFunction(name, _) => {
-                write!(f, "function \'{}\' does not exist", name)
-            }
-            StaticError::General(x, _) => write!(f, "{}", x),
-            StaticError::TypeMismatchInReturn(expected, recieved, _) => write!(
-                f,
-                "Type mismatch on return, expected {}, recieved {}",
-                expected, recieved
-            ),
-        }
-    }
-}
-#[derive(Debug, Clone, Default)]
-pub struct StaticAnalyzer {
-    pub execution_state: FakeExecutionState,
-    pub errors: Vec<(String, StaticError)>,
-}
-
-fn get_line_col(file_content: &String, position: usize) -> (usize, usize) {
-    let mut row_counter = 1;
-    let mut start_of_line = 0;
-    for (idx, character) in file_content[..position].chars().enumerate() {
-        if character == '\n' {
-            row_counter += 1;
-            start_of_line = idx;
-        }
-    }
-    // println!("{} {} {}", position, row_counter, start_of_line);
-    (row_counter, position - start_of_line)
-}
-
-fn get_position_from_error(file_content: &String, error: StaticError) -> (usize, usize) {
-    let position: usize = match error {
-        StaticError::ValueDne(_, pos) => pos,
-        StaticError::TypeViolation(_, _, pos) => pos,
-        StaticError::NeedReturnStm(_, pos) => pos,
-        StaticError::CannotFindFunction(_, pos) => pos,
-        StaticError::General(_, pos) => pos,
-        StaticError::TypeMismatchInReturn(_, _, pos) => pos,
-    };
-    get_line_col(file_content, position)
-}
-pub fn log_errors(errors: Vec<(String, StaticError)>, file_content: String) {
-    let count = errors.len();
-    for (fn_name, error) in errors {
-        let (line, col) = get_position_from_error(&file_content, error.clone());
-        println!(
-            "{} {} in function {} on {}:{}",
-            "Static Error:".red().bold(),
-            error,
-            fn_name,
-            line,
-            col,
-        );
-    }
-    println!(
-        "{} aborting due to {} error(s)",
-        "error:".red().bold(),
-        count
-    );
-}
-
-impl StaticAnalyzer {
-    pub fn check_program(&mut self, ast: &AstMap) -> Vec<(String, StaticError)> {
-        let errors = ast
-            .func_map
-            .keys()
-            .flat_map(|name| self.check_function(name.to_string(), ast))
-            .collect();
-        errors
+impl StaticAnalyzerState {
+    /// Checks program for errors by evaluating each function
+    pub fn check_program(&mut self, ast: &AstMap) -> Vec<StaticError> {
+        ast.func_map
+            .values()
+            .flat_map(|function| {
+                // For each function, save parameters then check its statements and types for errors.
+                // Increment for scope
+                self.increment_stack_level();
+                // Save each parameter as local variables.
+                function.params.iter().for_each(|(param_type, param_name)| {
+                    self.save_variable(param_name.to_string(), param_type.clone())
+                });
+                // Evaluate function statements.
+                let errors = self.check_function(function, ast);
+                // Deletes all locally created variables
+                self.pop_stack();
+                errors
+            })
+            .collect::<Vec<StaticError>>()
     }
 
-    // same as check_function, except with a index instead of passing function
-    pub fn check_function(
-        &mut self,
-        fn_name: String,
-        ast: &AstMap,
-    ) -> Vec<(String, StaticError)> {
-        self.execution_state.increment_stack_level();
-        // save parameters of the function into state
-        let function = ast.func_map.get(&fn_name.to_string()).unwrap();
-        function.params.iter().for_each(|(param_type, param_name)| {
-            self.execution_state
-                .save_variable(param_name.to_string(), param_type.clone())
-        });
-        let errors = self.check_statements(function, ast);
-        self.execution_state.pop_stack();
-        errors
-            .into_iter()
-            .map(|error| (fn_name.clone(), error))
-            .collect()
-    }
-
-    fn check_statements(&mut self, function: &Function, ast: &AstMap) -> Vec<StaticError> {
+    fn check_function(&mut self, function: &Function, ast: &AstMap) -> Vec<StaticError> {
         let mut errors = Vec::new();
         let mut return_flag = false;
         let expected_return = &function.return_type;
@@ -158,7 +67,7 @@ impl StaticAnalyzer {
         ast: &AstMap,
         identifier: Identifier,
     ) -> Result<VarType, StaticError> {
-        let mut curr_type = match self.execution_state.var_map.get(&identifier.var_name) {
+        let mut curr_type = match self.var_map.get(&identifier.var_name) {
             Some(vtype) => vtype.clone(),
             None => {
                 return Err(StaticError::ValueDne(
@@ -198,7 +107,7 @@ impl StaticAnalyzer {
                             Some(structure_map) => structure_map,
                             None => {
                                 return Err(StaticError::ValueDne(
-                                    format!("Struct {}", struct_name,),
+                                    format!("Struct {}", struct_name),
                                     identifier.position,
                                 ));
                             }
@@ -207,7 +116,7 @@ impl StaticAnalyzer {
                             Some(vtype) => vtype,
                             None => {
                                 return Err(StaticError::ValueDne(
-                                    format!("attribute {} from struct {}", attribute, struct_name,),
+                                    format!("attribute {} from struct {}", attribute, struct_name),
                                     identifier.position,
                                 ));
                             }
@@ -225,7 +134,11 @@ impl StaticAnalyzer {
         Ok(curr_type)
     }
 
-    fn eval_ast_node(&mut self, ast: &AstMap, ast_node: AstNode) -> Result<Option<VarType>, StaticError> {
+    fn eval_ast_node(
+        &mut self,
+        ast: &AstMap,
+        ast_node: AstNode,
+    ) -> Result<Option<VarType>, StaticError> {
         match ast_node {
             AstNode::Assignment {
                 var_type,
@@ -237,8 +150,7 @@ impl StaticAnalyzer {
                 match var_type {
                     Some(vtype) => {
                         if type_match(&vtype, &value_type) {
-                            self.execution_state
-                                .save_variable(identifier.var_name, vtype);
+                            self.save_variable(identifier.var_name, vtype);
                         } else {
                             return Err(StaticError::TypeViolation(vtype, value_type, position));
                         }
@@ -253,8 +165,8 @@ impl StaticAnalyzer {
                 };
             }
             AstNode::If(if_pairs) => {
-                // TOOO: need to check every single branch
-                self.execution_state.increment_stack_level();
+                // TOOO: need to check every single branch for returns
+                self.increment_stack_level();
                 let mut return_val = None;
                 for (conditional, mut stms) in if_pairs {
                     self.check_bool_expr(ast, conditional)?;
@@ -265,19 +177,19 @@ impl StaticAnalyzer {
                         }
                     }
                 }
-                self.execution_state.pop_stack();
+                self.pop_stack();
                 return Ok(return_val);
             }
             AstNode::While(conditional, stms) => {
                 self.check_bool_expr(ast, conditional)?;
-                self.execution_state.increment_stack_level();
+                self.increment_stack_level();
                 for stm in stms.iter() {
                     match self.eval_ast_node(ast, *stm.clone())? {
                         Some(eval) => return Ok(Some(eval)), //if there was a return statement, return the value
                         None => (),
                     }
                 }
-                self.execution_state.pop_stack();
+                self.pop_stack();
             }
             AstNode::BuiltIn(builtin) => {
                 match builtin {
@@ -359,9 +271,9 @@ impl StaticAnalyzer {
                 value_expr,
                 in_expr: _,
             } => {
-                self.execution_state.increment_stack_level();
+                self.increment_stack_level();
                 match piped_var {
-                    Some(name) => self.execution_state.save_variable(name, VarType::Generic),
+                    Some(name) => self.save_variable(name, VarType::Generic),
                     None => (),
                 };
                 let (value_expr_type, pos) = self.type_of_expr(ast, *value_expr)?;
@@ -371,7 +283,7 @@ impl StaticAnalyzer {
                 let (actual_type, pos) = self.type_of_expr(ast, *expr)?;
                 match (unary_op, actual_type.clone()) {
                     (UnaryOp::Not, VarType::Bool) => Ok((VarType::Bool, pos)),
-                    _ => Err(StaticError::TypeViolation(VarType::Bool, actual_type, pos))
+                    _ => Err(StaticError::TypeViolation(VarType::Bool, actual_type, pos)),
                 }
             }
             Expr::BinaryExpr(lhs, op, rhs) => {
@@ -422,7 +334,7 @@ impl StaticAnalyzer {
         if fn_call.params.len() != expected_params.len() {
             return Err(StaticError::General(
                 format!(
-                    "Error {} requires exactly {} arg",
+                    "{} requires exactly {} arg",
                     fn_call.name,
                     expected_params.len()
                 ),
@@ -484,7 +396,7 @@ impl StaticAnalyzer {
                 expect_type(&value, &list, pos)?;
                 Ok(value)
             }
-            _ => panic!("ERROR CANNOT FIND RESERVED FUNCTION"),
+            _ => panic!("Cannot find reserved function in static_anal"),
         }
     }
 
