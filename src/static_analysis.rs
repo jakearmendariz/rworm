@@ -422,6 +422,16 @@ impl StaticAnalyzerState {
                 }
             }
         };
+        if func_call.params.len() != function.params.len() {
+            return Err(StaticError::General(
+                format!(
+                    "Wrong number of arguments provided to function. Expected {}, recieved: {}",
+                    function.params.len(),
+                    func_call.params.len(),
+                ),
+                func_call.position,
+            ));
+        }
         // iterate through the parameters provided and the function def,
         for (expr, (var_type, _)) in func_call.params.iter().zip(function.params.iter()) {
             let (param_const, position) = self.type_of_expr(ast, expr.clone())?;
