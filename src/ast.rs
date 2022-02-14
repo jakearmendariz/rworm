@@ -6,6 +6,16 @@
 */
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::hash::Hash;
+
+pub trait WormObjTrait: Clone + Hash + PartialEq + PartialOrd + Eq {}
+impl<'a, T> WormObjTrait for T where T: Clone + Hash + PartialEq + PartialOrd + Eq {}
+
+pub trait VType: Clone {}
+impl VType for VarType {}
+
+pub trait LitTrait: Clone {}
+impl LitTrait for Literal {}
 
 /**
  * Weird Idea
@@ -227,6 +237,9 @@ impl PartialEq for Literal {
             (Char(i), Char(j)) => i == j,
             (String(i), String(j)) => i.eq(j),
             (Bool(a), Bool(b)) => a == b,
+            (Array(v1type, values1), Array(v2type, values2)) => {
+                v1type == v2type && values1 == values2
+            }
             _ => false,
         }
     }

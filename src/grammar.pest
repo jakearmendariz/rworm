@@ -35,9 +35,10 @@ var_name = @{!reserved ~ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*}
 array_inst = {(vint | vchar | vstring | hmap | structure) ~ "[]"}
 piped = {"|" ~ var_name ~ "|"}
 array_initial = {"[" ~ piped? ~ expr ~ ";" ~ expr ~ "]"}
+list_comprehension = {"[" ~ expr ~ "for" ~ var_name ~ "in" ~ expr ~ "]"}
 array_literal = {"[" ~ list? ~ "]"}
 array_empty =  {"[" ~ var_type ~ "]"}
-array_value = { array_empty | array_initial | array_literal }
+array_value = { array_empty | array_initial | list_comprehension | array_literal }
 
 structure_items = {(var_name ~ ":" ~ var_type) ~ ("," ~ (var_name ~ ":" ~ var_type))*}
 structure_def = {"struct" ~ var_name ~ "{" ~ structure_items ~ ","? ~ "}"}

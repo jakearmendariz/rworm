@@ -11,6 +11,8 @@ pub enum StaticError {
     General(String, usize),
 }
 
+pub type WormResult<T> = Result<T, StaticError>;
+
 impl std::fmt::Display for StaticError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &*self {

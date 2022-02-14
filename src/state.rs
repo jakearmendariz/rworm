@@ -4,6 +4,7 @@
 * but also every value in the function, the state is built in parser.rs, analyzed in static_analysis and eveulated in evaluate.rs
 * it is THE worm object :)
 */
+use crate::ast;
 use crate::ast::*;
 use crate::HashMap;
 use serde::{Deserialize, Serialize};

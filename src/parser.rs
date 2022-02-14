@@ -117,11 +117,33 @@ fn parse_expr(expression: Pairs<Rule>) -> Expr {
                     Literal::String(pair.into_inner().next().unwrap().as_str().to_string()),
                     position,
                 ),
+                Rule::list_comprehension => {
+                    let mut pairs = pair.into_inner();
+                    let value_expr = parse_expr(pairs.next().unwrap().into_inner());
+                    let piped_var = Some(pairs.next().unwrap().into_inner().as_str().to_string());
+                    let in_expr = parse_expr(pairs.next().unwrap().into_inner());
+                    Expr::ListComprehension {
+                        piped_var,
+                        value_expr: Box::new(value_expr),
+                        in_expr: Box::new(in_expr),
+                    }
+                }
                 Rule::array_value => {
                     // format of `int[] a = [expression; size];`
                     let init_or_call = pair.into_inner().next().unwrap();
                     let mut array_def = match init_or_call.as_rule() {
                         Rule::array_initial => init_or_call.into_inner(),
+                        Rule::list_comprehension => {
+                            let mut pairs = init_or_call.into_inner();
+                            let value_expr = parse_expr(pairs.next().unwrap().into_inner());
+                            let piped_var = Some(pairs.next().unwrap().as_str().to_string());
+                            let in_expr = parse_expr(pairs.next().unwrap().into_inner());
+                            return Expr::ListComprehension {
+                                piped_var,
+                                value_expr: Box::new(value_expr),
+                                in_expr: Box::new(in_expr),
+                            };
+                        }
                         Rule::array_empty => {
                             return Expr::Literal(
                                 Literal::Array(

@@ -2,7 +2,7 @@
 * evaluates the ast, panics on missed type static errors, but catches execution errors and returns result
 */
 use crate::ast::*;
-use crate::state::{ExecutionState, AstMap};
+use crate::state::{AstMap, ExecutionState};
 use colored::*;
 use std::collections::{BTreeMap, HashMap};
 
@@ -47,14 +47,14 @@ pub fn eval_func(
 /// ## Example
 /// `object[i].attri = value;`
 /// The tail in this case is [ArrayIndex(i), StructIndex(attri)]
-/// 
+///
 /// We need to update the attri value, but then also the value in the array
 /// and finally the object inside of var_map.
-/// 
-/// @param curr_value maintains the current value being accessed, so in 
+///
+/// @param curr_value maintains the current value being accessed, so in
 /// ArrayIndex(i) it contains the object and in StructIndex(attri) it contains
 /// the array value.
-/// 
+///
 /// @param final_value is the value that we should set at the tail of the tail.
 fn recurse_identifier_tail(
     execution_state: &mut ExecutionState,
@@ -88,16 +88,14 @@ fn recurse_identifier_tail(
                     let key = eval_expr(expr, execution_state, ast).unwrap();
                     match wmap.clone().get(&key) {
                         Some(literal) => {
-                            wmap.insert(
-                                key,
-                                recurse_identifier_tail(
-                                    execution_state,
-                                    ast,
-                                    identifier_tail,
-                                    literal.clone(),
-                                    final_value,
-                                ),
+                            let value = recurse_identifier_tail(
+                                execution_state,
+                                ast,
+                                identifier_tail,
+                                literal.clone(),
+                                final_value,
                             );
+                            wmap.insert(key, value);
                         }
                         None => {
                             wmap.insert(key, final_value);
@@ -220,11 +218,7 @@ fn eval_ast(
         AstNode::BuiltIn(builtin) => {
             match builtin {
                 BuiltIn::Print(exp) => {
-                    println!(
-                        "\"{}\" => {}",
-                        exp,
-                        eval_expr(&exp, execution_state, ast)?
-                    );
+                    println!("\"{}\" => {}", exp, eval_expr(&exp, execution_state, ast)?);
                 }
                 BuiltIn::StaticPrint(_) => (),
                 BuiltIn::Assert(boolexp) => {

@@ -5,7 +5,7 @@
 */
 
 use crate::ast::*;
-use crate::error_handling::StaticError;
+use crate::error_handling::{StaticError, WormResult};
 use crate::state::*;
 
 impl StaticAnalyzerState {
@@ -31,42 +31,34 @@ impl StaticAnalyzerState {
     }
 
     fn check_function(&mut self, function: &Function, ast: &AstMap) -> Vec<StaticError> {
-        let mut errors = Vec::new();
-        let mut return_flag = false;
         let expected_return = &function.return_type;
-        for ast_node in &function.statements {
-            // execute ast_node will run a single statement or loop, if there is a return value, exit out of function
-            match self.eval_ast_node(ast, (**ast_node).clone()) {
-                Ok(res) => match res {
-                    Some(val) => {
-                        if !(expected_return == &val) {
-                            errors.push(StaticError::TypeMismatchInReturn(
-                                expected_return.clone(),
-                                val,
-                                function.position,
-                            ))
+
+        let errors = function
+            .statements
+            .iter()
+            .filter_map(
+                |ast_node| match self.eval_ast_node(ast, (**ast_node).clone()) {
+                    Ok(res) => match res {
+                        Some(val) => {
+                            if !(expected_return == &val) {
+                                return Some(StaticError::TypeMismatchInReturn(
+                                    expected_return.clone(),
+                                    val,
+                                    function.position,
+                                ));
+                            }
+                            None
                         }
-                        return_flag = true;
-                    }
-                    None => (),
+                        None => None,
+                    },
+                    Err(e) => Some(e),
                 },
-                Err(e) => errors.push(e),
-            }
-        }
-        if !return_flag {
-            errors.push(StaticError::NeedReturnStm(
-                function.name.clone(),
-                function.position,
-            ));
-        }
+            )
+            .collect::<Vec<StaticError>>();
         errors
     }
 
-    fn type_of_identifier(
-        &mut self,
-        ast: &AstMap,
-        identifier: Identifier,
-    ) -> Result<VarType, StaticError> {
+    fn type_of_identifier(&mut self, ast: &AstMap, identifier: Identifier) -> WormResult<VarType> {
         let mut curr_type = match self.var_map.get(&identifier.var_name) {
             Some(vtype) => vtype.clone(),
             None => {
@@ -134,11 +126,7 @@ impl StaticAnalyzerState {
         Ok(curr_type)
     }
 
-    fn eval_ast_node(
-        &mut self,
-        ast: &AstMap,
-        ast_node: AstNode,
-    ) -> Result<Option<VarType>, StaticError> {
+    fn eval_ast_node(&mut self, ast: &AstMap, ast_node: AstNode) -> WormResult<Option<VarType>> {
         match ast_node {
             AstNode::Assignment {
                 var_type,
@@ -217,45 +205,47 @@ impl StaticAnalyzerState {
     /*
      * evalulates booleans based on their conjunction
      */
-    fn check_bool_expr(&mut self, ast: &AstMap, expr: Expr) -> Result<(), StaticError> {
+    fn check_bool_expr(&mut self, ast: &AstMap, expr: Expr) -> WormResult<()> {
         let (bool_expr, pos) = self.type_of_expr(ast, expr)?;
         expect_type(&VarType::Bool, &bool_expr, pos)?;
         Ok(())
     }
 
-    fn type_of_expr_wrapper(&mut self, ast: &AstMap, exp: Expr) -> Result<VarType, StaticError> {
+    fn type_of_expr_wrapper(&mut self, ast: &AstMap, exp: Expr) -> WormResult<VarType> {
         let (vtype, _) = self.type_of_expr(ast, exp)?;
         Ok(vtype)
     }
     /*
      * type_of_expr returns the type provided by an inline expression
      */
-    fn type_of_expr(&mut self, ast: &AstMap, exp: Expr) -> Result<(VarType, usize), StaticError> {
-        match exp {
+    fn type_of_expr(&mut self, ast: &AstMap, exp: Expr) -> WormResult<(VarType, usize)> {
+        let mut posi: usize = 0;
+        let vtype = match exp {
             Expr::Identifier(identifier) => {
                 // get variable as a constant value
-                let position = identifier.position;
-                Ok((self.type_of_identifier(ast, identifier)?, position))
+                posi = identifier.position;
+                self.type_of_identifier(ast, identifier)?
             }
-            Expr::Literal(literal, position) => match literal {
-                Literal::Array(var_type, _elements) => {
-                    Ok((VarType::Array(Box::new(var_type)), position))
+            Expr::Literal(literal, position) => {
+                posi = position;
+                match literal {
+                    Literal::Array(var_type, _elements) => VarType::Array(Box::new(var_type)),
+                    Literal::Int(_) => VarType::Int,
+                    Literal::Bool(_) => VarType::Bool,
+                    Literal::Char(_) => VarType::Char,
+                    Literal::String(_) => VarType::String,
+                    Literal::Struct { name, pairs: _ } => VarType::Struct(name),
+                    Literal::Map(key_type, value_type, _) => {
+                        VarType::Map(Box::new(key_type), Box::new(value_type))
+                    }
                 }
-                Literal::Int(_) => Ok((VarType::Int, position)),
-                Literal::Bool(_) => Ok((VarType::Bool, position)),
-                Literal::Char(_) => Ok((VarType::Char, position)),
-                Literal::String(_) => Ok((VarType::String, position)),
-                Literal::Struct { name, pairs: _ } => Ok((VarType::Struct(name), position)),
-                Literal::Map(key_type, value_type, _) => Ok((
-                    VarType::Map(Box::new(key_type), Box::new(value_type)),
-                    position,
-                )),
-            },
+            }
             Expr::FnCall {
                 name,
                 params,
                 position,
-            } => Ok((
+            } => {
+                posi = position;
                 self.type_of_func_call(
                     ast,
                     FnCall {
@@ -263,9 +253,8 @@ impl StaticAnalyzerState {
                         params,
                         position,
                     },
-                )?,
-                position,
-            )),
+                )?
+            }
             Expr::ListComprehension {
                 piped_var,
                 value_expr,
@@ -277,59 +266,63 @@ impl StaticAnalyzerState {
                     None => (),
                 };
                 let (value_expr_type, pos) = self.type_of_expr(ast, *value_expr)?;
-                Ok((VarType::Array(Box::new(value_expr_type)), pos))
+                posi = pos;
+                VarType::Array(Box::new(value_expr_type))
             }
             Expr::UnaryExpr(unary_op, expr) => {
                 let (actual_type, pos) = self.type_of_expr(ast, *expr)?;
+                posi = pos;
                 match (unary_op, actual_type.clone()) {
-                    (UnaryOp::Not, VarType::Bool) => Ok((VarType::Bool, pos)),
-                    _ => Err(StaticError::TypeViolation(VarType::Bool, actual_type, pos)),
+                    (UnaryOp::Not, VarType::Bool) => VarType::Bool,
+                    _ => return Err(StaticError::TypeViolation(VarType::Bool, actual_type, pos)),
                 }
             }
             Expr::BinaryExpr(lhs, op, rhs) => {
                 let (left, leftpos) = self.type_of_expr(ast, *lhs)?;
                 let (right, rightpos) = self.type_of_expr(ast, *rhs)?;
+                posi = leftpos;
                 use OpType::*;
                 use VarType::*;
-                match op {
+                return Ok(match op {
                     And | Or => {
                         // If the operator is `and` or `or` then both sides must eval to boolean.
                         expect_type(&VarType::Bool, &left, leftpos)?;
                         expect_type(&VarType::Bool, &right, rightpos)?;
-                        Ok((VarType::Bool, leftpos))
+                        (VarType::Bool, leftpos)
                     }
                     Lt | Gt | Leq | Geq | Neq | Eq => {
                         expect_type(&left, &right, leftpos)?;
-                        Ok((VarType::Bool, leftpos))
+                        (VarType::Bool, leftpos)
                     }
                     _ => match (left.clone(), right.clone()) {
-                        (Char, Char) => Ok((String, leftpos)),
-                        (Char, String) => Ok((String, leftpos)),
-                        (String, Char) => Ok((String, leftpos)),
-                        (Generic, a) => Ok((a, leftpos)),
-                        (a, Generic) => Ok((a, leftpos)),
+                        (Char, Char) => (String, leftpos),
+                        (Char, String) => (String, leftpos),
+                        (String, Char) => (String, leftpos),
+                        (Generic, a) => (a, leftpos),
+                        (a, Generic) => (a, leftpos),
                         (_, _) => {
                             if left == right {
-                                Ok((left, leftpos))
+                                (left, leftpos)
                             } else {
-                                Err(StaticError::TypeViolation(
+                                return Err(StaticError::TypeViolation(
                                     left.clone(),
                                     right.clone(),
                                     leftpos,
-                                ))
+                                ));
                             }
                         }
                     },
-                }
+                });
             }
-        }
+        };
+        Ok((vtype, posi))
     }
 
     fn arg_count_helper(
         &mut self,
         expected_params: Vec<VarType>,
         fn_call: &FnCall,
-    ) -> Result<(), StaticError> {
+    ) -> WormResult<()> {
         // TODO types match
         if fn_call.params.len() != expected_params.len() {
             return Err(StaticError::General(
@@ -344,11 +337,7 @@ impl StaticAnalyzerState {
         Ok(())
     }
 
-    fn check_reserved_function(
-        &mut self,
-        ast: &AstMap,
-        func_call: &FnCall,
-    ) -> Result<VarType, StaticError> {
+    fn check_reserved_function(&mut self, ast: &AstMap, func_call: &FnCall) -> WormResult<VarType> {
         match &func_call.name[..] {
             LEN => {
                 self.arg_count_helper(vec![VarType::Array(Box::new(VarType::Int))], func_call)?;
@@ -400,11 +389,7 @@ impl StaticAnalyzerState {
         }
     }
 
-    fn check_user_created_fn(
-        &mut self,
-        ast: &AstMap,
-        func_call: FnCall,
-    ) -> Result<VarType, StaticError> {
+    fn check_user_created_fn(&mut self, ast: &AstMap, func_call: FnCall) -> WormResult<VarType> {
         let function = match ast.func_map.get(&func_call.name.clone()) {
             Some(func) => func,
             None => {

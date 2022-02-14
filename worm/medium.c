@@ -84,6 +84,14 @@ fn test_append() -> int {
     return 0;
 }
 
+fn test_arr_definition() -> int {
+    int[] arr = [|i| i; 10];
+    int[] arr2 = [i for i in 10];
+    print(arr);
+    print(arr2);
+    assert(arr == arr2);
+    return 0;
+}
 
 fn test_boolean_expressions() -> int {
     int x = 4;

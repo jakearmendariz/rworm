@@ -11,17 +11,17 @@ extern crate colored;
 extern crate lazy_static;
 
 mod ast;
+mod error_handling;
 mod evaluate;
 mod parser;
 mod static_analysis;
-mod error_handling;
 
 mod display;
 mod state;
+use crate::error_handling::log_errors;
 use crate::evaluate::run_program;
 use crate::parser::*;
-use crate::state::{ExecutionState, AstMap, StaticAnalyzerState};
-use crate::error_handling::{log_errors};
+use crate::state::{AstMap, ExecutionState, StaticAnalyzerState};
 use colored::*;
 use pest::Parser;
 use std::collections::HashMap;
@@ -32,7 +32,8 @@ use std::collections::HashMap;
 fn main() {
     let filename = std::env::args().nth(1).expect("expected a filename");
     let file_content = std::fs::read_to_string(filename).expect("cannot read file");
-    let parsed_program = WormParser::parse(Rule::program, &file_content).unwrap_or_else(|e| panic!("{}", e));
+    let parsed_program =
+        WormParser::parse(Rule::program, &file_content).unwrap_or_else(|e| panic!("{}", e));
     let mut ast = AstMap::default();
     // parses the program into an AST, saves the functions AST in the state to be called upon later
     match parse_program(parsed_program, &mut ast) {
