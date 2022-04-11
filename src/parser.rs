@@ -19,7 +19,7 @@ pub enum ParseError {
     FormatError(String),
     NoReturnType,
     UnencampslatedStatement,
-    GeneralParseError(String),
+    _GeneralParseError(String),
 }
 
 /*
@@ -257,12 +257,8 @@ fn parse_parameters(params_rules: Pairs<Rule>) -> Result<Vec<(VarType, String)>,
 /* parse the parameters from a function */
 fn parse_structure(mut attribute_rules: Pairs<Rule>) -> Result<Vec<(String, VarType)>, ParseError> {
     let mut attributes: Vec<(String, VarType)> = Vec::new();
-    loop {
-        //each param is in form { var_type var_name }
-        let (var_name_rule, vtype_rule) = match attribute_rules.next() {
-            Some(var_name_rule) => (var_name_rule, attribute_rules.next().unwrap()),
-            None => break,
-        };
+    while let Some(var_name_rule) = attribute_rules.next() {
+        let vtype_rule = attribute_rules.next().unwrap();
         match (var_name_rule.as_rule(), vtype_rule.as_rule()) {
             (Rule::var_name, Rule::var_type) => {
                 let attribute_name = var_name_rule.as_str().to_string();
@@ -341,14 +337,14 @@ pub fn parse_function(pairs: &mut Pairs<Rule>, ast: &mut AstMap) -> Result<(), P
 
     let mut stms = Vec::new();
     for pair in pairs {
-        stms.push(Box::new(parse_ast_node(pair, ast)?));
+        stms.push(parse_ast_node(pair, ast)?);
     }
     let function = Function {
         name: fn_name.clone(),
-        return_type: return_type,
-        params: params,
+        return_type,
+        params,
         statements: stms,
-        position: position,
+        position,
     };
     ast.func_map.insert(fn_name, function);
     Ok(())
@@ -365,11 +361,11 @@ pub fn parse_identifier(pair: Pair<Rule>) -> Identifier {
             _ => panic!(),
         })
         .collect::<Vec<IdentifierHelper>>();
-    return Identifier {
+    Identifier {
         var_name,
         tail,
         position,
-    };
+    }
 }
 
 /*
@@ -413,8 +409,8 @@ pub fn parse_ast_node(pair: Pair<Rule>, ast: &mut AstMap) -> Result<AstNode, Par
             };
             let expression = parse_expr(assignment_rules.next().unwrap().into_inner());
             Ok(AstNode::Assignment {
-                var_type: var_type,
-                identifier: identifier,
+                var_type,
+                identifier,
                 expr: expression,
             })
         }
@@ -425,7 +421,7 @@ pub fn parse_ast_node(pair: Pair<Rule>, ast: &mut AstMap) -> Result<AstNode, Par
 
             let mut stms = Vec::new();
             for stm in inner_rules {
-                stms.push(Box::new(parse_ast_node(stm, ast)?));
+                stms.push(parse_ast_node(stm, ast)?);
             }
 
             Ok(AstNode::While(bool_ast, stms))
@@ -447,15 +443,15 @@ pub fn parse_ast_node(pair: Pair<Rule>, ast: &mut AstMap) -> Result<AstNode, Par
                     }
                 };
                 //get the body of statements
-                let mut stms: Vec<Box<AstNode>> = Vec::new();
+                let mut stms: Vec<AstNode> = Vec::new();
                 for stm in ifstm {
-                    stms.push(Box::new(parse_ast_node(stm, ast)?));
+                    stms.push(parse_ast_node(stm, ast)?);
                 }
                 if_else_list.push((boolexp, stms));
             }
             Ok(AstNode::If(if_else_list))
         }
-        Rule::skip => return Ok(AstNode::Skip()),
+        Rule::skip => Ok(AstNode::Skip()),
         Rule::builtin => {
             let builtin = pair.into_inner().next().unwrap();
             match builtin.as_rule() {
@@ -489,7 +485,7 @@ pub fn parse_ast_node(pair: Pair<Rule>, ast: &mut AstMap) -> Result<AstNode, Par
             Ok(AstNode::Skip())
         }
         Rule::parse_error => {
-            return Err(ParseError::GeneralParseError(format!(
+            return Err(ParseError::_GeneralParseError(format!(
                 "unmatched rule while parsing ast {:?}",
                 rule
             )))
@@ -512,7 +508,7 @@ pub fn parse_ast_node(pair: Pair<Rule>, ast: &mut AstMap) -> Result<AstNode, Par
             parse_program(pairs, ast)?;
             Ok(AstNode::Skip())
         }
-        Rule::EOI => return Err(ParseError::EndOfInput),
+        Rule::EOI => Err(ParseError::EndOfInput),
         _ => {
             println!("UNREACHABLE");
             unreachable!();

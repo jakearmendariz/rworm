@@ -4,7 +4,6 @@
 * but also every value in the function, the state is built in parser.rs, analyzed in static_analysis and eveulated in evaluate.rs
 * it is THE worm object :)
 */
-use crate::ast;
 use crate::ast::*;
 use crate::HashMap;
 use serde::{Deserialize, Serialize};
@@ -38,7 +37,7 @@ impl StaticAnalyzerState {
     /* pops all variables off the stack that are on a lower level of the stack */
     pub fn pop_stack(&mut self) {
         self.stack_lvl -= 1;
-        if self.var_stack.len() == 0 {
+        if self.var_stack.is_empty() {
             return;
         }
         let mut last_pos = self.var_stack.len() - 1;
@@ -76,7 +75,7 @@ impl ExecutionState {
     /* pops all variables off the stack that are on a lower level of the stack */
     pub fn pop_stack(&mut self) {
         self.stack_lvl -= 1;
-        if self.var_stack.len() == 0 {
+        if self.var_stack.is_empty() {
             return;
         }
         let mut last_pos = self.var_stack.len() - 1;

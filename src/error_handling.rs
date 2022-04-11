@@ -5,7 +5,7 @@ use colored::Colorize;
 pub enum StaticError {
     ValueDne(String, usize),
     TypeViolation(VarType, VarType, usize),
-    NeedReturnStm(String, usize),
+    _NeedReturnStm(String, usize),
     TypeMismatchInReturn(VarType, VarType, usize),
     CannotFindFunction(String, usize),
     General(String, usize),
@@ -20,7 +20,7 @@ impl std::fmt::Display for StaticError {
             StaticError::TypeViolation(a, b, _) => {
                 write!(f, "expected type \'{}\' recieved type \'{}\'", a, b)
             }
-            StaticError::NeedReturnStm(name, _) => {
+            StaticError::_NeedReturnStm(name, _) => {
                 write!(f, "need a return statment in function \'{}\'", name)
             }
             StaticError::CannotFindFunction(name, _) => {
@@ -37,7 +37,7 @@ impl std::fmt::Display for StaticError {
 }
 
 /// Read entire file, find the line and column number of char position.
-fn get_line_col(file_content: &String, position: usize) -> (usize, usize) {
+fn get_line_col(file_content: &str, position: usize) -> (usize, usize) {
     let (mut row_counter, mut start_of_line) = (1, 0);
     for (idx, character) in file_content[..position].chars().enumerate() {
         if character == '\n' {
@@ -49,11 +49,11 @@ fn get_line_col(file_content: &String, position: usize) -> (usize, usize) {
 }
 
 /// Every static error has a position in it, parse this value and return
-fn get_position_of_error(file_content: &String, error: StaticError) -> (usize, usize) {
+fn get_position_of_error(file_content: &str, error: StaticError) -> (usize, usize) {
     let position: usize = match error {
         StaticError::ValueDne(_, pos) => pos,
         StaticError::TypeViolation(_, _, pos) => pos,
-        StaticError::NeedReturnStm(_, pos) => pos,
+        StaticError::_NeedReturnStm(_, pos) => pos,
         StaticError::CannotFindFunction(_, pos) => pos,
         StaticError::General(_, pos) => pos,
         StaticError::TypeMismatchInReturn(_, _, pos) => pos,

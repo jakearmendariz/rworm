@@ -5,7 +5,7 @@ use crate::ast::*;
 
 impl Expr {
     pub fn expr_to_str(self) -> String {
-        match &*&self {
+        match self {
             Expr::Identifier(identifier) => {
                 format!("{}", identifier)
             }
@@ -39,8 +39,8 @@ impl Expr {
                 format!("|{:?}| {} in {}", piped_var, value_expr, in_expr)
             }
             Expr::BinaryExpr(exp1, op, exp2) => {
-                let p1 = exp1.clone().expr_to_str();
-                let p2 = exp2.clone().expr_to_str();
+                let p1 = exp1.expr_to_str();
+                let p2 = exp2.expr_to_str();
                 use OpType::*;
                 let op = match op {
                     Add => "+",

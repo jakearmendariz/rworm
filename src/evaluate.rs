@@ -19,7 +19,7 @@ pub fn run_program(
     execution_state: &mut ExecutionState,
     ast: &AstMap,
 ) -> Result<Literal, ExecutionError> {
-    Ok(eval_func(MAIN.to_string(), execution_state, ast)?)
+    eval_func(MAIN.to_string(), execution_state, ast)
 }
 
 /// eval_func expects parameters and scope to already be handeled. Only calls statements
@@ -32,12 +32,9 @@ pub fn eval_func(
     execution_state.increment_stack_level();
     for ast_node in &function.statements {
         // execute ast will run a single statement or loop, if there is a return value, exit out of function
-        match eval_ast((**ast_node).clone(), execution_state, ast)? {
-            Some(val) => {
-                execution_state.pop_stack();
-                return Ok(val);
-            }
-            None => (),
+        if let Some(val) = eval_ast(ast_node.clone(), execution_state, ast)? {
+            execution_state.pop_stack();
+            return Ok(val);
         }
     }
     panic!("no return statement from function")
@@ -79,7 +76,7 @@ fn recurse_identifier_tail(
                                 list[i as usize].clone(),
                                 final_value,
                             );
-                            return Literal::Array(vtype, list);
+                            Literal::Array(vtype, list)
                         }
                         _ => panic!("Tried to index an array with a non int"),
                     }
@@ -101,7 +98,7 @@ fn recurse_identifier_tail(
                             wmap.insert(key, final_value);
                         }
                     };
-                    return Literal::Map(ktype, vtype, wmap);
+                    Literal::Map(ktype, vtype, wmap)
                 }
                 Literal::String(s) => {
                     let index = eval_expr(expr, execution_state, ast).unwrap();
@@ -121,18 +118,18 @@ fn recurse_identifier_tail(
             },
             IdentifierHelper::StructIndex(attribute) => match curr_value {
                 Literal::Struct { name, mut pairs } => {
-                    let updated_val = pairs.clone().get(&attribute.clone()).unwrap().clone();
+                    let updated_val = pairs.get(&attribute.clone()).unwrap().clone();
                     pairs.insert(
                         attribute.clone(),
                         recurse_identifier_tail(
                             execution_state,
                             ast,
                             identifier_tail,
-                            updated_val.clone(),
+                            updated_val,
                             final_value,
                         ),
                     );
-                    return Literal::Struct { name, pairs };
+                    Literal::Struct { name, pairs }
                 }
                 _ => panic!("struct index on a non struct"),
             },
@@ -165,7 +162,7 @@ fn save_value(
 /*
 * evaluate an ast, one line or one if/while stm
 */
-fn eval_ast(
+pub fn eval_ast(
     ast_node: AstNode,
     execution_state: &mut ExecutionState,
     ast: &AstMap,
@@ -192,10 +189,9 @@ fn eval_ast(
             execution_state.increment_stack_level();
             for (conditional, mut stms) in if_pairs {
                 if eval_bool_expr(&conditional, execution_state, ast)? {
-                    while stms.len() > 0 {
-                        match eval_ast(*stms.remove(0), execution_state, ast)? {
-                            Some(eval) => return Ok(Some(eval)),
-                            None => (),
+                    while !stms.is_empty() {
+                        if let Some(eval) = eval_ast(stms.remove(0), execution_state, ast)? { 
+                            return Ok(Some(eval)) 
                         }
                     }
                     break;
@@ -207,9 +203,8 @@ fn eval_ast(
             while eval_bool_expr(&conditional, execution_state, ast)? {
                 execution_state.increment_stack_level();
                 for stm in stms.iter() {
-                    match eval_ast(*stm.clone(), execution_state, ast)? {
-                        Some(eval) => return Ok(Some(eval)),
-                        None => (),
+                    if let Some(eval) = eval_ast(stm.clone(), execution_state, ast)? { 
+                        return Ok(Some(eval)) 
                     }
                 }
                 execution_state.pop_stack();
@@ -229,7 +224,6 @@ fn eval_ast(
                     }
                 }
             }
-            ()
         }
         AstNode::ReturnStm(expr) => {
             return Ok(Some(eval_expr(&expr, execution_state, ast)?));

@@ -51,8 +51,8 @@ pub enum AstNode {
         expr: Expr,
     },
     // if bool then do ast
-    If(Vec<(Expr, Vec<Box<AstNode>>)>),
-    While(Expr, Vec<Box<AstNode>>),
+    If(Vec<(Expr, Vec<AstNode>)>),
+    While(Expr, Vec<AstNode>),
     // these built in functions consume an entire line
     BuiltIn(BuiltIn),
     // return from a function
@@ -113,7 +113,7 @@ pub struct Function {
     pub name: String,
     pub params: Vec<(VarType, String)>,
     pub return_type: VarType,
-    pub statements: Vec<Box<AstNode>>,
+    pub statements: Vec<AstNode>,
     pub position: usize,
 }
 
@@ -182,8 +182,25 @@ pub enum UnaryOp {
     Not,
 }
 
+impl PartialEq for VarType {
+    fn eq(&self, other: &VarType) -> bool {
+        use VarType::*;
+        match (self, other) {
+            (Int, Int) | (String, String) | (Char, Char) | (Bool, Bool) => true,
+            (Int, Char) => true, // allow int => char conversion
+            (Map(k1, v1), Map(k2, v2)) => k1.eq(k2) && v1.eq(v2),
+            (Array(arr1), Array(arr2)) => arr1.eq(arr2),
+            (Struct(s1), Struct(s2)) => s1.eq(s2),
+            (String, Array(inner)) | (Array(inner), String) => VarType::Char.eq(&*inner),
+            (Generic, _) => true,
+            (_, Generic) => true,
+            _ => false,
+        }
+    }
+}
+
 /// All expressions evaluate to a specific type, which is represented as a Literal
-#[derive(Debug, Clone, Serialize, Deserialize, Hash, PartialOrd, Eq, Ord)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialOrd, Eq, Ord, Hash)]
 pub enum VarType {
     Int,
     Char,
@@ -210,23 +227,6 @@ pub enum Literal {
 }
 
 use std::cmp::Ordering;
-
-impl PartialEq for VarType {
-    fn eq(&self, other: &VarType) -> bool {
-        use VarType::*;
-        match (self, other) {
-            (Int, Int) | (String, String) | (Char, Char) | (Bool, Bool) => true,
-            (Int, Char) => true, // allow int => char conversion
-            (Map(k1, v1), Map(k2, v2)) => k1.eq(&k2) && v1.eq(v2),
-            (Array(arr1), Array(arr2)) => arr1.eq(arr2),
-            (Struct(s1), Struct(s2)) => s1.eq(s2),
-            (String, Array(inner)) | (Array(inner), String) => VarType::Char.eq(&*inner),
-            (Generic, _) => true,
-            (_, Generic) => true,
-            _ => false,
-        }
-    }
-}
 
 // Checks equality amon the Literals
 impl PartialEq for Literal {

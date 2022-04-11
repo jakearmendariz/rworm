@@ -46,7 +46,7 @@ fn main() {
 
     let mut static_analyzer = StaticAnalyzerState::default();
     let errors = static_analyzer.check_program(&ast);
-    if errors.len() > 0 {
+    if !errors.is_empty() {
         log_errors(errors, file_content);
         return;
     }
