@@ -37,7 +37,7 @@ impl StaticAnalyzerState {
             .statements
             .iter()
             .filter_map(
-                |ast_node| match self.eval_ast_node(ast, ast_node.clone()) {
+                |ast_node| match self.eval_ast_node(ast, ast_node) {
                     Ok(res) => match res {
                         Some(val) => {
                             if expected_return != &val {
@@ -57,20 +57,20 @@ impl StaticAnalyzerState {
             .collect::<Vec<StaticError>>()
     }
 
-    fn type_of_identifier(&mut self, ast: &AstMap, identifier: Identifier) -> WormResult<VarType> {
-        let mut curr_type = match self.var_map.get(&identifier.var_name) {
-            Some(vtype) => vtype.clone(),
+    fn type_of_identifier<'a>(&'a mut self, ast: &'a AstMap, identifier: &'a Identifier) -> WormResult<VarType> {
+        let mut curr_type = match self.get_variable(&identifier.var_name) {
+            Some(vtype) => vtype,
             None => {
                 return Err(StaticError::ValueDne(
-                    identifier.var_name,
+                    identifier.var_name.clone(),
                     identifier.position,
                 ))
             }
         };
-        for indentifier_helper in identifier.tail {
+        for indentifier_helper in &identifier.tail {
             match indentifier_helper {
                 IdentifierHelper::ArrayIndex(expr) => {
-                    let (expr_type, position) = self.type_of_expr(ast, expr)?;
+                    let (expr_type, position) =  self.type_of_expr(ast, &expr)?;
                     match curr_type {
                         VarType::Array(var_type) => {
                             expect_type(&VarType::Int, &expr_type, position)?;
@@ -104,7 +104,7 @@ impl StaticAnalyzerState {
                             }
                         };
                         curr_type = match get_from_vec(&attribute, structure_map) {
-                            Some(vtype) => vtype,
+                            Some(vtype) => vtype.clone(),
                             None => {
                                 return Err(StaticError::ValueDne(
                                     format!("attribute {} from struct {}", attribute, struct_name),
@@ -125,7 +125,7 @@ impl StaticAnalyzerState {
         Ok(curr_type)
     }
 
-    fn eval_ast_node(&mut self, ast: &AstMap, ast_node: AstNode) -> WormResult<Option<VarType>> {
+    fn eval_ast_node(&mut self, ast: &AstMap, ast_node: &AstNode) -> WormResult<Option<VarType>> {
         match ast_node {
             AstNode::Assignment {
                 var_type,
@@ -136,17 +136,17 @@ impl StaticAnalyzerState {
                 let (value_type, position) = self.type_of_expr(ast, expr)?;
                 match var_type {
                     Some(vtype) => {
-                        if vtype == value_type {
-                            self.save_variable(identifier.var_name, vtype);
+                        if vtype == &value_type {
+                            self.save_variable(identifier.var_name.to_owned(), vtype.clone());
                         } else {
-                            return Err(StaticError::TypeViolation(vtype, value_type, position));
+                            return Err(StaticError::TypeViolation(vtype.clone(), value_type, position));
                         }
                     }
                     None => {
                         // if no variable type, turn it into an expression and parse value (error if dne)
                         let var_type = self.type_of_identifier(ast, identifier)?;
                         if var_type != value_type {
-                            return Err(StaticError::TypeViolation(var_type, value_type, position));
+                            return Err(StaticError::TypeViolation(var_type.clone(), value_type, position));
                         }
                     }
                 };
@@ -155,10 +155,10 @@ impl StaticAnalyzerState {
                 // TOOO: need to check every single branch for returns
                 self.increment_stack_level();
                 let mut return_val = None;
-                for (conditional, mut stms) in if_pairs {
-                    self.check_bool_expr(ast, conditional)?;
-                    while !stms.is_empty() {
-                        if let Some(eval) = self.eval_ast_node(ast, stms.remove(0))? { 
+                for (conditional, stms) in if_pairs {
+                    self.check_bool_expr(ast, &conditional)?;
+                    for stm in stms {
+                        if let Some(eval) = self.eval_ast_node(ast, stm)? { 
                             return_val = Some(eval) 
                         }
                     }
@@ -170,7 +170,7 @@ impl StaticAnalyzerState {
                 self.check_bool_expr(ast, conditional)?;
                 self.increment_stack_level();
                 for stm in stms.iter() {
-                    if let Some(eval) = self.eval_ast_node(ast, stm.to_owned())? { 
+                    if let Some(eval) = self.eval_ast_node(ast, stm)? { 
                         return Ok(Some(eval)) 
                     }
                 }
@@ -201,20 +201,20 @@ impl StaticAnalyzerState {
     /*
      * evalulates booleans based on their conjunction
      */
-    fn check_bool_expr(&mut self, ast: &AstMap, expr: Expr) -> WormResult<()> {
+    fn check_bool_expr(&mut self, ast: &AstMap, expr: &Expr) -> WormResult<()> {
         let (bool_expr, pos) = self.type_of_expr(ast, expr)?;
         expect_type(&VarType::Bool, &bool_expr, pos)?;
         Ok(())
     }
 
-    fn type_of_expr_wrapper(&mut self, ast: &AstMap, exp: Expr) -> WormResult<VarType> {
+    fn type_of_expr_wrapper(&mut self, ast: &AstMap, exp: &Expr) -> WormResult<VarType> {
         let (vtype, _) = self.type_of_expr(ast, exp)?;
         Ok(vtype)
     }
     /*
      * type_of_expr returns the type provided by an inline expression
      */
-    fn type_of_expr(&mut self, ast: &AstMap, exp: Expr) -> WormResult<(VarType, usize)> {
+    fn type_of_expr(&mut self, ast: &AstMap, exp: &Expr) -> WormResult<(VarType, usize)> {
         let posi;
         let vtype = match exp {
             Expr::Identifier(identifier) => {
@@ -223,16 +223,16 @@ impl StaticAnalyzerState {
                 self.type_of_identifier(ast, identifier)?
             }
             Expr::Literal(literal, position) => {
-                posi = position;
+                posi = *position;
                 match literal {
-                    Literal::Array(var_type, _elements) => VarType::Array(Box::new(var_type)),
+                    Literal::Array(var_type, _elements) => VarType::Array(Box::new(var_type.clone())),
                     Literal::Int(_) => VarType::Int,
                     Literal::Bool(_) => VarType::Bool,
                     Literal::Char(_) => VarType::Char,
                     Literal::String(_) => VarType::String,
-                    Literal::Struct { name, pairs: _ } => VarType::Struct(name),
+                    Literal::Struct { name, pairs: _ } => VarType::Struct(name.clone()),
                     Literal::Map(key_type, value_type, _) => {
-                        VarType::Map(Box::new(key_type), Box::new(value_type))
+                        VarType::Map(Box::new(key_type.clone()), Box::new(value_type.clone()))
                     }
                 }
             }
@@ -241,13 +241,13 @@ impl StaticAnalyzerState {
                 params,
                 position,
             } => {
-                posi = position;
+                posi = *position;
                 self.type_of_func_call(
                     ast,
                     FnCall {
-                        name,
-                        params,
-                        position,
+                        name: name.to_owned(),
+                        params: params.to_vec(),
+                        position: *position,
                     },
                 )?
             }
@@ -257,13 +257,13 @@ impl StaticAnalyzerState {
                 in_expr: _,
             } => {
                 self.increment_stack_level();
-                if let Some(name) = piped_var { self.save_variable(name, VarType::Generic) }
-                let (value_expr_type, pos) = self.type_of_expr(ast, *value_expr)?;
+                if let Some(name) = piped_var { self.save_variable(name.to_owned(), VarType::Generic) }
+                let (value_expr_type, pos) = self.type_of_expr(ast, value_expr)?;
                 posi = pos;
                 VarType::Array(Box::new(value_expr_type))
             }
             Expr::UnaryExpr(unary_op, expr) => {
-                let (actual_type, pos) = self.type_of_expr(ast, *expr)?;
+                let (actual_type, pos) = self.type_of_expr(ast, expr)?;
                 posi = pos;
                 match (unary_op, &actual_type) {
                     (UnaryOp::Not, &VarType::Bool) => VarType::Bool,
@@ -271,8 +271,8 @@ impl StaticAnalyzerState {
                 }
             }
             Expr::BinaryExpr(lhs, op, rhs) => {
-                let (left, leftpos) = self.type_of_expr(ast, *lhs)?;
-                let (right, rightpos) = self.type_of_expr(ast, *rhs)?;
+                let (left, leftpos) = self.type_of_expr(ast, lhs)?;
+                let (right, rightpos) = self.type_of_expr(ast, rhs)?;
                 use OpType::*;
                 use VarType::*;
                 return Ok(match op {
@@ -352,8 +352,8 @@ impl StaticAnalyzerState {
                     vec![VarType::Array(Box::new(VarType::Generic)), VarType::Int],
                     func_call,
                 )?;
-                let (list, pos) = self.type_of_expr(ast, func_call.params[0].clone())?;
-                let (index, index_pos) = self.type_of_expr(ast, func_call.params[1].clone())?;
+                let (list, pos) = self.type_of_expr(ast, &func_call.params[0])?;
+                let (index, index_pos) = self.type_of_expr(ast, &func_call.params[1])?;
                 expect_type(&VarType::Int, &index, index_pos)?;
                 match list {
                     VarType::Array(inner) => Ok(VarType::Array(inner)),
@@ -371,8 +371,8 @@ impl StaticAnalyzerState {
                     func_call,
                 )?;
                 // append(List<T>, T)
-                let (list, pos) = self.type_of_expr(ast, func_call.params[0].clone())?;
-                let (inner_type, _) = self.type_of_expr(ast, func_call.params[1].clone())?;
+                let (list, pos) = self.type_of_expr(ast, &func_call.params[0])?;
+                let (inner_type, _) = self.type_of_expr(ast, &func_call.params[1])?;
                 let value = VarType::Array(Box::new(inner_type));
                 expect_type(&value, &list, pos)?;
                 Ok(value)
@@ -382,7 +382,7 @@ impl StaticAnalyzerState {
     }
 
     fn check_user_created_fn(&mut self, ast: &AstMap, func_call: FnCall) -> WormResult<VarType> {
-        let function = match ast.func_map.get(&func_call.name.clone()) {
+        let function = match ast.func_map.get(&func_call.name) {
             Some(func) => func,
             None => {
                 // No function found. Check if struct constructor
@@ -411,7 +411,7 @@ impl StaticAnalyzerState {
         }
         // iterate through the parameters provided and the function def,
         for (expr, (var_type, _)) in func_call.params.iter().zip(function.params.iter()) {
-            let (param_const, position) = self.type_of_expr(ast, expr.clone())?;
+            let (param_const, position) = self.type_of_expr(ast, expr)?;
             expect_type(var_type, &param_const, position)?;
         }
         // function input types match expected values, return a empty literal of matching type
@@ -444,10 +444,10 @@ fn expect_type(expected: &VarType, actual: &VarType, position: usize) -> Result<
     }
 }
 
-fn get_from_vec(name: &str, list: &[(String, VarType)]) -> Option<VarType> {
+fn get_from_vec<'a>(name: &'a str, list: &'a [(String, VarType)]) -> Option<&'a VarType> {
     for (n, vtype) in list {
         if name.eq(n) {
-            return Some(vtype.clone());
+            return Some(vtype);
         }
     }
     None

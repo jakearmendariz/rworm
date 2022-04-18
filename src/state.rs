@@ -64,6 +64,10 @@ impl StaticAnalyzerState {
         }
         self.var_map.insert(var_name, value);
     }
+
+    pub fn get_variable(&self, var_name: &str) -> Option<VarType> {
+        self.var_map.get(var_name).cloned()
+    }
 }
 
 impl ExecutionState {

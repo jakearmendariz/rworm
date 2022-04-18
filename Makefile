@@ -22,3 +22,8 @@ clean:
 	rm worm-pl
 	rm -r tests/arith_tests/worm
 	rm tests/arith_tests/worm-pl
+
+clean-release:
+	rm worm-pl-release
+	rm -r tests/arith_tests/worm
+	rm tests/arith_tests/worm-pl

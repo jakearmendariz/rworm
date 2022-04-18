@@ -64,16 +64,27 @@ Aborting due to 5 error(s)
 Thus, if someone does `map["id"] = 0` then `map["id"] = "0"` there will be a type error, but `map["id"] = 2` causes no such violation
 
 ## Performance
-June 3: Before seperation of execution and function state
+June 3, 2021: Before seperation of execution and function state
 ```
 35 tests, 0 failures
 
 sudo bash test.sh  3.49s user 0.71s system 89% cpu 4.685 total
 ```
-
+After seperation June 3, 2021
 ```
 35 tests, 0 failures
 
 sudo bash test.sh  1.55s user 0.69s system 86% cpu 2.585 total
 ```
+March 11, 2022
+```
+37 tests, 0 failures
 
+sudo bash test.sh  0.98s user 0.74s system 94% cpu 1.824 total
+```
+April 18, 2022: Moved static analysis to references. Only cloning vartypes and strings.
+```
+37 tests, 0 failures
+
+sudo bash test.sh  0.98s user 0.74s system 94% cpu 1.824 total
+```

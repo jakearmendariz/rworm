@@ -7,4 +7,5 @@ project-slides.pdf
 src/test.rs
 test
 worm-pl
+worm-pl-release
 while_slides.pdf

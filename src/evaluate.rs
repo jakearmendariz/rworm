@@ -353,7 +353,10 @@ fn eval_expr(
                             }
                             l / r
                         }
-                        Pow => l.pow(r as u32),
+                        Pow => {
+                            // println!("{} ^ {}", l, r);
+                            l.pow(r as u32)
+                        },
                         Modulus => l % r,
                         _ => panic!("unmatched arm for operator"),
                     };

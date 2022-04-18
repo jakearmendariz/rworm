@@ -1,16 +1,21 @@
 import "worm/wormstd.c";
 
 fn to_binary(int num) -> int[] {
-    int[] res = [0; 0];
-    int index = 31;
-    while num > 0 & index >= 0 {
+    int[] res = [int];
+    int index = 30;
+    while num >= 0 & index >= 0 {
         int val = 2 ^ index;
         if num >= val {
             num = num - val;
-            res = int_append(res, 1);
+            res = append(res, 1);
         }else {
-            res = int_append(res, 0);
+            res = append(res, 0);
         }
+        /*
+        print(res);
+        print(num);
+        print(index);
+        */
         index = index -1;
     }
     return res;
@@ -18,11 +23,11 @@ fn to_binary(int num) -> int[] {
 
 fn to_bin_str(int num) -> string {
     string res = "";
-    int index = 31;
+    int index = 30;
     /* This is off bc we are counting up instead of down #oops*/
-    while num > 0 & index >= 0 {
+    while num >= 0 & index >= 0 {
         int val = 2 ^ index;
-        if num > val {
+        if num >= val {
             num = num - val;
             res = res + '1';
         } else {
@@ -34,37 +39,35 @@ fn to_bin_str(int num) -> string {
 }
 
 fn from_binary(int[] bin) -> int {
-    if(len(bin) != 32) {
+    if(len(bin) != 31) {
         return 0; /* empty array */
     }
-    int val = 2 ^ 31;
+    int val = 1;
     int res = 0;
-    int index = 31;
-    while(index >= 0) {
+    int index = 0;
+    while(index < 31) {
         val = 2 ^ index;
-        if(bin[31 - index] == 1) {
+        if(bin[30-index] == 1) {
             res = res + val;
         }
-        index = index - 1;
+        index = index + 1;
     }
     return res;
 }
 /* NOTE static anaylsis can't detect missing return statement route */
 
 
-fn main() -> int[] {
-    int input = 18493;
-    int[] bin = to_binary(input);
-
-    string res = to_bin_str(input);
-    int val = from_binary(bin);
-    assert(val == input);
-    int index = 0;
-    while (index < len(bin)) {
-        print(bin[index]);
-        index = index + 1;
+fn main() -> int {
+    int i = 0;
+    while (i < 10000) {
+        int input = i;
+        int[] bin = to_binary(input);
+        int val = from_binary(bin);
+        /* assert(val == input); */
+        if(val != input) {
+            return -1;
+        }
+        i = i + 1;
     }
-    print(bin);
-    print(res);
-    return bin;
+    return 0;
 }
