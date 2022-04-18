@@ -118,9 +118,9 @@ fn recurse_identifier_tail(
             },
             IdentifierHelper::StructIndex(attribute) => match curr_value {
                 Literal::Struct { name, mut pairs } => {
-                    let updated_val = pairs.get(&attribute.clone()).unwrap().clone();
+                    let updated_val = pairs.get(attribute).unwrap().clone();
                     pairs.insert(
-                        attribute.clone(),
+                        attribute.to_owned(),
                         recurse_identifier_tail(
                             execution_state,
                             ast,
@@ -174,8 +174,8 @@ pub fn eval_ast(
             expr,
         } => {
             let value = eval_expr(&expr, execution_state, ast)?;
-            let actual_val = match (var_type.clone(), value) {
-                (Some(VarType::Int), Literal::Char(c)) => Literal::Int(c as i32),
+            let actual_val = match (var_type, value) {
+                (&Some(VarType::Int), Literal::Char(c)) => Literal::Int(c as i32),
                 (_, val) => val,
             };
             match var_type {
@@ -255,6 +255,7 @@ fn eval_expr(
     execution_state: &mut ExecutionState,
     ast: &AstMap,
 ) -> Result<Literal, ExecutionError> {
+    // TODO attempt to remove this clone.
     match exp.clone() {
         Expr::Identifier(identifier) => eval_identifier(identifier, execution_state, ast),
         Expr::Literal(literal, _) => match literal {
@@ -302,9 +303,9 @@ fn eval_expr(
                 if pipe {
                     execution_state
                         .var_map
-                        .insert(variable.clone(), Literal::Int(i as i32));
+                        .insert(variable.to_owned(), Literal::Int(i as i32));
                 }
-                elements.push(eval_expr(&value_expr.clone(), execution_state, ast)?);
+                elements.push(eval_expr(&*value_expr, execution_state, ast)?);
             }
             execution_state.pop_stack();
             Ok(Literal::Array(VarType::Generic, elements))
@@ -377,7 +378,7 @@ fn eval_identifier(
     execution_state: &mut ExecutionState,
     ast: &AstMap,
 ) -> Result<Literal, ExecutionError> {
-    let mut curr_value = execution_state
+    let mut curr_value = &execution_state
         .var_map
         .get(&identifier.var_name)
         .unwrap()
@@ -387,7 +388,7 @@ fn eval_identifier(
             IdentifierHelper::ArrayIndex(exp) => match curr_value {
                 Literal::Array(_, list) => match eval_expr(&exp, execution_state, ast)? {
                     Literal::Int(i) => {
-                        curr_value = list[i as usize].clone();
+                        curr_value = &list[i as usize];
                     }
                     _ => panic!("Tried an array with an non int value"),
                 },
@@ -395,8 +396,7 @@ fn eval_identifier(
                     let key = &eval_expr(&exp, execution_state, ast)?;
                     curr_value = wmap
                         .get(key)
-                        .expect(&format!("Could not find value \"{}\" in map", key)[..])
-                        .clone();
+                        .expect(&format!("Could not find value \"{}\" in map", key)[..]);
                 }
                 Literal::String(s) => {
                     let index = eval_expr(&exp, execution_state, ast).unwrap();
@@ -411,13 +411,13 @@ fn eval_identifier(
             },
             IdentifierHelper::StructIndex(attribute) => match curr_value {
                 Literal::Struct { name: _, pairs } => {
-                    curr_value = pairs.get(&attribute).unwrap().clone()
+                    curr_value = pairs.get(&attribute).unwrap();
                 }
                 _ => panic!("struct index to a non struct"),
             },
         }
     }
-    Ok(curr_value)
+    Ok(curr_value.clone())
 }
 
 fn eval_reserved_functions(
@@ -426,13 +426,13 @@ fn eval_reserved_functions(
     ast: &AstMap,
 ) -> Result<Literal, ExecutionError> {
     match &func_call.name[..] {
-        LEN => match eval_expr(&func_call.params[0].clone(), execution_state, ast)? {
+        LEN => match eval_expr(&func_call.params[0], execution_state, ast)? {
             Literal::Array(_, elements) => Ok(Literal::Int(elements.len() as i32)),
             Literal::String(s) => Ok(Literal::Int(s.len() as i32)),
             _ => panic!("panicked tried to find the length of a non array string"),
         },
         PARSE_INT => {
-            match eval_expr(&func_call.params[0].clone(), execution_state, ast)? {
+            match eval_expr(&func_call.params[0], execution_state, ast)? {
                 Literal::String(s) => {
                     // println!("parse int from `{}`", s);
                     Ok(Literal::Int(s.parse::<i32>().expect(
@@ -449,11 +449,11 @@ fn eval_reserved_functions(
             Ok(Literal::String(line))
         }
         APPEND => {
-            let value = eval_expr(&func_call.params[0].clone(), execution_state, ast)?;
+            let value = eval_expr(&func_call.params[0], execution_state, ast)?;
             match value {
                 Literal::Array(vtype, mut values) => {
                     values.push(eval_expr(
-                        &func_call.params[1].clone(),
+                        &func_call.params[1],
                         execution_state,
                         ast,
                     )?);
@@ -463,12 +463,12 @@ fn eval_reserved_functions(
             }
         }
         PREPEND => {
-            let value = eval_expr(&func_call.params[0].clone(), execution_state, ast)?;
+            let value = eval_expr(&func_call.params[0], execution_state, ast)?;
             match value {
                 Literal::Array(vtype, mut values) => {
                     values.insert(
                         0,
-                        eval_expr(&func_call.params[1].clone(), execution_state, ast)?,
+                        eval_expr(&func_call.params[1], execution_state, ast)?,
                     );
                     Ok(Literal::Array(vtype, values))
                 }
@@ -476,8 +476,8 @@ fn eval_reserved_functions(
             }
         }
         REMOVE => {
-            let value = eval_expr(&func_call.params[0].clone(), execution_state, ast)?;
-            let index = eval_expr(&func_call.params[1].clone(), execution_state, ast)?;
+            let value = eval_expr(&func_call.params[0], execution_state, ast)?;
+            let index = eval_expr(&func_call.params[1], execution_state, ast)?;
             match (value, index) {
                 (Literal::Array(vtype, mut values), Literal::Int(i)) => {
                     values.remove(i as usize);
@@ -490,7 +490,7 @@ fn eval_reserved_functions(
                 _ => panic!("Tried poping non array"),
             }
         }
-        TO_STR => match eval_expr(&func_call.params[0].clone(), execution_state, ast)? {
+        TO_STR => match eval_expr(&func_call.params[0], execution_state, ast)? {
             Literal::Int(i) => Ok(Literal::String(i.to_string())),
             Literal::Char(c) => Ok(Literal::String(c.to_string())),
             _ => panic!("panicked tried to find the length of a non array string"),
@@ -524,8 +524,8 @@ fn eval_fn_call(
             // iterate through the parameters provided and the function def,
             let mut pairs = BTreeMap::new();
             for (expr, (param_name, _)) in func_call.params.iter().zip(type_map.iter()) {
-                let param_const = eval_expr(&expr.clone(), execution_state, ast)?;
-                pairs.insert(param_name.clone(), param_const);
+                let param_const = eval_expr(expr, execution_state, ast)?;
+                pairs.insert(param_name.to_owned(), param_const);
             }
             return Ok(Literal::Struct {
                 name: fn_name,
@@ -534,12 +534,12 @@ fn eval_fn_call(
         }
     };
     let mut var_stack: Vec<(String, u32)> = Vec::new();
-    let params = function.params.clone();
+    let params = &function.params;
     // iterate through the parameters provided and the function def,
     for (expr, (_, param_name)) in func_call.params.iter().zip(params.iter()) {
-        let param_const = eval_expr(&expr.clone(), execution_state, ast)?;
-        var_stack.push((param_name.clone(), 0));
-        var_map.insert(param_name.to_string(), param_const);
+        let param_const = eval_expr(expr, execution_state, ast)?;
+        var_stack.push((param_name.to_owned(), 0));
+        var_map.insert(param_name.to_owned(), param_const);
     }
     let mut func_state = ExecutionState {
         var_map,
