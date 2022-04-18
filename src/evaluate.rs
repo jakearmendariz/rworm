@@ -32,7 +32,7 @@ pub fn eval_func(
     execution_state.increment_stack_level();
     for ast_node in &function.statements {
         // execute ast will run a single statement or loop, if there is a return value, exit out of function
-        if let Some(val) = eval_ast(ast_node.clone(), execution_state, ast)? {
+        if let Some(val) = eval_ast(ast_node, execution_state, ast)? {
             execution_state.pop_stack();
             return Ok(val);
         }
@@ -141,7 +141,7 @@ fn recurse_identifier_tail(
 fn save_value(
     execution_state: &mut ExecutionState,
     ast: &AstMap,
-    identifier: Identifier,
+    identifier: &Identifier,
     value: Literal,
 ) {
     let curr_value = execution_state
@@ -156,14 +156,14 @@ fn save_value(
         curr_value,
         value,
     );
-    execution_state.var_map.insert(identifier.var_name, value);
+    execution_state.var_map.insert(identifier.var_name.to_owned(), value);
 }
 
 /*
 * evaluate an ast, one line or one if/while stm
 */
 pub fn eval_ast(
-    ast_node: AstNode,
+    ast_node: &AstNode,
     execution_state: &mut ExecutionState,
     ast: &AstMap,
 ) -> Result<Option<Literal>, ExecutionError> {
@@ -179,7 +179,7 @@ pub fn eval_ast(
                 (_, val) => val,
             };
             match var_type {
-                Some(_) => execution_state.save_variable(identifier.var_name, actual_val),
+                Some(_) => execution_state.save_variable(identifier.var_name.to_owned(), actual_val),
                 None => {
                     save_value(execution_state, ast, identifier, actual_val);
                 }
@@ -187,10 +187,10 @@ pub fn eval_ast(
         }
         AstNode::If(if_pairs) => {
             execution_state.increment_stack_level();
-            for (conditional, mut stms) in if_pairs {
+            for (conditional, stms) in if_pairs {
                 if eval_bool_expr(&conditional, execution_state, ast)? {
-                    while !stms.is_empty() {
-                        if let Some(eval) = eval_ast(stms.remove(0), execution_state, ast)? { 
+                    for stm in stms.iter() {
+                        if let Some(eval) = eval_ast(stm, execution_state, ast)? { 
                             return Ok(Some(eval)) 
                         }
                     }
@@ -203,7 +203,7 @@ pub fn eval_ast(
             while eval_bool_expr(&conditional, execution_state, ast)? {
                 execution_state.increment_stack_level();
                 for stm in stms.iter() {
-                    if let Some(eval) = eval_ast(stm.clone(), execution_state, ast)? { 
+                    if let Some(eval) = eval_ast(stm, execution_state, ast)? { 
                         return Ok(Some(eval)) 
                     }
                 }
@@ -218,7 +218,7 @@ pub fn eval_ast(
                 BuiltIn::StaticPrint(_) => (),
                 BuiltIn::Assert(boolexp) => {
                     if !eval_bool_expr(&boolexp, execution_state, ast)? {
-                        return Err(ExecutionError::AssertionError(boolexp));
+                        return Err(ExecutionError::AssertionError(boolexp.clone()));
                     } else {
                         println!("{} {}", "ASSERTION PASS:".blue(), boolexp);
                     }
